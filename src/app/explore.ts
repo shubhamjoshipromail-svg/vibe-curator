@@ -17,7 +17,7 @@ export function renderExplore(host: HTMLElement): void {
     <header class="page-head">
       <div>
         <h1>Explore</h1>
-        <p class="sub">Pick a place to work. Every one can be remixed.</p>
+        <p class="sub">Living renderers, illustration and media scenes — every layer can be remixed.</p>
       </div>
       <input id="search" class="search" type="search" placeholder="Search rooms…" />
     </header>
@@ -34,7 +34,8 @@ export function renderExplore(host: HTMLElement): void {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
-        p.effects.some((e) => e.name.toLowerCase().includes(q)),
+        p.effects.some((e) => e.name.toLowerCase().includes(q)) ||
+        p.sourceEffects.some((e) => e.name.toLowerCase().includes(q)),
     );
 
     grid.innerHTML = '';
@@ -65,6 +66,10 @@ function card(preset: Preset, refresh: () => void): HTMLElement {
     <p>${preset.description}</p>
     <div class="card-meta">
       ${preset.effects.length ? `<span class="chip">${preset.effects.length} effect${preset.effects.length > 1 ? 's' : ''}</span>` : ''}
+      ${preset.sourceEffects.length ? `<span class="chip">source-aware</span>` : ''}
+      <span class="chip">${preset.scene.style}</span>
+      ${preset.scene.kind === 'renderer' ? '<span class="chip chip-quiet">live renderer</span>' : `<span class="chip chip-quiet">${preset.scene.kind === 'procedural' ? 'moving source' : preset.scene.kind}</span>`}
+      ${preset.music ? '<span class="chip">generated music</span>' : ''}
       ${preset.builtIn ? '' : '<span class="chip chip-own">yours</span>'}
       ${preset.parentId ? '<span class="chip chip-quiet">remix</span>' : ''}
     </div>

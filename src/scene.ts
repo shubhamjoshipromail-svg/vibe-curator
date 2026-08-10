@@ -1,4 +1,4 @@
-import { Application, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { Application, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { FrameCtx, LayerRuntime, LayerSpec, VibeSpec } from './types';
 import { ARCHETYPES, type SlotDef } from './archetypes';
 import { loadAsset, loadPack, type LoadedAsset } from './art/pack';
@@ -11,6 +11,8 @@ import { arcAt } from './arc';
 import { DEFAULT_CONTROLS, type Controls } from './preset/types';
 import type { EffectFilter } from './effects/filter';
 import type { Filter } from 'pixi.js';
+import { SourceAwareSurface } from './source-aware/processor';
+import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from './source-aware/types';
 
 /**
  * Pixel art scaled by a non-integer factor is mush — source pixels land across
@@ -56,6 +58,9 @@ export class Scene {
 
   /** Guards against interleaved async rebuilds when the user switches quickly. */
   private buildToken = 0;
+  private mediaElement?: HTMLVideoElement;
+  private sourceSurface?: SourceAwareSurface;
+  private sourceTexture?: Texture;
 
   /**
    * Generated effects, keyed by target ('scene' or a slot name).
@@ -115,6 +120,7 @@ export class Scene {
 
   async setVibe(vibe: VibeSpec): Promise<void> {
     const token = ++this.buildToken;
+    this.stopMedia();
     this.vibe = vibe;
     this.rand = mulberry32(vibe.seed);
     this.shared = {};
@@ -226,6 +232,144 @@ export class Scene {
     for (const target of this.effects.keys()) this.syncFilters(target);
 
     this.fit();
+  }
+
+  /** Replace the procedural rig with an authored/uploaded full-bleed scene. */
+  async setMedia(
+    src: string,
+    kind: 'image' | 'video',
+    fallback: VibeSpec,
+    recipes: SourceEffectRecipe[] = [],
+    motion?: SourceMotion,
+  ): Promise<void> {
+    const token = ++this.buildToken;
+    this.stopMedia();
+    this.vibe = fallback;
+    this.rand = mulberry32(fallback.seed);
+    this.shared = {};
+    this.t = 0;
+    this.sessionT = 0;
+    this.root.removeChildren();
+    this.layers = [];
+    this.baseFilters.clear();
+    this.depthBlur = undefined;
+    this.root.filters = [];
+
+    const [w, h] = fallback.internal;
+    this.app.renderer.resize(w, h);
+    this.app.renderer.background.color = hexToNum(fallback.palette.base);
+    this.app.canvas.classList.remove('pixelated');
+
+    let media: HTMLVideoElement | HTMLCanvasElement;
+    if (kind === 'video') {
+      const video = document.createElement('video');
+      video.src = src;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        video.onloadeddata = () => resolve();
+        video.onerror = () => reject(new Error('The selected video could not be decoded.'));
+      });
+      if (token !== this.buildToken) return;
+      this.mediaElement = video;
+      await video.play();
+      media = video;
+    } else {
+      // Blob URLs have no extension, so Pixi's asset parser cannot infer their
+      // format. Let the browser decode every image type first, then rasterize
+      // it. In particular, wrapping an SVG-backed HTMLImageElement directly in
+      // a Pixi texture produces a valid-looking but black WebGL texture in some
+      // browsers.
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.src = src;
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error('The selected image could not be decoded.'));
+      });
+      if (token !== this.buildToken) return;
+      const maxDimension = 4096;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const raster = document.createElement('canvas');
+      raster.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      raster.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = raster.getContext('2d');
+      if (!context) throw new Error('The browser could not prepare this image.');
+      context.drawImage(image, 0, 0, raster.width, raster.height);
+      media = raster;
+    }
+
+    this.installSourceSurface({ source: media, recipes, motion });
+
+    for (const target of this.effects.keys()) this.syncFilters(target);
+    this.fit();
+  }
+
+  /** A moving deterministic source used by the built-in vertical-slice demos. */
+  async setProceduralSource(
+    sourceId: DemoSourceId,
+    fallback: VibeSpec,
+    recipes: SourceEffectRecipe[],
+  ): Promise<void> {
+    ++this.buildToken;
+    this.stopMedia();
+    this.vibe = fallback;
+    this.rand = mulberry32(fallback.seed);
+    this.shared = {};
+    this.t = 0;
+    this.sessionT = 0;
+    this.root.removeChildren();
+    this.layers = [];
+    this.baseFilters.clear();
+    this.depthBlur = undefined;
+    this.root.filters = [];
+
+    const [w, h] = fallback.internal;
+    this.app.renderer.resize(w, h);
+    this.app.renderer.background.color = hexToNum(fallback.palette.base);
+    this.app.canvas.classList.remove('pixelated');
+    this.installSourceSurface({ demoSourceId: sourceId, recipes });
+
+    for (const target of this.effects.keys()) this.syncFilters(target);
+    this.fit();
+  }
+
+  private installSourceSurface(options: {
+    source?: HTMLVideoElement | HTMLCanvasElement;
+    demoSourceId?: DemoSourceId;
+    recipes: SourceEffectRecipe[];
+    motion?: SourceMotion;
+  }): void {
+    const [w, h] = this.vibe.internal;
+    this.sourceSurface = new SourceAwareSurface({ width: w, height: h, ...options });
+    // Seed previous-frame analysis before the texture is uploaded.
+    this.sourceSurface.update(0, 1 / 60);
+    const texture = Texture.from(this.sourceSurface.canvas);
+    this.sourceTexture = texture;
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(0.5);
+    sprite.width = w;
+    sprite.height = h;
+    sprite.position.set(w / 2, h / 2);
+    this.root.addChild(sprite);
+  }
+
+  setSourceEffects(recipes: SourceEffectRecipe[]): void {
+    this.sourceSurface?.setRecipes(recipes);
+  }
+
+  private stopMedia(): void {
+    if (this.mediaElement) {
+      this.mediaElement.pause();
+      this.mediaElement.removeAttribute('src');
+      this.mediaElement.load();
+      this.mediaElement = undefined;
+    }
+    this.sourceTexture?.destroy();
+    this.sourceTexture = undefined;
+    this.sourceSurface = undefined;
   }
 
   /** Attach a generated shader effect to the whole scene or a single slot. */
@@ -356,6 +500,10 @@ export class Scene {
     this.warmth = state.warmth * (0.55 + 0.75 * c.mood);
 
     const ctx = this.frameCtx(dt);
+    if (this.sourceSurface && this.sourceTexture) {
+      this.sourceSurface.update(this.t, dt);
+      this.sourceTexture.source.update();
+    }
     for (const layer of this.layers) {
       ANIMATORS[layer.def.animator].update(layer, ctx);
     }

@@ -1,6 +1,6 @@
 import { Scene } from './scene';
 import { AudioEngine } from './audio/engine';
-import { createState, loadPreset } from './app/state';
+import { createState, loadPreset, syncGeneratedMusic } from './app/state';
 import { parseRoute, navigate, onRouteChange, type Route } from './app/router';
 import { renderExplore } from './app/explore';
 import { renderLabs } from './app/labs';
@@ -81,6 +81,7 @@ app.querySelector<HTMLButtonElement>('#begin')!.addEventListener('click', async 
         const s = state.loaded.audio[layer];
         audio.setLayer(layer, s.gain, s.muted);
       }
+      await syncGeneratedMusic(state, state.loaded);
     }
   } catch (err) {
     // Visuals are the load-bearing half; audio failure must never blank the room.

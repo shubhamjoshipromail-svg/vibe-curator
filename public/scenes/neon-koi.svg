@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <radialGradient id="bg"><stop stop-color="#14245c"/><stop offset=".55" stop-color="#070b2a"/><stop offset="1" stop-color="#02030e"/></radialGradient>
+    <linearGradient id="koi" x2="1" y2="1"><stop stop-color="#ffefaa"/><stop offset=".4" stop-color="#ff567d"/><stop offset="1" stop-color="#7b32ff"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="35"/></filter>
+    <pattern id="ripples" width="180" height="100" patternUnits="userSpaceOnUse"><path d="M-20 65 Q45 15 110 65 T240 65" fill="none" stroke="#55e7ff" stroke-opacity=".12" stroke-width="5"/></pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <ellipse cx="800" cy="450" rx="560" ry="310" fill="none" stroke="#31e6d3" stroke-opacity=".16" stroke-width="8" filter="url(#glow)"/>
+  <rect width="1600" height="900" fill="url(#ripples)"/>
+  <g opacity=".5" filter="url(#soft)" fill="#1cf5dd"><circle cx="260" cy="210" r="70"/><circle cx="1290" cy="620" r="90"/></g>
+  <g transform="translate(790 430) rotate(-18)" filter="url(#glow)">
+    <path d="M-360 0 C-255-145-55-165 100-70 C210-5 285 0 360-52 C324 35 263 70 174 70 C42 173-208 145-360 0Z" fill="url(#koi)"/>
+    <path d="M350-52 L475-145 L435 5 L485 105 L350 60 Q390 5 350-52Z" fill="#ff5ba5"/>
+    <path d="M-120-104 Q-12-218 105-93 Q-5-68-120-104Z" fill="#6cf7e8" fill-opacity=".7"/>
+    <circle cx="-260" cy="-42" r="13" fill="#061020"/><circle cx="-265" cy="-46" r="4" fill="white"/>
+  </g>
+  <g transform="translate(815 505) rotate(164) scale(.72)" opacity=".88" filter="url(#glow)">
+    <path d="M-360 0 C-255-145-55-165 100-70 C210-5 285 0 360-52 C324 35 263 70 174 70 C42 173-208 145-360 0Z" fill="#35e7d6"/>
+    <path d="M350-52 L475-145 L435 5 L485 105 L350 60 Q390 5 350-52Z" fill="#534cff"/>
+    <circle cx="-260" cy="-42" r="13" fill="#061020"/>
+  </g>
+  <g fill="#b8fff7" opacity=".55"><circle cx="390" cy="650" r="5"/><circle cx="1260" cy="250" r="7"/><circle cx="1170" cy="710" r="4"/><circle cx="510" cy="170" r="3"/></g>
+</svg>

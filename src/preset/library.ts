@@ -7,8 +7,10 @@ import {
   newId,
   type Controls,
   type Preset,
+  type SceneLayer,
 } from './types';
 import builtinEffects from '../effects/builtin.json';
+import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
 
 /**
  * The Library: what Explore browses and what Save writes to.
@@ -103,6 +105,8 @@ function seed(
   pal: Palette,
   controls: Partial<Controls>,
   effectIds: string[] = [],
+  scene?: SceneLayer,
+  sourceEffects: SourceEffectRecipe[] = [],
 ): Preset {
   const effects = effectIds
     .map((eid) => findBuiltInEffect(eid))
@@ -116,8 +120,10 @@ function seed(
     builtIn: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     baseVibeId,
+    scene: scene ?? { kind: 'renderer', label: 'Living renderer', style: baseVibeId === 'ashen-keep' ? 'pixel art' : 'procedural' },
     palette: pal,
     effects,
+    sourceEffects,
     audio: structuredClone(DEFAULT_AUDIO),
     controls: { ...DEFAULT_CONTROLS, ...controls },
     theme: { accent: pal.accent },
@@ -130,7 +136,7 @@ function seed(
  * one scene into several distinct places.
  */
 function seedPresets(): Preset[] {
-  return [
+  const rooms = [
     seed('ashen-keep', 'Ashen Keep', 'A knight resting by a low fire in a stone hall.', 'ashen-keep', ASHEN,
       { mood: 0.85, motion: 0.5, depth: 0.55, glow: 0.7, atmosphere: 0.4, intensity: 0.55 },
       ['builtin_drifting-motes']),
@@ -155,16 +161,50 @@ function seedPresets(): Preset[] {
       { mood: 0.6, motion: 0.3, depth: 0.8, glow: 0.7, atmosphere: 0.65, intensity: 0.55 },
       ['builtin_rain-on-glass']),
   ];
+
+  // Three moving sources prove the source-aware path end to end. Each recipe
+  // remains independently editable, and normal atmospheric filters still
+  // compose over the processed source.
+  rooms.push(
+    seed('living-koi', 'Living Koi', 'Luminous cells follow two koi as they curve through midnight water.', 'signal-drift', SIGNAL,
+      { mood: 0.45, motion: 0.7, depth: 0.8, glow: 0.9, atmosphere: 0.3, intensity: 0.55 },
+      ['builtin_underwater-light'],
+      { kind: 'procedural', label: 'Swimming koi source', style: 'source-aware motion', sourceId: 'living-koi' },
+      [sourceEffect('motion-cells', 'Luminous wake cells', '#61f0e6', { cellSize: 11, trail: 1.15, density: 0.76, response: 1.35 })]),
+    seed('cloud-study', 'Cloud Study', 'A soft halftone wake gathers around drifting cloud banks.', 'paper-valley', PAPER,
+      { mood: 0.65, motion: 0.55, depth: 0.72, glow: 0.52, atmosphere: 0.7, intensity: 0.34 },
+      [],
+      { kind: 'procedural', label: 'Drifting cloud source', style: 'motion halftone', sourceId: 'drifting-cloud' },
+      [sourceEffect('motion-cells', 'Cloud halftone wake', '#ffd6ae', { cellSize: 15, trail: 1.7, glow: 0.56, density: 0.58, response: 1.8 })]),
+    seed('bloom-signal', 'Bloom Signal', 'A living contour rebuilds itself around a flower as it opens.', 'signal-drift', NOCTURNE,
+      { mood: 0.72, motion: 0.62, depth: 0.76, glow: 0.88, atmosphere: 0.4, intensity: 0.42 },
+      ['builtin_drifting-motes'],
+      { kind: 'procedural', label: 'Blooming flower source', style: 'edge reconstruction', sourceId: 'blooming-flower' },
+      [sourceEffect('edge-echo', 'Bloom contour echo', '#ff82ad', { cellSize: 9, trail: 1.25, glow: 0.92, density: 0.82, response: 1.2 })]),
+  );
+
+  return rooms;
 }
 
 // --- persistence -------------------------------------------------------------
+
+function normalizePreset(raw: Preset): Preset {
+  return {
+    ...raw,
+    scene: raw.scene ?? { kind: 'renderer', label: 'Living renderer', style: 'procedural' },
+    effects: Array.isArray(raw.effects) ? raw.effects : [],
+    sourceEffects: Array.isArray(raw.sourceEffects) ? raw.sourceEffects : [],
+    audio: raw.audio ?? structuredClone(DEFAULT_AUDIO),
+    controls: { ...DEFAULT_CONTROLS, ...(raw.controls ?? {}) },
+  };
+}
 
 function loadSaved(): Preset[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Preset[]) : [];
+    return Array.isArray(parsed) ? (parsed as Preset[]).map(normalizePreset) : [];
   } catch (err) {
     console.warn('[vibe] could not read the library; starting empty', err);
     return [];

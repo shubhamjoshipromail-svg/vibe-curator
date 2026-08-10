@@ -17,7 +17,7 @@ first click; browsers require a gesture.
 three, so moving between them is a CSS change, not a reload — the room never
 stops playing while you work on it.
 
-- **Explore** — six rooms as cards with real previews, rendered from each
+- **Explore** — nine rooms as cards with real previews, rendered from each
   preset's own painters and palette so a card always shows what you'll get.
   No prompt box here on purpose: a blank field as the first thing you see
   invites a weak first attempt, and a weak first impression is permanent.
@@ -32,11 +32,15 @@ stops playing while you work on it.
 Saved rooms persist to localStorage and reappear in Explore tagged `yours` and
 `remix`, with `parentId` recording where they came from.
 
+Explore also includes three source-aware moving studies: **Living Koi**,
+**Cloud Study**, and **Bloom Signal**.
+
 ## Layers
 
 | Layer | What it is |
 |---|---|
 | Background visual | An archetype rig recoloured by the preset's palette |
+| Source treatment | Motion/edge analysis plus an editable deterministic recipe |
 | Effect | Generated GLSL shaders, stacked, each with its own controls |
 | Ambience | Room tone, fire, wind — the sound of the place |
 | Music | Bed and motifs — the sound of the mood |
@@ -63,6 +67,12 @@ reopened, re-prompted, and remixed.
 
 Generation takes 30–75 seconds. That is the main known weakness — see below.
 
+Custom effects now default to `claude-haiku-4-5`, are compiler-verified, and
+cache successful prompt/style/palette combinations in the browser. The bundled
+effect shelf is instant and makes no API call. Run `npm run report:effect-costs`
+to compare the already-recorded corpus without spending anything; live model
+evaluation is intentionally a separate, explicit operation.
+
 **Why shaders and not JavaScript.** A fragment shader cannot reach the network,
 the filesystem, or the DOM, so generated code needs no sandbox. The one real
 risk — an unbounded loop hanging the GPU — is a static check, not a hope.
@@ -85,16 +95,57 @@ inlines `VITE_`-prefixed variables into the client bundle.
 
 ## Status
 
+**The highest-value dynamic-media slice is working.** Procedural moving sources,
+uploaded video, and gently animated images can pass through one source-aware
+surface. It samples the clean current frame at 128×72, compares it with the
+previous frame, derives motion and edge signals, accumulates per-recipe temporal
+trails, and draws a full-resolution treatment canvas that Pixi uploads each
+frame. Existing GLSL effects remain a separate atmospheric stack above it.
+
+Source-aware recipes are compact persisted data (`motion-cells` or `edge-echo`
+plus cell size, trail, glow, density, response, and tint). Labs can add, remove,
+mute, and retune them without regeneration. This is also the contract a later
+intent planner can emit; playback itself is deterministic and makes no model
+calls.
+
 **Milestone 2 seams are in.** Real art and real audio can now be dropped in
 without touching engine code, and a license gate blocks anything undocumented.
 The content shipped here is still placeholder — see "Bring your own content".
 
+**Scene is now a first-class preset layer.** The procedural renderer remains a
+scene source, alongside built-in images and user-uploaded image/video assets.
+Uploads and generated music are stored as blobs in IndexedDB; presets retain
+small metadata and provenance in localStorage. Live Pixi effects compose over
+all scene kinds.
+
+**Generated music is an authored asset.** With `ELEVENLABS_API_KEY` configured,
+Labs can explicitly request one 30-second Eleven Music v2 track. The MP3 is stored locally,
+reused on every play, and replaces the procedural score while preserving the
+independent Ambience, Music and Master buses. Playback never calls a model.
+
+The internal media boundary is deliberately small: the UI asks for a media
+capability and server modules own provider details. ComfyUI remains deferred.
+It becomes useful when scene workflows actually require several of generation,
+masking, image-to-video, interpolation, looping, upscaling and stylization in a
+single graph; direct API operations are simpler until then.
+
+## Cost boundary
+
+- Procedural sources, source analysis, recipes, thumbnails, and playback: free
+  and local.
+- Built-in GLSL treatments: free and local. Custom shader generation is one
+  explicit cached model call.
+- Generated Eleven Music: one explicit call, then the saved MP3 is reused.
+- No media generation API is called to render or replay any source-aware demo.
+- ComfyUI stays deferred until a workflow genuinely needs a graph spanning
+  generation, masks, animation/interpolation, looping, and upscaling.
+
 ## What this is
 
 The backbone: an archetype rig, an animator library, a generative audio engine,
-and three vibes that share all of it. **No AI generation anywhere**, and no art
-or audio assets at all — every layer is drawn procedurally and every sound is
-synthesized.
+and several scene sources that share all of it. Built-in playback is entirely
+deterministic; optional custom shaders and music are explicit authored assets,
+cached or persisted after generation.
 
 That is deliberate. It means the two questions worth answering can be answered
 today, with nothing sourced and nothing licensed:
@@ -132,6 +183,8 @@ idea in real time is how slow ideas go unevaluated.
 | [src/effects/harness.ts](src/effects/harness.ts) | GEN-EFFECT contract + static guard. |
 | [src/effects/compile.ts](src/effects/compile.ts) | Shader verification. Must match Pixi's preamble exactly. |
 | [src/effects/generate.ts](src/effects/generate.ts) | The self-healing generation loop. |
+| [src/source-aware/processor.ts](src/source-aware/processor.ts) | Current/previous-frame analysis and deterministic treatment compositor. |
+| [src/source-aware/demo-sources.ts](src/source-aware/demo-sources.ts) | Moving koi, cloud, and flower sources for the vertical slice. |
 | [server/gen-shader.ts](server/gen-shader.ts) | Key-holding proxy. Becomes a Worker or desktop process later. |
 | [scripts/check-licenses.mjs](scripts/check-licenses.mjs) | Build gate. Fails on any asset without a license row. |
 
@@ -192,12 +245,16 @@ spinner that lies, but this needs a real job queue — queued → generating →
 is what image, video and music generation will need, so it isn't effect-specific
 plumbing.
 
+The source analyzer is intentionally a browser Canvas2D implementation at a
+small analysis resolution. It proves the product loop and supports uploads, but
+semantic segmentation, optical flow, GPU render-texture history, and authored
+long-form video are not implemented yet.
+
 ## Not built yet, on purpose
 
 - Image/video generation. The provider seam is designed but nothing is wired;
-  fal.ai is the recommended first provider (queue-first, webhooks).
-- Music generation. Lyria 3 via the Gemini API is the recommendation — it does
-  image→music, which fits "generate audio matching this scene" directly.
+  a queued provider should only be added after the authored-video path is
+  validated with real clips.
 - A job queue with persistent results.
 - Spotify. Their terms prohibit synchronizing recordings with visual media,
   which is exactly this product. System-audio loopback is the better path.

@@ -4,7 +4,7 @@ import { EffectFilter } from './filter';
 import { normalizeParams, type EffectManifest } from './manifest';
 import { newId } from '../preset/types';
 
-const MODEL = 'claude-opus-5';
+const CACHE_KEY = 'vibe.effect-cache.v1';
 
 /**
  * The GEN-EFFECT generation loop.
@@ -26,6 +26,8 @@ export interface GeneratedEffect {
   fragment: string;
   filter: EffectFilter;
   attempts: number;
+  cacheHit?: boolean;
+  usage?: { inputTokens: number; outputTokens: number };
 }
 
 export interface GenerateOptions {
@@ -43,6 +45,12 @@ interface ShaderResponse {
   notes: string;
   glsl: string;
   params?: unknown;
+  generation?: {
+    provider: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  };
 }
 
 function buildManifest(
@@ -57,8 +65,8 @@ function buildManifest(
     prompt,
     glsl: res.glsl,
     params: normalizeParams(res.params),
-    provider: 'anthropic',
-    model: MODEL,
+    provider: res.generation?.provider ?? 'anthropic',
+    model: res.generation?.model ?? 'unknown',
     version: 1,
     createdAt: new Date().toISOString(),
     parentId,
@@ -104,16 +112,63 @@ async function requestShader(
   });
 
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Generation failed (${res.status}): ${detail.slice(0, 400)}`);
+    let message = 'The effect could not be generated right now.';
+    try {
+      const detail = (await res.json()) as { message?: string };
+      if (detail.message) message = detail.message;
+    } catch {
+      // Provider details deliberately remain in server logs.
+    }
+    throw new Error(message);
   }
   return (await res.json()) as ShaderResponse;
+}
+
+interface CacheEntry {
+  key: string;
+  response: ShaderResponse;
+  savedAt: string;
+}
+
+function requestKey(prompt: string, opts: GenerateOptions): string {
+  return JSON.stringify([
+    prompt.trim().toLowerCase().replace(/\s+/g, ' '),
+    opts.renderStyle,
+    opts.paletteRamp,
+  ]);
+}
+
+function readCache(): CacheEntry[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCache(entry: CacheEntry): void {
+  try {
+    const next = [entry, ...readCache().filter((e) => e.key !== entry.key)].slice(0, 20);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(next));
+  } catch (err) {
+    console.warn('[vibe] effect cache unavailable', err);
+  }
 }
 
 export async function generateEffect(
   prompt: string,
   opts: GenerateOptions,
 ): Promise<GeneratedEffect> {
+  const key = requestKey(prompt, opts);
+  const cached = readCache().find((entry) => entry.key === key);
+  if (cached) {
+    const manifest = buildManifest(cached.response, prompt, opts.parentId);
+    const { fragment, filter } = instantiate(manifest);
+    opts.onProgress?.('Reusing a saved effect…');
+    return { manifest, fragment, filter, attempts: 0, cacheHit: true };
+  }
+
   const maxAttempts = opts.maxAttempts ?? 3;
   let previous: { glsl: string; error: string } | undefined;
 
@@ -141,7 +196,16 @@ export async function generateEffect(
     const filter = new EffectFilter(fragment, manifest.name);
     filter.setParams(manifest.params);
 
-    return { manifest, fragment, filter, attempts: attempt };
+    writeCache({ key, response: result, savedAt: new Date().toISOString() });
+    return {
+      manifest,
+      fragment,
+      filter,
+      attempts: attempt,
+      usage: result.generation
+        ? { inputTokens: result.generation.inputTokens, outputTokens: result.generation.outputTokens }
+        : undefined,
+    };
   }
 
   throw new Error(

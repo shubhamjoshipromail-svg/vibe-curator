@@ -5,6 +5,7 @@ import { instantiate } from '../effects/generate';
 import type { EffectFilter } from '../effects/filter';
 import type { Preset } from '../preset/types';
 import type { VibeSpec } from '../types';
+import { assetUrl } from '../media/assets';
 
 /**
  * Shared application state.
@@ -44,8 +45,22 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   state.scene.clearAllEffects();
   state.filters.clear();
 
-  await state.scene.setVibe(vibeForPreset(preset));
+  const sceneVibe = vibeForPreset(preset);
+  const source = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural'
+    ? undefined
+    : preset.scene.url ?? (preset.scene.assetId ? await assetUrl(preset.scene.assetId) : undefined);
+  if (preset.scene.kind === 'procedural') {
+    await state.scene.setProceduralSource(preset.scene.sourceId, sceneVibe, preset.sourceEffects);
+  } else if (source && preset.scene.kind !== 'renderer') {
+    await state.scene.setMedia(source, preset.scene.kind, sceneVibe, preset.sourceEffects, preset.scene.motion);
+  } else {
+    if (preset.scene.kind !== 'renderer') {
+      console.warn(`[vibe] scene asset missing for "${preset.scene.label}"; using renderer fallback`);
+    }
+    await state.scene.setVibe(sceneVibe);
+  }
   state.scene.controls = { ...preset.controls };
+  state.scene.setSourceEffects(preset.sourceEffects);
 
   for (const manifest of preset.effects) {
     if (!manifest.enabled) continue;
@@ -60,10 +75,19 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   }
 
   const base = VIBES.find((v) => v.id === preset.baseVibeId) ?? VIBES[0];
-  if (state.started) await state.audio.setSpec(base.audio);
+  if (state.started) {
+    await state.audio.setSpec(base.audio);
+    await syncGeneratedMusic(state, preset);
+  }
   syncAudioLayers(state, preset);
 
   state.loaded = preset;
+}
+
+export async function syncGeneratedMusic(state: AppState, preset: Preset): Promise<void> {
+  const url = preset.music ? await assetUrl(preset.music.assetId) : undefined;
+  if (preset.music && !url) console.warn(`[vibe] music asset missing: ${preset.music.assetId}`);
+  await state.audio.setGeneratedMusic(url);
 }
 
 export function syncAudioLayers(state: AppState, preset: Preset): void {

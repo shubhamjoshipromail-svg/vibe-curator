@@ -1,10 +1,13 @@
 import type { AppState } from './state';
 import { loadPreset, reloadEffects, syncAudioLayers } from './state';
 import { navigate } from './router';
-import { forkPreset, getPreset, savePreset } from '../preset/library';
+import { builtInEffects, forkPreset, getPreset, savePreset } from '../preset/library';
 import { CONTROL_DEFS, newId, type Preset } from '../preset/types';
 import { generateEffect } from '../effects/generate';
 import type { EffectManifest } from '../effects/manifest';
+import { assetUrl, storeAsset } from '../media/assets';
+import { generateMusic, mediaCapabilities } from '../media/api';
+import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '../source-aware/types';
 
 /**
  * Labs — where a room becomes yours.
@@ -27,6 +30,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     ? forkPreset(source, `${source.name} remix`)
     : structuredClone(source);
   state.draft = draft;
+  const originalScene = structuredClone(source.scene);
 
   await loadPreset(state, draft);
 
@@ -45,6 +49,24 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       </header>
 
       <div class="labs-panels">
+        <section class="panel scene-panel">
+          <h2>Scene</h2>
+          <p class="hint">The visual underneath your live effects. Replace it without rebuilding the room.</p>
+          <div class="scene-summary" id="scene-summary"></div>
+          <div class="scene-actions">
+            <label class="button-like primary" for="scene-upload">Use image or video</label>
+            <input id="scene-upload" class="file-input" type="file" accept="image/*,video/*" />
+            <button class="ghost" id="scene-restore">Restore original</button>
+          </div>
+          <p class="fx-status" id="scene-status"></p>
+          <div class="source-treatments">
+            <h3>Source-aware treatments</h3>
+            <p class="hint">These read motion and contours from the source. Atmospheric effects below still compose on top.</p>
+            <div class="stock-effects" id="source-stock"></div>
+            <div id="source-list"></div>
+          </div>
+        </section>
+
         <section class="panel">
           <h2>Feel</h2>
           <div id="controls"></div>
@@ -52,7 +74,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
         <section class="panel">
           <h2>Effects</h2>
-          <p class="hint">Describe something and it is generated as a real shader, then becomes an editable layer.</p>
+          <p class="hint">Add an instant reusable treatment, or generate something unusual as an editable shader.</p>
+          <div class="stock-effects" id="fx-stock"></div>
           <textarea id="fx-prompt" rows="2" placeholder="slow glowing particles drifting upward…"></textarea>
           <button class="primary wide" id="fx-go">Generate effect</button>
           <p class="fx-status" id="fx-status"></p>
@@ -62,6 +85,13 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         <section class="panel">
           <h2>Sound</h2>
           <div id="audio"></div>
+          <div class="music-maker">
+            <h3>Music asset</h3>
+            <div id="music-current"></div>
+            <textarea id="music-prompt" rows="2" placeholder="calm instrumental, felt piano and distant strings…"></textarea>
+            <button class="primary wide" id="music-go">Generate 30-second track</button>
+            <p class="fx-status" id="music-status"></p>
+          </div>
         </section>
       </div>
     </div>
@@ -71,6 +101,158 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   nameInput.addEventListener('input', () => {
     draft.name = nameInput.value.trim() || 'Untitled room';
   });
+
+  // --- scene ----------------------------------------------------------------
+  const sceneSummary = host.querySelector<HTMLDivElement>('#scene-summary')!;
+  const sceneStatus = host.querySelector<HTMLParagraphElement>('#scene-status')!;
+  const sceneUpload = host.querySelector<HTMLInputElement>('#scene-upload')!;
+
+  function drawScene() {
+    const kind = draft.scene.kind === 'renderer'
+      ? 'Living renderer'
+      : draft.scene.kind === 'procedural'
+        ? 'Moving source'
+        : draft.scene.kind === 'video'
+          ? 'Looping video'
+          : 'Image';
+    sceneSummary.innerHTML = `
+      <div><strong>${draft.scene.label}</strong><span>${kind} · ${draft.scene.style}</span></div>
+      <span class="scene-kind">${draft.scene.kind}</span>
+    `;
+  }
+
+  sceneUpload.addEventListener('change', async () => {
+    const file = sceneUpload.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      sceneStatus.textContent = 'Choose an image or video file.';
+      return;
+    }
+    if (file.size > 80 * 1024 * 1024) {
+      sceneStatus.textContent = 'Choose a file smaller than 80 MB for this local prototype.';
+      return;
+    }
+    sceneStatus.textContent = 'Adding scene…';
+    try {
+      const kind = file.type.startsWith('video/') ? 'video' as const : 'image' as const;
+      const assetId = await storeAsset(file, 'scene');
+      draft.scene = {
+        kind,
+        assetId,
+        mimeType: file.type,
+        label: file.name.replace(/\.[^.]+$/, ''),
+        style: 'uploaded',
+        provenance: { createdAt: new Date().toISOString(), parentPresetId: source.id },
+      };
+      await loadPreset(state, draft);
+      drawScene();
+      drawSourceTreatments();
+      sceneStatus.textContent = 'Scene replaced. Effects and sound remain independent.';
+    } catch (err) {
+      console.error('[vibe] scene upload failed', err);
+      sceneStatus.textContent = 'That file could not be used as a scene.';
+    } finally {
+      sceneUpload.value = '';
+    }
+  });
+
+  host.querySelector('#scene-restore')?.addEventListener('click', async () => {
+    draft.scene = structuredClone(originalScene);
+    await loadPreset(state, draft);
+    drawScene();
+    drawSourceTreatments();
+    sceneStatus.textContent = 'Original scene restored.';
+  });
+  drawScene();
+
+  // --- source-aware treatments ---------------------------------------------
+  const sourceList = host.querySelector<HTMLDivElement>('#source-list')!;
+  const sourceStock = host.querySelector<HTMLDivElement>('#source-stock')!;
+  const sourceParamDefs: Array<{ key: keyof Omit<SourceEffectParams, 'color'>; label: string; min: number; max: number; step: number }> = [
+    { key: 'cellSize', label: 'Cell size', min: 4, max: 26, step: 1 },
+    { key: 'trail', label: 'Trail length', min: 0.15, max: 3, step: 0.05 },
+    { key: 'glow', label: 'Glow', min: 0, max: 1.5, step: 0.01 },
+    { key: 'density', label: 'Density', min: 0.08, max: 1, step: 0.01 },
+    { key: 'response', label: 'Response', min: 0.2, max: 3, step: 0.02 },
+  ];
+
+  function syncSourceTreatments() {
+    state.scene.setSourceEffects(draft.sourceEffects);
+  }
+
+  function sourceCard(recipe: SourceEffectRecipe): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'fx-card source-card';
+    el.innerHTML = `
+      <div class="fx-card-head">
+        <label class="toggle"><input type="checkbox" ${recipe.enabled ? 'checked' : ''} /><span>${recipe.name}</span></label>
+        <button class="ghost tiny" data-act="remove" title="Remove">×</button>
+      </div>
+      <p class="fx-notes">${recipe.notes}</p>
+      <div class="fx-params"></div>
+      <label class="color-row"><span>Tint</span><input type="color" value="${recipe.params.color}" /></label>
+    `;
+    el.querySelector<HTMLInputElement>('input[type=checkbox]')!.addEventListener('change', (event) => {
+      recipe.enabled = (event.target as HTMLInputElement).checked;
+      syncSourceTreatments();
+    });
+    el.querySelector<HTMLButtonElement>('[data-act=remove]')!.addEventListener('click', () => {
+      draft.sourceEffects = draft.sourceEffects.filter((item) => item.id !== recipe.id);
+      syncSourceTreatments();
+      drawSourceTreatments();
+    });
+    const params = el.querySelector<HTMLDivElement>('.fx-params')!;
+    for (const def of sourceParamDefs) {
+      const row = document.createElement('div');
+      row.className = 'ctl ctl-tight';
+      row.innerHTML = `<div class="ctl-head"><label>${def.label}</label></div><input type="range" min="${def.min}" max="${def.max}" step="${def.step}" value="${recipe.params[def.key]}" />`;
+      row.querySelector<HTMLInputElement>('input')!.addEventListener('input', (event) => {
+        recipe.params[def.key] = Number((event.target as HTMLInputElement).value);
+        syncSourceTreatments();
+      });
+      params.appendChild(row);
+    }
+    el.querySelector<HTMLInputElement>('input[type=color]')!.addEventListener('input', (event) => {
+      recipe.params.color = (event.target as HTMLInputElement).value;
+      syncSourceTreatments();
+    });
+    return el;
+  }
+
+  function addSourceTreatment(kind: 'motion-cells' | 'edge-echo') {
+    const recipe = sourceEffect(
+      kind,
+      kind === 'motion-cells' ? 'Motion cells' : 'Edge echo',
+      draft.palette.accent,
+    );
+    recipe.id = newId('source');
+    draft.sourceEffects.push(recipe);
+    syncSourceTreatments();
+    drawSourceTreatments();
+  }
+
+  function drawSourceTreatments() {
+    sourceStock.innerHTML = '';
+    for (const option of [
+      { kind: 'motion-cells' as const, label: '+ Motion cells' },
+      { kind: 'edge-echo' as const, label: '+ Edge echo' },
+    ]) {
+      const button = document.createElement('button');
+      button.className = 'stock-effect';
+      button.textContent = option.label;
+      button.disabled = draft.scene.kind === 'renderer';
+      button.title = button.disabled ? 'Choose or upload a media source first.' : 'Add a reusable source-aware recipe.';
+      button.addEventListener('click', () => addSourceTreatment(option.kind));
+      sourceStock.appendChild(button);
+    }
+    sourceList.innerHTML = '';
+    if (!draft.sourceEffects.length) {
+      sourceList.innerHTML = `<p class="empty-inline">${draft.scene.kind === 'renderer' ? 'Upload media to enable source analysis.' : 'No source treatment yet. The moving source is unprocessed.'}</p>`;
+      return;
+    }
+    for (const recipe of draft.sourceEffects) sourceList.appendChild(sourceCard(recipe));
+  }
+  drawSourceTreatments();
 
   // --- feel controls ---------------------------------------------------------
   const controlsEl = host.querySelector<HTMLDivElement>('#controls')!;
@@ -96,6 +278,31 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const fxStatus = host.querySelector<HTMLParagraphElement>('#fx-status')!;
   const fxPrompt = host.querySelector<HTMLTextAreaElement>('#fx-prompt')!;
   const fxGo = host.querySelector<HTMLButtonElement>('#fx-go')!;
+  const fxStock = host.querySelector<HTMLDivElement>('#fx-stock')!;
+
+  function drawStockEffects() {
+    fxStock.innerHTML = '';
+    for (const stock of builtInEffects()) {
+      const exists = draft.effects.some((effect) => effect.id === stock.id || effect.parentId === stock.id);
+      const button = document.createElement('button');
+      button.className = 'stock-effect';
+      button.disabled = exists;
+      button.textContent = exists ? `✓ ${stock.name}` : `+ ${stock.name}`;
+      button.title = stock.notes;
+      button.addEventListener('click', () => {
+        draft.effects.push({
+          ...structuredClone(stock),
+          id: newId('fx'),
+          parentId: stock.id,
+          createdAt: new Date().toISOString(),
+        });
+        reloadEffects(state, draft);
+        drawEffects();
+        drawStockEffects();
+      });
+      fxStock.appendChild(button);
+    }
+  }
 
   function drawEffects() {
     fxList.innerHTML = '';
@@ -135,6 +342,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       draft.effects = draft.effects.filter((e) => e.id !== fx.id);
       reloadEffects(state, draft);
       drawEffects();
+      drawStockEffects();
     });
 
     // Parameter sliders — the thing that makes a generated effect editable
@@ -179,7 +387,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     try {
       const result = await generateEffect(prompt, {
         paletteRamp: draft.palette.ramp,
-        renderStyle: 'pixel_art',
+        renderStyle: state.scene.vibe.render_style,
         parentId,
         onProgress: (m) => {
           fxStatus.textContent = m;
@@ -196,7 +404,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
       reloadEffects(state, draft);
       drawEffects();
-      fxStatus.textContent = `✓ ${result.manifest.name} — ${result.manifest.params.length} controls, ready in ${Math.round((Date.now() - started) / 1000)}s.`;
+      const sourceLabel = result.cacheHit ? 'reused from cache' : `${result.attempts} model attempt${result.attempts === 1 ? '' : 's'}`;
+      fxStatus.textContent = `✓ ${result.manifest.name} — ${result.manifest.params.length} controls, ${sourceLabel}.`;
       fxPrompt.value = '';
     } catch (err) {
       fxStatus.textContent = err instanceof Error ? err.message : String(err);
@@ -208,6 +417,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
   fxGo.addEventListener('click', () => runGeneration(fxPrompt.value.trim()));
   drawEffects();
+  drawStockEffects();
 
   // --- sound -----------------------------------------------------------------
   const audioEl = host.querySelector<HTMLDivElement>('#audio')!;
@@ -239,6 +449,81 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     });
     audioEl.appendChild(row);
   }
+
+  // Generated music is a one-time asset. Playback only reads the stored blob.
+  const musicCurrent = host.querySelector<HTMLDivElement>('#music-current')!;
+  const musicPrompt = host.querySelector<HTMLTextAreaElement>('#music-prompt')!;
+  const musicGo = host.querySelector<HTMLButtonElement>('#music-go')!;
+  const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
+
+  function drawMusic() {
+    musicCurrent.innerHTML = '';
+    if (!draft.music) {
+      musicCurrent.innerHTML = '<p class="empty-inline">Procedural score · instant and free</p>';
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'music-asset';
+    row.innerHTML = `<div><strong>${draft.music.name}</strong><span>saved track · ${draft.music.durationSeconds ?? 30}s</span></div><button class="ghost tiny">Remove</button>`;
+    row.querySelector('button')!.addEventListener('click', async () => {
+      draft.music = undefined;
+      await state.audio.setGeneratedMusic();
+      drawMusic();
+      musicStatus.textContent = 'Procedural score restored.';
+    });
+    musicCurrent.appendChild(row);
+  }
+
+  void mediaCapabilities()
+    .then((caps) => {
+      if (!caps.musicGeneration) {
+        musicGo.disabled = true;
+        musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
+      } else {
+        musicStatus.textContent = 'One explicit 30-second generation · approximately $0.075 at current list pricing.';
+      }
+    })
+    .catch(() => {
+      musicGo.disabled = true;
+      musicStatus.textContent = 'Music generation is offline. The procedural score remains available.';
+    });
+
+  musicGo.addEventListener('click', async () => {
+    const prompt = musicPrompt.value.trim();
+    if (!prompt) {
+      musicStatus.textContent = 'Describe the music first.';
+      return;
+    }
+    musicGo.disabled = true;
+    musicStatus.textContent = 'Composing one track… your current music keeps playing.';
+    try {
+      const generated = await generateMusic(prompt);
+      const assetId = await storeAsset(generated.blob, 'music');
+      draft.music = {
+        assetId,
+        name: prompt.length > 46 ? `${prompt.slice(0, 43)}…` : prompt,
+        mimeType: generated.mimeType,
+        durationSeconds: generated.durationSeconds,
+        provenance: {
+          prompt,
+          provider: generated.provider,
+          model: generated.model,
+          createdAt: new Date().toISOString(),
+          parentPresetId: source.id,
+        },
+      };
+      const url = await assetUrl(assetId);
+      if (state.started) await state.audio.setGeneratedMusic(url);
+      drawMusic();
+      musicStatus.textContent = 'Track saved locally and attached to this room. It will be reused during playback.';
+    } catch (err) {
+      console.error('[vibe] music generation failed', err);
+      musicStatus.textContent = err instanceof Error ? err.message : 'Music generation failed. Your current mix is unchanged.';
+    } finally {
+      musicGo.disabled = false;
+    }
+  });
+  drawMusic();
 
   // --- save / apply ----------------------------------------------------------
   function commit(): Preset {

@@ -135,4 +135,6 @@ export function buildUserMessage(body) {
   return parts.join('\n');
 }
 
-export const MODEL = 'claude-opus-5';
+// Compiler-guided constrained code generation does not warrant a frontier
+// model by default. Promote only if a real eval shows this model missing.
+export const MODEL = 'claude-haiku-4-5';

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="sky" y2="1"><stop stop-color="#160e2d"/><stop offset=".42" stop-color="#9a4e55"/><stop offset=".7" stop-color="#ed9b65"/><stop offset="1" stop-color="#391d2a"/></linearGradient>
+    <radialGradient id="sun"><stop stop-color="#fff4c8"/><stop offset=".35" stop-color="#ffd084"/><stop offset="1" stop-color="#ef8b65" stop-opacity="0"/></radialGradient>
+    <linearGradient id="sand" y2="1"><stop stop-color="#7b3f45"/><stop offset="1" stop-color="#180e1d"/></linearGradient>
+    <filter id="haze"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="1180" cy="260" r="210" fill="url(#sun)" filter="url(#haze)"/>
+  <circle cx="1180" cy="260" r="88" fill="#ffe8ae" opacity=".82"/>
+  <path d="M0 575Q290 470 570 560T1050 535T1600 500V900H0Z" fill="#683641" opacity=".72"/>
+  <path d="M0 690Q300 555 650 690T1250 630T1600 650V900H0Z" fill="url(#sand)"/>
+  <path d="M590 700L680 170L855 140L935 704Z" fill="#100d1a"/>
+  <path d="M680 170L855 140L810 700L620 700Z" fill="#22172d"/>
+  <path d="M855 140L935 704L810 700Z" fill="#090812"/>
+  <path d="M0 805Q360 720 720 805T1600 760V900H0Z" fill="#130b16"/>
+  <g fill="#ffe1aa" opacity=".5"><circle cx="260" cy="230" r="3"/><circle cx="370" cy="180" r="2"/><circle cx="1390" cy="160" r="3"/></g>
+</svg>

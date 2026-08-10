@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check:licenses": "node scripts/check-licenses.mjs",
     "gen:fixtures": "node scripts/make-dev-fixtures.mjs",
-    "gen:effects": "node scripts/generate-builtin-effects.mjs"
+    "gen:effects": "node scripts/generate-builtin-effects.mjs",
+    "report:effect-costs": "node scripts/report-effect-costs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

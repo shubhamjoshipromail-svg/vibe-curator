@@ -3,6 +3,8 @@ import { VIBES } from '../vibes';
 import { ARCHETYPES } from '../archetypes';
 import { PAINTERS } from '../art/painters';
 import { mulberry32 } from '../rng';
+import { assetUrl } from '../media/assets';
+import { SourceAwareSurface } from '../source-aware/processor';
 
 /**
  * Card previews for Explore.
@@ -25,6 +27,56 @@ export function renderThumbnail(preset: Preset, w = 480, h = 270): HTMLCanvasEle
   canvas.width = w;
   canvas.height = h;
   const g = canvas.getContext('2d')!;
+
+  if (preset.scene.kind === 'procedural') {
+    const surface = new SourceAwareSurface({
+      width: w,
+      height: h,
+      demoSourceId: preset.scene.sourceId,
+      recipes: preset.sourceEffects,
+    });
+    surface.update(2.1, 1 / 30);
+    surface.update(2.32, 0.22);
+    g.drawImage(surface.canvas, 0, 0);
+    return canvas;
+  }
+
+  if (preset.scene.kind !== 'renderer') {
+    const wash = g.createLinearGradient(0, 0, w, h);
+    wash.addColorStop(0, preset.palette.surface);
+    wash.addColorStop(1, preset.palette.base);
+    g.fillStyle = wash;
+    g.fillRect(0, 0, w, h);
+
+    if (preset.scene.kind === 'image') {
+      const source = preset.scene.url
+        ? Promise.resolve(preset.scene.url)
+        : preset.scene.assetId
+          ? assetUrl(preset.scene.assetId)
+          : Promise.resolve(undefined);
+      void source.then((url) => {
+        if (!url) return;
+        const image = new Image();
+        image.onload = () => {
+          const scale = Math.max(w / image.naturalWidth, h / image.naturalHeight);
+          const dw = image.naturalWidth * scale;
+          const dh = image.naturalHeight * scale;
+          g.drawImage(image, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        };
+        image.src = url;
+      });
+    } else {
+      g.fillStyle = preset.palette.accent;
+      g.globalAlpha = 0.16;
+      g.fillRect(w * 0.08, h * 0.12, w * 0.84, h * 0.76);
+      g.globalAlpha = 1;
+      g.fillStyle = preset.palette.text;
+      g.font = `${Math.round(h * 0.08)}px sans-serif`;
+      g.textAlign = 'center';
+      g.fillText('LOOPING VIDEO', w / 2, h / 2);
+    }
+    return canvas;
+  }
 
   const vibe = VIBES.find((v) => v.id === preset.baseVibeId);
   if (!vibe) {

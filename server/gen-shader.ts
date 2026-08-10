@@ -75,10 +75,9 @@ export function genShaderPlugin(mode: string): Plugin {
 
           const message = await client.messages.create({
             model: MODEL,
-            max_tokens: 16000,
+            max_tokens: 6000,
             system: SYSTEM_PROMPT,
             output_config: {
-              effort: 'high',
               // Structured output removes an entire class of parsing bugs — no
               // markdown fences to strip, no prose wrapped around the code.
               format: { type: 'json_schema', schema: SHADER_SCHEMA },
@@ -99,12 +98,29 @@ export function genShaderPlugin(mode: string): Plugin {
             return;
           }
 
+          const parsed = JSON.parse(text.text) as Record<string, unknown>;
           res.setHeader('content-type', 'application/json');
-          res.end(text.text);
+          res.end(JSON.stringify({
+            ...parsed,
+            generation: {
+              provider: 'anthropic',
+              model: MODEL,
+              inputTokens: message.usage?.input_tokens ?? 0,
+              outputTokens: message.usage?.output_tokens ?? 0,
+            },
+          }));
         } catch (err) {
           server.config.logger.error(`[vibe] shader generation failed: ${String(err)}`);
-          res.statusCode = 500;
-          res.end(String(err));
+          const status = typeof err === 'object' && err && 'status' in err
+            ? Number((err as { status?: number }).status) : 500;
+          res.statusCode = Number.isFinite(status) ? status : 500;
+          res.setHeader('content-type', 'application/json');
+          const message = res.statusCode === 429
+            ? 'Effect generation is busy. Wait a moment and try again.'
+            : res.statusCode === 402 || res.statusCode === 403
+              ? 'Effect generation is not available for this account.'
+              : 'The effect could not be generated right now.';
+          res.end(JSON.stringify({ message }));
         }
       });
     },

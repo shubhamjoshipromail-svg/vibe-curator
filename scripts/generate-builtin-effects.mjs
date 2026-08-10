@@ -71,10 +71,9 @@ async function generate(req) {
   const started = Date.now();
   const message = await client.messages.create({
     model: MODEL,
-    max_tokens: 16000,
+    max_tokens: 6000,
     system: SYSTEM_PROMPT,
     output_config: {
-      effort: 'high',
       format: { type: 'json_schema', schema: SHADER_SCHEMA },
     },
     messages: [

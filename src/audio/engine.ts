@@ -46,6 +46,8 @@ export class AudioEngine {
    * the normal case, not an edge case.
    */
   private buses: Partial<Record<'ambience' | 'music', Tone.Gain>> = {};
+  private proceduralMusic?: Tone.Gain;
+  private generatedMusic?: Tone.Player;
   private layerState = {
     ambience: { gain: 0.8, muted: false },
     music: { gain: 0.65, muted: false },
@@ -124,6 +126,30 @@ export class AudioEngine {
     return { ...this.layerState[layer] };
   }
 
+  /** Play one persisted authored track under the Music bus; never generates here. */
+  async setGeneratedMusic(url?: string): Promise<void> {
+    if (this.generatedMusic) {
+      try {
+        this.generatedMusic.stop();
+        this.generatedMusic.dispose();
+      } catch {
+        /* already disposed during a spec rebuild */
+      }
+      this.generatedMusic = undefined;
+    }
+
+    if (!url || !this.buses.music) {
+      this.proceduralMusic?.gain.rampTo(1, 0.3);
+      return;
+    }
+
+    this.proceduralMusic?.gain.rampTo(0, 0.3);
+    const player = this.track(new Tone.Player({ loop: true })).connect(this.buses.music);
+    this.generatedMusic = player;
+    await player.load(url);
+    player.start();
+  }
+
   private applyLayerGains(): void {
     const m = this.layerState.master;
     const masterScale = m.muted ? 0 : m.gain;
@@ -166,6 +192,8 @@ export class AudioEngine {
     this.master = undefined;
     this.filter = undefined;
     this.buses = {};
+    this.proceduralMusic = undefined;
+    this.generatedMusic = undefined;
     this.bed = undefined;
     this.playNote = undefined;
     this.crackle = undefined;
@@ -254,6 +282,7 @@ export class AudioEngine {
 
     this.buses.ambience = this.track(new Tone.Gain(1)).connect(this.master);
     this.buses.music = this.track(new Tone.Gain(1)).connect(this.master);
+    this.proceduralMusic = this.track(new Tone.Gain(1)).connect(this.buses.music);
     this.applyLayerGains();
 
     this.analyser = this.track(new Tone.Analyser('fft', 64));
@@ -282,7 +311,7 @@ export class AudioEngine {
   /** Sustained drone: root, fifth, octave, with slow independent drift. */
   private buildBed(spec: AudioSpec): void {
     const gain = this.track(new Tone.Gain(Tone.dbToGain(spec.bed_gain_db))).connect(
-      this.buses.music!,
+      this.proceduralMusic!,
     );
 
     this.bed = this.track(
@@ -395,7 +424,7 @@ export class AudioEngine {
   private buildMotif(spec: AudioSpec, pack?: AudioPack, base = ''): void {
     if (spec.motif.instrument === 'none') return;
 
-    this.motifPan = this.track(new Tone.Panner(0)).connect(this.buses.music!);
+    this.motifPan = this.track(new Tone.Panner(0)).connect(this.proceduralMusic!);
     const gain = this.track(new Tone.Gain(Tone.dbToGain(spec.motif.gain_db))).connect(
       this.motifPan,
     );

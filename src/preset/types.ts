@@ -1,5 +1,6 @@
 import type { Palette } from '../types';
 import type { EffectManifest } from '../effects/manifest';
+import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from '../source-aware/types';
 
 /**
  * A Preset is the composed document the whole product revolves around:
@@ -70,6 +71,51 @@ export interface AudioLayers {
   master: { gain: number; muted: boolean };
 }
 
+export interface MediaProvenance {
+  prompt?: string;
+  provider?: string;
+  model?: string;
+  createdAt: string;
+  parentPresetId?: string;
+}
+
+/** The visual underneath live effects. Renderer scenes remain fully supported. */
+export type SceneLayer =
+  | {
+      kind: 'renderer';
+      label: string;
+      style: string;
+      provenance?: MediaProvenance;
+    }
+  | {
+      kind: 'image' | 'video';
+      label: string;
+      style: string;
+      /** Built-ins use a URL; user uploads live in IndexedDB and use an asset id. */
+      url?: string;
+      assetId?: string;
+      mimeType?: string;
+      /** Optional deterministic camera motion, useful for still uploads. */
+      motion?: SourceMotion;
+      provenance?: MediaProvenance;
+    }
+  | {
+      kind: 'procedural';
+      label: string;
+      style: string;
+      sourceId: DemoSourceId;
+      provenance?: MediaProvenance;
+    };
+
+/** A generated track is an authored asset, not something regenerated at playback. */
+export interface MusicAsset {
+  assetId: string;
+  name: string;
+  mimeType: string;
+  durationSeconds?: number;
+  provenance: MediaProvenance;
+}
+
 export const DEFAULT_AUDIO: AudioLayers = {
   ambience: { gain: 0.8, muted: false },
   music: { gain: 0.65, muted: false },
@@ -87,14 +133,20 @@ export interface Preset {
   parentId?: string;
 
   // --- layers ---
+  /** First-class scene source. Missing on v1 saved presets and migrated on read. */
+  scene: SceneLayer;
   /** Background visual: which scene rig and asset set to build. */
   baseVibeId: string;
   /** Overrides the base vibe's palette. Recolouring alone makes one scene into many. */
   palette: Palette;
   /** Generated shader effects, in order. */
   effects: EffectManifest[];
+  /** Reusable treatments driven by the source's motion and edges. */
+  sourceEffects: SourceEffectRecipe[];
   /** Ambience + music levels. */
   audio: AudioLayers;
+  /** Optional persisted AI-authored music, played instead of the procedural bed. */
+  music?: MusicAsset;
   /** Optional accent used by the app chrome when this preset is playing. */
   theme?: { accent: string };
 
