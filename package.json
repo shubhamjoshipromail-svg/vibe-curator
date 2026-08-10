@@ -1,0 +1,23 @@
+{
+  "name": "vibe-curator",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check:licenses && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "gen:fixtures": "node scripts/make-dev-fixtures.mjs",
+    "gen:effects": "node scripts/generate-builtin-effects.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
+    "pixi.js": "^8.6.6",
+    "tone": "^15.0.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "generatedAt": "2026-08-10T20:50:50.551Z",
+  "effects": [
+    {
+      "name": "drifting-embers",
+      "notes": "Sparse, softly glowing motes rise slowly behind the scene with parallax layers, gentle sway and slow twinkle.",
+      "glsl": "vec3 emberLayer(vec2 uv, float aspect, float seed, float dens, float speed, float glowSize, float thresh) {\n    vec2 st = uv * vec2(aspect, 1.0) * dens;\n    st.x += sin(uTime * 0.043 + seed * 3.17) * 0.45;\n    st.y += uTime * speed;\n    vec2 cell = floor(st);\n    vec2 f = st - cell;\n    vec3 acc = vec3(0.0);\n    for (int j = -1; j <= 1; j++) {\n        for (int i = -1; i <= 1; i++) {\n            vec2 g = vec2(float(i), float(j));\n            vec2 id = cell + g;\n            float r = hash21(id + vec2(seed * 17.3, seed * 5.1));\n            if (r < thresh) continue;\n            vec2 off = vec2(hash21(id + vec2(3.7, 1.9)), hash21(id + vec2(9.1, 5.3)));\n            off.x += 0.14 * sin(uTime * 0.19 + r * 24.0);\n            off.y += 0.06 * sin(uTime * 0.11 + r * 11.0);\n            vec2 d2 = f - g - off;\n            float d = length(d2);\n            float sv = max(glowSize * (0.55 + 0.9 * hash21(id + vec2(2.2, 8.8))), 0.002);\n            float core = exp(-(d * d) / (sv * sv) * 2.6);\n            float halo = exp(-d / (sv * 3.0));\n            float tw = 0.62 + 0.38 * sin(uTime * 0.33 + r * 31.0);\n            vec3 col = mix(palette(5), palette(7), hash21(id + vec2(4.4, 6.6)));\n            acc += col * (core + halo * 0.30) * tw;\n        }\n    }\n    return acc;\n}\n\nvec4 effect(vec2 uv, vec4 src) {\n    float aspect = uResolution.x / max(uResolution.y, 1.0);\n    float dens = max(uP0, 2.0);\n    float spd = uP1;\n    float gs = uP2;\n\n    vec3 g = vec3(0.0);\n    g += emberLayer(uv, aspect, 1.0, dens, spd, gs, 0.80) * 1.00;\n    g += emberLayer(uv, aspect, 2.0, dens * 1.63, spd * 0.62, gs * 0.72, 0.84) * 0.55;\n    g += emberLayer(uv, aspect, 3.0, dens * 0.71, spd * 1.41, gs * 1.35, 0.88) * 0.35;\n\n    // soft vertical fade so motes appear and dissolve rather than pop at edges\n    float fade = smoothstep(0.0, 0.22, uv.y) * smoothstep(1.0, 0.72, uv.y);\n    float breath = 0.85 + 0.15 * sin(uTime * 0.07);\n    float lift = 0.30 + 0.70 * uEnergy;\n    float snd = 1.0 + 0.25 * audio(1);\n\n    g *= uP3 * uIntensity * fade * breath * lift * snd;\n\n    // mostly behind the scene, with a faint bleed through solid areas\n    float behind = 1.0 - src.a * 0.85;\n    return vec4(src.rgb + g * behind, src.a);\n}",
+      "params": [
+        {
+          "label": "Density",
+          "min": 3,
+          "max": 20,
+          "value": 8
+        },
+        {
+          "label": "Drift Speed",
+          "min": 0,
+          "max": 0.3,
+          "value": 0.055
+        },
+        {
+          "label": "Glow Size",
+          "min": 0.02,
+          "max": 0.35,
+          "value": 0.1
+        },
+        {
+          "label": "Brightness",
+          "min": 0,
+          "max": 1.5,
+          "value": 0.6
+        }
+      ],
+      "slug": "drifting-motes",
+      "prompt": "slow glowing particles drifting upward behind the scene, like embers or dust catching light, sparse and calm",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 39829,
+      "usage": {
+        "input": 1964,
+        "output": 3299
+      }
+    },
+    {
+      "name": "submerged-caustics",
+      "notes": "Slow layered caustic ripples with gentle refractive lensing and palette-tinted underwater light bands.",
+      "glsl": "float causticField(vec2 p, float t){\n    float v = 0.0;\n    float amp = 1.0;\n    float sum = 0.0;\n    for (int i = 0; i < 4; i++) {\n        float fi = float(i);\n        vec2 q = p * (1.0 + fi * 0.75);\n        q += vec2(sin(t * 0.13 + fi * 1.7), cos(t * 0.11 + fi * 2.3)) * 0.7;\n        float n = noise21(q + vec2(t * 0.06 * (1.0 + fi * 0.25), -t * 0.045 - fi * 3.1));\n        v += amp * sin(6.2831853 * (n * 1.4 + t * 0.035 * (1.0 + fi * 0.3) + fi * 0.21));\n        sum += amp;\n        amp *= 0.55;\n    }\n    return v / max(sum, 0.0001);\n}\n\nvec4 effect(vec2 uv, vec4 src) {\n    float aspect = uResolution.x / max(uResolution.y, 1.0);\n    float scale = mix(1.5, 9.0, clamp(uP0, 0.0, 1.0));\n    float t = uTime * mix(0.15, 1.2, clamp(uP1, 0.0, 1.0));\n\n    vec2 p = vec2(uv.x * aspect, uv.y) * scale;\n\n    float e = 0.055;\n    float c  = causticField(p, t);\n    float cx = causticField(p + vec2(e, 0.0), t);\n    float cy = causticField(p + vec2(0.0, e), t);\n\n    float amp = uIntensity * (0.35 + 0.65 * uEnergy);\n\n    // gentle lensing along the caustic gradient\n    vec2 grad = vec2(cx - c, cy - c) / e;\n    float lens = uP2 * 0.006 * amp;\n    vec2 off = grad * lens;\n    off += vec2(sin(t * 0.21 + uv.y * 3.1), cos(t * 0.17 + uv.x * 2.7)) * lens * 0.35;\n\n    vec2 uv2 = clamp(uv + off, vec2(0.001), vec2(0.999));\n    vec4 bent = texture(uTexture, uv2);\n\n    // slight chromatic spread for a watery feel\n    float ca = lens * 0.5;\n    bent.r = texture(uTexture, clamp(uv + off * (1.0 + ca * 40.0), vec2(0.001), vec2(0.999))).r;\n    bent.b = texture(uTexture, clamp(uv + off * (1.0 - ca * 40.0), vec2(0.001), vec2(0.999))).b;\n\n    vec4 col = mix(src, bent, clamp(uIntensity, 0.0, 1.0));\n\n    // caustic light bands: ridged, sharpened\n    float ridge = 1.0 - abs(c);\n    ridge = pow(clamp(ridge, 0.0, 1.0), mix(2.0, 9.0, clamp(uP3, 0.0, 1.0)));\n\n    float band = ridge * (0.55 + 0.45 * audio(2));\n    vec3 lightCol = mix(palette(5), palette(7), 0.55 + 0.45 * ridge);\n    vec3 shade = palette(2);\n\n    float glow = band * amp * 0.55;\n    float dip = (1.0 - ridge) * amp * 0.05;\n\n    vec3 rgb = col.rgb + lightCol * glow * col.a + lightCol * glow * 0.25;\n    rgb = mix(rgb, shade * col.a, dip);\n\n    return vec4(rgb, col.a);\n}",
+      "params": [
+        {
+          "label": "Ripple Scale",
+          "min": 0,
+          "max": 1,
+          "value": 0.42
+        },
+        {
+          "label": "Drift Speed",
+          "min": 0,
+          "max": 1,
+          "value": 0.3
+        },
+        {
+          "label": "Lens Strength",
+          "min": 0,
+          "max": 2,
+          "value": 0.8
+        },
+        {
+          "label": "Caustic Sharpness",
+          "min": 0,
+          "max": 1,
+          "value": 0.55
+        }
+      ],
+      "slug": "underwater-light",
+      "prompt": "make the background look like light refracting underwater: slow caustic ripples playing across everything, gentle lensing",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 24181,
+      "usage": {
+        "input": 1963,
+        "output": 2036
+      }
+    },
+    {
+      "name": "crt-phosphor-drift",
+      "notes": "Emulates an old CRT: slow rolling scanlines with a drifting bright band, radial chromatic fringing, soft phosphor bloom and a gentle vignette.",
+      "glsl": "vec3 tapRGB(vec2 p){ return texture(uTexture, clamp(p, vec2(0.0), vec2(1.0))).rgb; }\n\nvec3 phosphorGlow(vec2 uv, float rad){\n    vec3 g = vec3(0.0);\n    for(int i = 0; i < 12; i++){\n        float a = float(i) * 0.5235988;\n        float ring = (i < 6) ? 1.0 : 2.0;\n        g += tapRGB(uv + vec2(cos(a), sin(a)) * rad * ring);\n    }\n    return g / 12.0;\n}\n\nvec4 effect(vec2 uv, vec4 src){\n    vec2 c = uv - 0.5;\n    float r2 = dot(c, c);\n    float amp = uIntensity * (0.35 + 0.65 * uEnergy);\n\n    // --- chromatic aberration, strongest toward the edges ---\n    float ab = uP2 * 0.006 * (0.15 + r2 * 3.0) * uIntensity;\n    vec3 col;\n    col.r = tapRGB(uv + c * ab).r;\n    col.g = src.g;\n    col.b = tapRGB(uv - c * ab).b;\n\n    // --- soft phosphor bloom, tinted by the light end of the ramp ---\n    float rad = 0.0015 + uP3 * 0.006;\n    vec3 g = phosphorGlow(uv, rad);\n    float lum = dot(g, vec3(0.299, 0.587, 0.114));\n    vec3 tint = mix(palette(5), palette(7), 0.5 + 0.5 * lum);\n    col += g * tint * uP3 * 0.55 * (0.6 + 0.4 * uEnergy) * uIntensity;\n\n    // --- rolling scanlines ---\n    float lines = uResolution.y * 0.28;\n    float roll = uTime * uP1 * 0.035;\n    float scan = sin((uv.y - roll) * lines * 6.2831853);\n    float depth = uP0 * 0.5 * amp;\n    col *= 1.0 - depth * (0.5 + 0.5 * scan);\n\n    // --- slow drifting retrace band ---\n    float bandPos = fract(uv.y * 0.5 - uTime * uP1 * 0.012);\n    float band = exp(-pow((bandPos - 0.5) * 7.0, 2.0));\n    col += palette(4) * band * 0.05 * amp;\n    col *= 1.0 + band * 0.06 * amp;\n\n    // --- gentle vignette toward the darkest ramp step ---\n    float vig = smoothstep(0.95, 0.18, r2 * 1.9);\n    col = mix(palette(0) * src.a, col, mix(1.0, vig, 0.75 * uIntensity));\n\n    // faint interference shimmer, settles as energy drops\n    float sh = (noise21(vec2(uv.y * 180.0, uTime * 1.7)) - 0.5) * 0.02 * amp;\n    col += sh * src.a;\n\n    vec4 outc = vec4(col, src.a);\n    return mix(src, outc, uIntensity);\n}",
+      "params": [
+        {
+          "label": "Scanline Depth",
+          "min": 0,
+          "max": 1,
+          "value": 0.35
+        },
+        {
+          "label": "Roll Speed",
+          "min": 0,
+          "max": 3,
+          "value": 0.8
+        },
+        {
+          "label": "Edge Aberration",
+          "min": 0,
+          "max": 2,
+          "value": 0.7
+        },
+        {
+          "label": "Phosphor Glow",
+          "min": 0,
+          "max": 1.5,
+          "value": 0.45
+        }
+      ],
+      "slug": "crt-phosphor",
+      "prompt": "old CRT monitor: rolling scanlines, slight chromatic aberration at the edges, soft phosphor glow and a gentle vignette",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 27070,
+      "usage": {
+        "input": 1976,
+        "output": 2159
+      }
+    },
+    {
+      "name": "high-window-lightshaft",
+      "notes": "A soft diagonal sun shaft with slowly turning dust motes drifting inside it, added over the scene without hiding it.",
+      "glsl": "float shaftFall(float t){\n    return smoothstep(0.85, -0.75, t);\n}\n\nvec4 effect(vec2 uv, vec4 src){\n    float asp = uResolution.x / max(uResolution.y, 1.0);\n    vec2 p = (uv - 0.5) * vec2(asp, 1.0);\n\n    // shaft orientation: falls downward, tilted by uP0 degrees\n    float a = radians(uP0);\n    vec2 dir = vec2(sin(a), -cos(a));\n    vec2 nrm = vec2(cos(a), sin(a));\n\n    // very slow non-repeating sway of the beam\n    float sway = sin(uTime * 0.033) * 0.055 + sin(uTime * 0.0187 + 1.7) * 0.032;\n    float d = dot(p, nrm) + sway * (0.35 + 0.9 * uEnergy);\n\n    float w = max(uP1, 0.02);\n    float core = exp(-(d * d) / (w * w));\n    float halo = exp(-(d * d) / (w * w * 7.0)) * 0.45;\n\n    float t = dot(p, dir);\n    float fall = shaftFall(t);\n\n    // gentle internal banding, barely visible\n    float band = 1.0 + 0.10 * sin(d * 9.0 + uTime * 0.11) * fall;\n\n    float shaft = (core + halo) * fall * band;\n    shaft *= 1.0 + 0.18 * audio(1) * uEnergy;\n\n    // drifting dust motes, only lit where the shaft is\n    float dust = 0.0;\n    for(int i = 0; i < 3; i++){\n        float fi = float(i);\n        float sc = 26.0 + fi * 17.0;\n        vec2 drift = vec2(0.014 + 0.006 * fi, -0.007 - 0.004 * fi) * uTime * max(uP3, 0.0);\n        vec2 q = (p + drift) * sc + fi * 13.7;\n        vec2 cell = floor(q);\n        vec2 f = fract(q) - 0.5;\n        float r1 = hash21(cell + fi * 31.0);\n        float r2 = hash21(cell + fi * 17.0 + 5.3);\n        vec2 c = (vec2(r1, r2) - 0.5) * 0.72;\n        float dd = length(f - c);\n        float breath = 0.55 + 0.45 * sin(uTime * (0.25 + r1 * 0.45) + r2 * 6.2831);\n        float m = smoothstep(0.17, 0.0, dd) * step(0.74, r1) * breath;\n        dust += m * (1.0 - fi * 0.26);\n    }\n    dust *= max(uP2, 0.0);\n\n    vec3 glow = palette(5) * shaft * 0.26\n              + palette(6) * shaft * 0.22\n              + palette(7) * shaft * shaft * 0.20;\n    glow += palette(7) * dust * shaft * 1.15;\n\n    float amp = uIntensity * (0.35 + 0.65 * uEnergy);\n    return vec4(src.rgb + glow * amp, src.a);\n}",
+      "params": [
+        {
+          "label": "Shaft Angle",
+          "min": -70,
+          "max": 70,
+          "value": 32
+        },
+        {
+          "label": "Shaft Width",
+          "min": 0.03,
+          "max": 0.5,
+          "value": 0.14
+        },
+        {
+          "label": "Dust Amount",
+          "min": 0,
+          "max": 1.5,
+          "value": 0.6
+        },
+        {
+          "label": "Dust Drift",
+          "min": 0,
+          "max": 2,
+          "value": 0.6
+        }
+      ],
+      "slug": "volumetric-shaft",
+      "prompt": "a soft shaft of light falling diagonally across the scene with slow dust turning inside it, like sun through a high window",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 36520,
+      "usage": {
+        "input": 1966,
+        "output": 3094
+      }
+    },
+    {
+      "name": "aurora-veil-curtains",
+      "notes": "Soft vertical aurora curtains breathe slowly across the upper part of the scene, tinted from the palette and added as gentle light.",
+      "glsl": "float auroraFbm(vec2 p){\n    float s = 0.0;\n    float a = 0.5;\n    for (int i = 0; i < 4; i++) {\n        s += a * noise21(p);\n        p = p * 2.03 + vec2(1.7, -0.9);\n        a *= 0.5;\n    }\n    return s;\n}\n\nvec4 effect(vec2 uv, vec4 src) {\n    float density = uP0;\n    float speed   = uP1;\n    float height  = uP2;\n    float glowAmt = uP3;\n\n    float t = uTime * speed;\n\n    // slow lateral sway of the whole veil\n    float sway = sin(t * 0.031 + uv.y * 1.4) * 0.12\n               + sin(t * 0.017 - uv.y * 2.7) * 0.06;\n\n    // y strongly compressed -> features elongate into vertical curtains\n    vec2 q = vec2(uv.x * density + sway, uv.y * 0.30 - t * 0.012);\n    float n1 = auroraFbm(q);\n    float n2 = auroraFbm(q * 1.83 + vec2(4.2, t * 0.019));\n\n    float curtain = max(n1 * 0.75 + n2 * 0.45 - 0.34, 0.0);\n    curtain = pow(curtain, 1.7) * 2.2;\n\n    // fine filaments inside the curtains\n    float fil = auroraFbm(vec2(uv.x * density * 3.1 + sway * 2.0, uv.y * 0.9 - t * 0.02));\n    curtain *= 0.72 + 0.55 * fil;\n\n    // vertical placement: fade in from the horizon line, soften near the top\n    float base = 1.0 - clamp(height, 0.05, 1.0);\n    float mask = smoothstep(base, base + 0.28, uv.y);\n    mask *= 1.0 - 0.45 * smoothstep(0.80, 1.0, uv.y);\n\n    // slow, non-repeating breath\n    float breath = 0.62\n                 + 0.24 * sin(uTime * 0.061)\n                 + 0.14 * sin(uTime * 0.023 + 1.9);\n\n    float band = 0.85 + 0.30 * audio(1) + 0.18 * audio(4);\n\n    float g = curtain * mask * breath * band;\n    g *= glowAmt * uIntensity * (0.30 + 0.70 * uEnergy);\n    g = clamp(g, 0.0, 1.0);\n\n    // palette-derived cool veil colour, brighter in the dense cores\n    vec3 col = mix(palette(3), palette(5), smoothstep(0.0, 0.55, curtain));\n    col = mix(col, palette(7), smoothstep(0.60, 1.30, curtain) * 0.55);\n    col = mix(col, palette(4), 0.25 * (1.0 - uv.y));\n\n    vec3 outRgb = src.rgb + col * g * 0.85;\n    float outA = min(1.0, src.a + g * 0.5);\n    return vec4(outRgb, outA);\n}",
+      "params": [
+        {
+          "label": "Curtain Scale",
+          "min": 1,
+          "max": 12,
+          "value": 4.5
+        },
+        {
+          "label": "Drift Speed",
+          "min": 0,
+          "max": 2.5,
+          "value": 0.8
+        },
+        {
+          "label": "Veil Height",
+          "min": 0.2,
+          "max": 1,
+          "value": 0.55
+        },
+        {
+          "label": "Glow",
+          "min": 0,
+          "max": 1.5,
+          "value": 0.6
+        }
+      ],
+      "slug": "aurora-veil",
+      "prompt": "a faint aurora veil breathing slowly across the upper half of the scene, soft vertical curtains, never harsh",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 33285,
+      "usage": {
+        "input": 1967,
+        "output": 2673
+      }
+    },
+    {
+      "name": "rain-streaked-glass",
+      "notes": "Droplets and slow-running trails on a pane of glass, refracting the scene through soft defocus with palette-tinted highlights.",
+      "glsl": "float dropsLayer(vec2 p, float t, float scale, float seed, float trailAmt){\n    vec2 q = vec2(p.x*scale, p.y*scale*0.6);\n    float col = floor(q.x);\n    float cr = hash11(col*7.31 + seed*3.7);\n    float yy = q.y + t*(0.35 + 0.85*cr);\n    float row = floor(yy);\n    float h = 0.0;\n    for(int k=0;k<2;k++){\n        float rw = row - float(k);\n        float rr = hash21(vec2(col*1.7 + seed, rw*2.3));\n        float rx = col + 0.5 + (rr - 0.5)*0.5;\n        float ry = rw + 0.5 + (hash11(rr*31.7 + seed) - 0.5)*0.5;\n        vec2 d = vec2(q.x - rx, yy - ry);\n        float rad = 0.13 + 0.18*rr;\n        float drop = smoothstep(rad, rad*0.2, length(d*vec2(1.0,1.3)));\n        float wob = 0.03*sin(d.y*9.0 + rr*22.0 + t*1.1);\n        float tw = 0.03 + 0.045*rr;\n        float trail = smoothstep(tw, 0.0, abs(d.x + wob));\n        trail *= smoothstep(1.15, 0.04, d.y) * step(0.0, d.y);\n        trail *= 0.55 + 0.45*sin(d.y*14.0 - rr*11.0);\n        h = max(h, max(drop, trail*trailAmt));\n    }\n    return h;\n}\n\nfloat glassHeight(vec2 p, float t, float dens, float trailAmt){\n    float h = dropsLayer(p, t, 7.0*dens, 0.0, trailAmt);\n    h = max(h, dropsLayer(p, t*1.27, 11.0*dens, 4.7, trailAmt)*0.8);\n    h = max(h, dropsLayer(p, t*0.81, 17.0*dens, 9.1, trailAmt)*0.55);\n    return h;\n}\n\nvec4 effect(vec2 uv, vec4 src){\n    float amp = uIntensity*(0.35 + 0.65*uEnergy);\n    float ar  = uResolution.x/max(uResolution.y, 1.0);\n    vec2  p   = vec2(uv.x*ar, uv.y);\n    float t   = uTime*uP0;\n    float dens = max(uP1, 0.2);\n\n    float px = 1.4/max(uResolution.y, 1.0);\n    float h  = glassHeight(p, t, dens, 0.8);\n    float hx = glassHeight(p + vec2(px,0.0), t, dens, 0.8) - glassHeight(p - vec2(px,0.0), t, dens, 0.8);\n    float hy = glassHeight(p + vec2(0.0,px), t, dens, 0.8) - glassHeight(p - vec2(0.0,px), t, dens, 0.8);\n    vec2  g  = clamp(vec2(hx,hy)/(2.0*px), -60.0, 60.0);\n\n    // soft defocus between the droplets\n    float br = uP3*0.011*(1.0 - 0.65*h);\n    vec4 blur = vec4(0.0);\n    for(int i=0;i<8;i++){\n        float fi = float(i);\n        float a  = fi*2.3999 + uTime*0.04;\n        float r  = br*sqrt((fi + 0.5)/8.0);\n        vec2 o   = vec2(cos(a)/ar, sin(a))*r;\n        blur += texture(uTexture, clamp(uv + o, 0.002, 0.998));\n    }\n    blur /= 8.0;\n\n    vec4 base = mix(src, blur, clamp(uIntensity, 0.0, 1.0)*0.9);\n\n    // refraction through each bead\n    vec2 ro = -g*uP2*0.0055*amp;\n    ro.x /= ar;\n    vec4 refr = texture(uTexture, clamp(uv + ro, 0.002, 0.998));\n\n    float m   = smoothstep(0.06, 0.45, h);\n    float rim = clamp(length(g)*0.012, 0.0, 1.0)*smoothstep(0.04, 0.5, h);\n\n    vec4 col = mix(base, refr*1.04, clamp(m*amp, 0.0, 1.0));\n    col.rgb += palette(7)*rim*0.09*amp;\n    col.rgb += palette(6)*h*0.025*amp;\n    col.rgb = mix(col.rgb, col.rgb*0.95 + palette(1)*0.05, uIntensity*0.45);\n    col.a = src.a;\n    return col;\n}",
+      "params": [
+        {
+          "label": "Rain Speed",
+          "min": 0,
+          "max": 0.5,
+          "value": 0.12
+        },
+        {
+          "label": "Droplet Density",
+          "min": 0.4,
+          "max": 2.5,
+          "value": 1.15
+        },
+        {
+          "label": "Refraction",
+          "min": 0,
+          "max": 2,
+          "value": 1
+        },
+        {
+          "label": "Defocus",
+          "min": 0,
+          "max": 2,
+          "value": 0.8
+        }
+      ],
+      "slug": "rain-on-glass",
+      "prompt": "looking through a rain-streaked window: droplets refracting the scene, slow trails running down, soft defocus between them",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "elapsedMs": 74126,
+      "usage": {
+        "input": 1966,
+        "output": 6449
+      }
+    }
+  ]
+}
