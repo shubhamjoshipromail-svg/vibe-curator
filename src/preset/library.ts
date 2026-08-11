@@ -369,6 +369,7 @@ export function createMediaPreset(input: {
   mimeType: string;
   provider: string;
   model: string;
+  category?: string;
 }): Preset {
   const now = new Date().toISOString();
   const words = input.prompt.trim().split(/\s+/).slice(0, 5).join(' ');
@@ -394,7 +395,7 @@ export function createMediaPreset(input: {
     builtIn: false,
     createdAt: now,
     updatedAt: now,
-    tags: automaticTags(scene, input.style, input.prompt),
+    tags: [...new Set([...automaticTags(scene, input.style, input.prompt), ...(input.category ? [input.category] : [])])],
     scene,
     baseVibeId: 'signal-drift',
     palette: structuredClone(SIGNAL),

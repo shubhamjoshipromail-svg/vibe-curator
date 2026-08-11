@@ -10,7 +10,66 @@ const STYLES = [
   { value: 'halftone print', label: 'Halftone print' },
   { value: 'ascii glow', label: 'ASCII glow' },
   { value: 'cinematic', label: 'Cinematic' },
+  { value: 'psychedelic print', label: 'Psychedelic print' },
+  { value: 'organic macro', label: 'Organic macro' },
+  { value: 'electro-organic', label: 'Electro nature' },
+  { value: 'dark fantasy', label: 'Dark fantasy' },
 ];
+
+const CREATION_TYPES = [
+  {
+    id: 'artist',
+    label: 'Artist DNA',
+    mark: 'A',
+    description: 'Start with an artist, movement or era; translate the reference into editable visual and musical characteristics.',
+    placeholder: 'A visual world with the creative DNA of an artist or movement—describe the subject, palette and energy…',
+    style: 'psychedelic print',
+    note: 'Artist names may guide the visual draft. Before music generation, the lightweight adapter removes every artist and song name and sends only descriptive musical traits to ElevenLabs.',
+    starters: [] as string[],
+  },
+  {
+    id: 'vibes',
+    label: 'Vibes',
+    mark: 'V',
+    description: 'Lead with a feeling, place or time of day and let the image, motion and sound follow the same direction.',
+    placeholder: 'A warm late-night rooftop after rain, reflective, slow and cinematic…',
+    style: 'cinematic',
+    note: 'Best for open-ended mood direction. Generate a source first, then tune motion, effects and sound independently in Labs.',
+    starters: ['signal-drift', 'nocturne'],
+  },
+  {
+    id: 'nature',
+    label: 'Nature',
+    mark: 'N',
+    description: 'Plants, animals, weather and landscapes with organic motion and restrained source-aware treatments.',
+    placeholder: 'A luminous wildflower opening at blue hour, dew on every petal, deep forest behind it…',
+    style: 'organic macro',
+    note: 'Use a generated source or your own photograph. Your upload remains the original image; motion and contour analysis happen locally.',
+    starters: ['paper-valley', 'salt-flats', 'cloud-study', 'bloom-signal'],
+  },
+  {
+    id: 'electro-nature',
+    label: 'Electro Nature',
+    mark: 'E',
+    description: 'Living subjects reconstructed with tracked light, grids, particles, signal trails and audio-reactive color.',
+    placeholder: 'A translucent moth in a midnight greenhouse, its wing veins becoming neon circuitry and moving particles…',
+    style: 'electro-organic',
+    note: 'This combines a recognizable image source with local edge/motion treatments and generated shaders. The source is never sent through a second vision-to-text loop.',
+    starters: ['living-koi', 'cloud-study', 'bloom-signal'],
+  },
+  {
+    id: 'dark-fantasy',
+    label: 'Dark Fantasy',
+    mark: 'D',
+    description: 'Ruins, firelight, armor, forests and mythic spaces—either generated imagery or a fully procedural living room.',
+    placeholder: 'An ancient knight beneath a ruined cathedral, low firelight, drifting ash and enormous shadowed arches…',
+    style: 'dark fantasy',
+    note: 'Generate draft creates an AI image source. Ashen Keep and Moss & Glass below are different: coded layered rooms with real-time fire, embers and light, and no AI generation cost.',
+    starters: ['ashen-keep', 'moss-glass'],
+  },
+] as const;
+
+type CreationType = (typeof CREATION_TYPES)[number];
 
 /** The front door: create first, then resume owned work, then browse starting points. */
 export function renderExplore(host: HTMLElement): void {
@@ -18,8 +77,14 @@ export function renderExplore(host: HTMLElement): void {
     <header class="page-head explore-head">
       <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p></div>
     </header>
+    <section class="creation-types" aria-labelledby="creation-types-title">
+      <div class="section-head type-head"><div><p class="eyebrow">CHOOSE A DIRECTION</p><h2 id="creation-types-title">Five ways to begin</h2></div></div>
+      <div class="type-grid" id="creation-type-grid">
+        ${CREATION_TYPES.map((type, index) => `<button class="creation-type${index === 1 ? ' active' : ''}" data-type="${type.id}" aria-pressed="${index === 1}"><span>${type.mark}</span><strong>${type.label}</strong><small>${type.description}</small></button>`).join('')}
+      </div>
+    </section>
     <section class="create-studio" aria-labelledby="create-title">
-      <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
+      <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a Vibes visual</h2><p id="create-description">Lead with a feeling, place or time of day.</p></div></div>
       <textarea id="visual-prompt" rows="3" placeholder="Two bioluminescent blue fish swimming through black water…"></textarea>
       <div class="create-toolbar">
         <select id="visual-style" aria-label="Visual treatment">${STYLES.map((style) => `<option value="${style.value}">${style.label}</option>`).join('')}</select>
@@ -27,6 +92,7 @@ export function renderExplore(host: HTMLElement): void {
         <input id="quick-upload" class="file-input" type="file" accept="image/*" />
         <button class="primary" id="visual-go">Generate draft</button>
       </div>
+      <p class="pipeline-note" id="pipeline-note"></p>
       <p class="generation-note" id="visual-status">Checking generation…</p>
     </section>
     <section class="library-section">
@@ -34,9 +100,17 @@ export function renderExplore(host: HTMLElement): void {
       <div class="tag-row" id="tags"></div>
       <div class="grid" id="owned-grid"></div>
     </section>
-    <details class="starter-section">
-      <summary><div><p class="eyebrow">STARTING POINTS</p><h2>Explore treatments</h2></div><span>Open collection</span></summary>
+    <details class="starter-section" open>
+      <summary><div><p class="eyebrow">STARTING POINTS</p><h2 id="starter-title">Vibes starting points</h2></div><span>Toggle collection</span></summary>
       <div class="grid compact-grid" id="starter-grid"></div>
+    </details>
+    <details class="source-guide">
+      <summary><div><p class="eyebrow">HOW SOURCES WORK</p><h2>Three pipelines, no redundant vision loop</h2></div><span>View architecture</span></summary>
+      <div class="source-guide-grid">
+        <article><strong>Procedural room</strong><span>Free after load</span><p>Layered coded artwork with real-time fire, water, particles and light. No image model.</p></article>
+        <article><strong>Generated source</strong><span>One image call</span><p>Your text becomes one OpenAI image. Motion, shaders and music stay separate and reusable.</p></article>
+        <article><strong>Your image</strong><span>Direct original</span><p>The file is stored as-is. Local pixel analysis drives edges and movement; no vision model or re-generation.</p></article>
+      </div>
     </details>
   `;
 
@@ -45,8 +119,13 @@ export function renderExplore(host: HTMLElement): void {
   const style = host.querySelector<HTMLSelectElement>('#visual-style')!;
   const go = host.querySelector<HTMLButtonElement>('#visual-go')!;
   const upload = host.querySelector<HTMLInputElement>('#quick-upload')!;
+  const createTitle = host.querySelector<HTMLHeadingElement>('#create-title')!;
+  const createDescription = host.querySelector<HTMLParagraphElement>('#create-description')!;
+  const pipelineNote = host.querySelector<HTMLParagraphElement>('#pipeline-note')!;
+  const starterTitle = host.querySelector<HTMLHeadingElement>('#starter-title')!;
   let generationEnabled = false;
-  let imageModel = 'gemini-2.5-flash-image';
+  let imageModel = 'gpt-image-2';
+  let activeCreationType: CreationType = CREATION_TYPES[1];
 
   void mediaCapabilities().then((caps) => {
     generationEnabled = caps.sceneGeneration;
@@ -54,7 +133,7 @@ export function renderExplore(host: HTMLElement): void {
     go.disabled = !generationEnabled;
     status.textContent = generationEnabled
       ? `~$${(caps.estimatedCostsUsd?.image ?? 0.04).toFixed(2)} per new draft · repeats reuse the local cache · session cap $${(caps.spendCapUsd ?? 3).toFixed(2)}`
-      : 'Add GEMINI_API_KEY to generate drafts. Uploads and starting points still work.';
+      : 'Add OPENAI_API_KEY to generate drafts. Direct uploads and procedural starting points still work.';
   }).catch(() => {
     go.disabled = true;
     status.textContent = 'Generation is offline. Uploads and starting points still work.';
@@ -76,11 +155,12 @@ export function renderExplore(host: HTMLElement): void {
     go.disabled = true;
     status.textContent = 'Creating one visual draft…';
     try {
+      const creationType = activeCreationType.id;
       const fingerprint = await generationFingerprint('scene-image', imageModel, request, style.value);
       const cached = await cachedGeneration(fingerprint);
       let assetId = cached?.id;
       let mimeType = cached?.blob.type || 'image/png';
-      let provider = 'google';
+      let provider = 'openai';
       let model = imageModel;
       if (!assetId) {
         const generated = await generateSceneImage(request, style.value);
@@ -90,7 +170,7 @@ export function renderExplore(host: HTMLElement): void {
         model = generated.model;
         rememberGeneration(fingerprint, assetId);
       }
-      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType, provider, model });
+      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType, provider, model, category: creationType });
       status.textContent = cached ? 'Reused the cached draft. Opening the editor…' : 'Draft saved. Opening the editor…';
       openProject(preset);
     } catch (error) {
@@ -108,7 +188,7 @@ export function renderExplore(host: HTMLElement): void {
     try {
       const assetId = await storeAsset(file, 'scene');
       const request = prompt.value.trim() || file.name.replace(/\.[^.]+$/, '');
-      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType: file.type, provider: 'upload', model: 'original' });
+      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType: file.type, provider: 'upload', model: 'original', category: activeCreationType.id });
       openProject(preset);
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : 'That image could not be added.';
@@ -122,6 +202,35 @@ export function renderExplore(host: HTMLElement): void {
   const search = host.querySelector<HTMLInputElement>('#search')!;
   const tags = host.querySelector<HTMLDivElement>('#tags')!;
   let activeTag = 'all';
+
+  function drawStarters() {
+    const all = listPresets().filter((item) => item.builtIn);
+    const selected = activeCreationType.starters.length
+      ? all.filter((preset) => (activeCreationType.starters as readonly string[]).includes(preset.id))
+      : [];
+    starterGrid.innerHTML = '';
+    if (!selected.length) {
+      starterGrid.innerHTML = '<div class="empty project-empty"><strong>No fixed artist template.</strong><span>Enter any artist, movement or era above; the result remains your own editable project.</span></div>';
+      return;
+    }
+    for (const preset of selected) starterGrid.appendChild(card(preset, drawLibrary));
+  }
+
+  function selectCreationType(next: CreationType) {
+    activeCreationType = next;
+    host.querySelectorAll<HTMLButtonElement>('.creation-type').forEach((button) => {
+      const selected = button.dataset.type === next.id;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    createTitle.textContent = `Create: ${next.label}`;
+    createDescription.textContent = next.description;
+    prompt.placeholder = next.placeholder;
+    style.value = next.style;
+    pipelineNote.textContent = next.note;
+    starterTitle.textContent = `${next.label} starting points`;
+    drawStarters();
+  }
 
   function drawLibrary() {
     const saved = listSaved().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -146,8 +255,14 @@ export function renderExplore(host: HTMLElement): void {
     for (const preset of filtered) ownedGrid.appendChild(card(preset, drawLibrary));
   }
 
-  for (const preset of listPresets().filter((item) => item.builtIn)) starterGrid.appendChild(card(preset, drawLibrary));
+  host.querySelectorAll<HTMLButtonElement>('.creation-type').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = CREATION_TYPES.find((type) => type.id === button.dataset.type);
+      if (next) selectCreationType(next);
+    });
+  });
   search.addEventListener('input', drawLibrary);
+  selectCreationType(activeCreationType);
   drawLibrary();
 }
 
@@ -167,7 +282,16 @@ function card(preset: Preset, refresh: () => void): HTMLElement {
   body.append(title, description);
   const meta = document.createElement('div');
   meta.className = 'card-meta';
-  for (const label of [preset.scene.style, preset.scene.kind, preset.music ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) {
+  const sourceLabel = preset.scene.kind === 'renderer'
+    ? 'procedural live'
+    : preset.scene.kind === 'procedural'
+      ? 'coded source'
+      : preset.scene.provenance?.provider === 'upload'
+        ? 'direct upload'
+        : preset.scene.kind === 'video'
+          ? 'video source'
+          : 'AI image';
+  for (const label of [preset.scene.style, sourceLabel, preset.music ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) {
     const chip = document.createElement('span');
     chip.className = 'chip';
     chip.textContent = label;
