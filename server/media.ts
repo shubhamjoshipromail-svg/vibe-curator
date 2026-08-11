@@ -8,9 +8,11 @@ import { randomUUID } from 'node:crypto';
 
 const MUSIC_MODEL = 'music_v2';
 const MUSIC_PROVIDER = 'elevenlabs';
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const IMAGE_MODEL = 'gpt-image-2';
+const IMAGE_PROVIDER = 'openai';
 const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
-const IMAGE_COST_USD = 0.04;
+// Conservative draft estimate. OpenAI bills GPT Image 2 output by image tokens.
+const IMAGE_COST_USD = 0.01;
 const VIDEO_COST_USD = 0.20;
 const MUSIC_COST_USD = 0.075;
 const DEFAULT_SESSION_CAP_USD = 3;
@@ -30,18 +32,38 @@ function sendJson(res: { statusCode: number; setHeader(k: string, v: string): vo
   res.end(JSON.stringify(body));
 }
 
-function providerMessage(error: unknown, operation: 'image' | 'motion'): { status: number; message: string } {
+function geminiMessage(error: unknown): { status: number; message: string } {
   const detail = String(error);
   if (detail.includes('429') || detail.includes('RESOURCE_EXHAUSTED') || detail.toLowerCase().includes('quota')) {
     return {
       status: 429,
-      message: `Gemini ${operation} quota is unavailable for this key. Enable billing/quota in Google AI Studio, then retry once. No result was stored.`,
+      message: 'Gemini motion quota is unavailable for this key. Enable billing/quota in Google AI Studio, then retry once. No result was stored.',
     };
   }
   if (detail.includes('401') || detail.includes('403') || detail.includes('PERMISSION_DENIED')) {
-    return { status: 403, message: `Gemini ${operation} access was denied for this key. Check the key and enabled models. No result was stored.` };
+    return { status: 403, message: 'Gemini motion access was denied for this key. Check the key and enabled models. No result was stored.' };
   }
-  return { status: 502, message: `The ${operation} service could not complete this request. No result was stored.` };
+  return { status: 502, message: 'The motion service could not complete this request. No result was stored.' };
+}
+
+function openAiImageMessage(status: number, detail: string): { status: number; message: string } {
+  const normalized = detail.toLowerCase();
+  if (status === 401 || status === 403) {
+    return { status: 403, message: 'OpenAI image access was denied. Check OPENAI_API_KEY and your project permissions. No result was stored.' };
+  }
+  if (status === 429 && (normalized.includes('quota') || normalized.includes('billing') || normalized.includes('insufficient'))) {
+    return { status: 429, message: 'OpenAI image credits or quota are unavailable for this key. Add API billing or raise the project limit, then retry. No result was stored.' };
+  }
+  if (status === 429) {
+    return { status: 429, message: 'OpenAI image generation is rate-limited right now. Wait a moment and retry. No result was stored.' };
+  }
+  if (status === 400 && normalized.includes('moderation_blocked')) {
+    return { status: 400, message: 'This visual request was blocked by an image safety check. Revise the prompt and try again. No result was stored.' };
+  }
+  if (status >= 400 && status < 500) {
+    return { status, message: 'OpenAI could not use this visual request. Revise it and try again. No result was stored.' };
+  }
+  return { status: 502, message: 'The image service could not complete this request. No result was stored.' };
 }
 
 /** Direct media operations behind one capability-shaped local boundary. */
@@ -53,6 +75,7 @@ export function mediaPlugin(mode: string): Plugin {
       const env = loadEnv(mode, process.cwd(), '');
       const elevenKey = env.ELEVENLABS_API_KEY || process.env.ELEVENLABS_API_KEY;
       const geminiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+      const openAiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
       const spendCapUsd = Number(env.MEDIA_GENERATION_CAP_USD || DEFAULT_SESSION_CAP_USD);
       const gemini = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : undefined;
 
@@ -70,9 +93,10 @@ export function mediaPlugin(mode: string): Plugin {
         const path = (req.url ?? '').split('?')[0];
         if (req.method === 'GET' && (path === '/status' || path === 'status')) {
           sendJson(res, 200, {
-            sceneGeneration: Boolean(gemini),
+            sceneGeneration: Boolean(openAiKey),
             motionGeneration: Boolean(gemini),
             musicGeneration: Boolean(elevenKey),
+            imageProvider: IMAGE_PROVIDER,
             imageModel: IMAGE_MODEL,
             motionModel: VIDEO_MODEL,
             musicModel: MUSIC_MODEL,
@@ -93,8 +117,8 @@ export function mediaPlugin(mode: string): Plugin {
         }
 
         if (path === '/image' || path === 'image') {
-          if (!gemini) {
-            sendJson(res, 503, { message: 'Image generation needs GEMINI_API_KEY on the local server.' });
+          if (!openAiKey) {
+            sendJson(res, 503, { message: 'Image generation needs OPENAI_API_KEY on the local server.' });
             return;
           }
           if (!reserve(IMAGE_COST_USD)) {
@@ -110,25 +134,41 @@ export function mediaPlugin(mode: string): Plugin {
               return;
             }
             const style = body.style?.trim() || 'cinematic digital art';
-            const response = await gemini.models.generateContent({
-              model: IMAGE_MODEL,
-              contents: [
+            const imagePrompt = [
                 `Create a production-quality widescreen source image for a living visual environment. Subject: ${prompt}.`,
                 `Art direction: ${style}. Desktop 16:9 composition, strong subject separation, rich fine detail, coherent anatomy and lighting, no text, no border, no UI, no watermark-like lettering.`,
                 'Compose it so realtime grid, ASCII, halftone, glow, and motion treatments can track the subject without destroying its identity.',
-              ].join(' '),
-              config: {
-                responseModalities: ['IMAGE'],
-                imageConfig: { aspectRatio: '16:9', imageSize: '1K' },
+              ].join(' ');
+            const upstream = await fetch('https://api.openai.com/v1/images/generations', {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${openAiKey}`,
+                'content-type': 'application/json',
               },
+              body: JSON.stringify({
+                model: IMAGE_MODEL,
+                prompt: imagePrompt,
+                size: '1536x1024',
+                quality: 'low',
+                output_format: 'png',
+                n: 1,
+              }),
             });
-            const parts = response.candidates?.[0]?.content?.parts ?? [];
-            const image = parts.find((part) => part.inlineData?.data)?.inlineData;
-            if (!image?.data) throw new Error('Gemini returned no image bytes.');
+            if (!upstream.ok) {
+              const detail = await upstream.text();
+              release(IMAGE_COST_USD);
+              server.config.logger.error(`[vibe] OpenAI image failed (${upstream.status}): ${detail.slice(0, 1200)}`);
+              const failure = openAiImageMessage(upstream.status, detail);
+              sendJson(res, failure.status, { message: failure.message });
+              return;
+            }
+            const response = (await upstream.json()) as { data?: Array<{ b64_json?: string }> };
+            const imageData = response.data?.[0]?.b64_json;
+            if (!imageData) throw new Error('OpenAI returned no image bytes.');
             sendJson(res, 200, {
-              data: image.data,
-              mimeType: image.mimeType ?? 'image/png',
-              provider: 'google',
+              data: imageData,
+              mimeType: 'image/png',
+              provider: IMAGE_PROVIDER,
               model: IMAGE_MODEL,
               prompt,
               estimatedCostUsd: IMAGE_COST_USD,
@@ -136,8 +176,7 @@ export function mediaPlugin(mode: string): Plugin {
           } catch (err) {
             release(IMAGE_COST_USD);
             server.config.logger.error(`[vibe] image generation failed: ${String(err)}`);
-            const failure = providerMessage(err, 'image');
-            sendJson(res, failure.status, { message: failure.message });
+            sendJson(res, 502, { message: 'The image service could not complete this request. No result was stored.' });
           }
           return;
         }
@@ -210,7 +249,7 @@ export function mediaPlugin(mode: string): Plugin {
           } catch (err) {
             release(VIDEO_COST_USD);
             server.config.logger.error(`[vibe] motion generation failed: ${String(err)}`);
-            const failure = providerMessage(err, 'motion');
+            const failure = geminiMessage(err);
             sendJson(res, failure.status, { message: failure.message });
           } finally {
             if (outputPath) void unlink(outputPath).catch(() => undefined);

@@ -2,10 +2,9 @@
 /**
  * Generates the built-in effect library.
  *
- * These are not hand-written examples dressed up as AI output. They are real
- * generations through the same prompt and schema the product uses at runtime,
- * saved so Explore has genuinely good content on first launch instead of an
- * empty gallery and a 40 second wait.
+ * Most entries are real generations through the same prompt and schema the
+ * product uses at runtime. A reviewed built-in may also be hand-authored when
+ * a benchmark needs exact performance or interaction behavior.
  *
  *   node scripts/generate-builtin-effects.mjs
  *
@@ -39,6 +38,10 @@ const NEUTRAL_RAMP = [
 ];
 
 const REQUESTS = [
+  {
+    slug: 'psychedelic-fractal',
+    prompt: 'bold audio-reactive psychedelic fractal tunnel over the image with rotating kaleidoscopic symmetry, liquid radial distortion, rainbow cycling, recursive-looking geometry and glowing trails; bass expands, mids rotate and highs sparkle',
+  },
   {
     slug: 'drifting-motes',
     prompt: 'slow glowing particles drifting upward behind the scene, like embers or dust catching light, sparse and calm',

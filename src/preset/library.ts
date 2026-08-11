@@ -53,8 +53,8 @@ interface BuiltinEffectFile {
 }
 
 /**
- * These were produced by `npm run gen:effects` through the same prompt the
- * product uses at runtime — real generations, not hand-written stand-ins.
+ * These are produced through the runtime generation contract or reviewed as
+ * built-ins when a benchmark needs exact performance or interaction behavior.
  */
 export function builtInEffects(): EffectManifest[] {
   const file = builtinEffects as BuiltinEffectFile;

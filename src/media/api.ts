@@ -2,6 +2,7 @@ export interface MediaCapabilities {
   sceneGeneration: boolean;
   motionGeneration?: boolean;
   musicGeneration: boolean;
+  imageProvider?: string;
   imageModel?: string;
   motionModel?: string;
   musicModel?: string;

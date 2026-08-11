@@ -2,6 +2,41 @@
   "generatedAt": "2026-08-10T20:50:50.551Z",
   "effects": [
     {
+      "name": "psychedelic-fractal-vortex",
+      "notes": "A bold kaleidoscopic fractal vortex bends the source into rotating color symmetry, with bass expansion, midrange rotation and high-frequency sparkles.",
+      "glsl": "mat2 psyRotate(float a) {\n    float c = cos(a);\n    float s = sin(a);\n    return mat2(c, -s, s, c);\n}\n\nvec3 psySpectrum(float h) {\n    vec3 wheel = 0.54 + 0.46 * cos(6.2831853 * (h + vec3(0.00, 0.67, 0.33)));\n    vec3 ramp = mix(palette(4), palette(6), 0.5 + 0.5 * sin(h * 6.2831853));\n    ramp = mix(ramp, palette(7), 0.22 + 0.18 * cos(h * 12.5663706));\n    return mix(ramp, wheel, 0.58);\n}\n\nvec4 effect(vec2 uv, vec4 src) {\n    float aspect = uResolution.x / max(uResolution.y, 1.0);\n    float bass = 0.65 * audio(0) + 0.35 * audio(1);\n    float mids = 0.55 * audio(3) + 0.45 * audio(4);\n    float highs = 0.55 * audio(6) + 0.45 * audio(7);\n    float response = uP3;\n    float t = uTime * (0.10 + uP1 * 0.28) + mids * response * 0.55;\n\n    vec2 p = (uv - 0.5) * vec2(aspect, 1.0);\n    float radius = length(p);\n    float symmetry = max(3.0, floor(uP0 + 0.5));\n    float sector = 6.2831853 / symmetry;\n    float angle = atan(p.y, p.x) + t;\n    angle = abs(mod(angle + sector * 0.5, sector) - sector * 0.5);\n    float pulse = 1.0 + bass * response * 0.16;\n    vec2 fold = vec2(cos(angle), sin(angle)) * radius * pulse;\n\n    vec2 z = fold * (2.25 + 0.22 * sin(t * 0.7));\n    vec2 constant = vec2(-0.48 + 0.08 * sin(t * 0.31), 0.56 + 0.08 * cos(t * 0.23));\n    float trap = 10.0;\n    float escaped = 0.0;\n    float depth = clamp(uP2, 4.0, 18.0);\n    for (int i = 0; i < 18; i++) {\n        if (float(i) < depth && escaped < 0.5) {\n            z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + constant;\n            trap = min(trap, abs(length(z) - 0.72));\n            if (dot(z, z) > 9.0) escaped = 1.0;\n        }\n    }\n\n    float filaments = exp(-trap * (18.0 + depth * 0.8));\n    float tunnel = 0.5 + 0.5 * sin(22.0 * log(radius + 0.055) - t * 5.0 + filaments * 4.0);\n    float spokes = 0.5 + 0.5 * cos(angle * symmetry * 2.0 + t * 1.7);\n    float pattern = clamp(filaments * 1.15 + tunnel * 0.32 + spokes * 0.18, 0.0, 1.0);\n\n    vec2 warp = vec2(cos(angle), sin(angle)) * (0.025 + 0.035 * pattern);\n    warp *= uIntensity * (0.55 + 0.45 * uEnergy);\n    vec2 sampleUv = clamp(uv + warp * psyRotate(t * 0.25), vec2(0.002), vec2(0.998));\n    float split = (0.0015 + highs * response * 0.006) * uIntensity;\n    vec3 bent;\n    bent.r = texture(uTexture, clamp(sampleUv + warp * split * 18.0, vec2(0.002), vec2(0.998))).r;\n    bent.g = texture(uTexture, sampleUv).g;\n    bent.b = texture(uTexture, clamp(sampleUv - warp * split * 18.0, vec2(0.002), vec2(0.998))).b;\n\n    float hue = fract(radius * 1.85 - t * 0.12 + pattern * 0.48 + mids * 0.18);\n    vec3 color = psySpectrum(hue);\n    float sparkle = pow(max(0.0, sin((angle + radius * 9.0) * symmetry + t * 3.0)), 18.0);\n    sparkle *= highs * response;\n    vec3 psychedelic = mix(bent, color * (0.52 + pattern * 0.92), 0.35 + pattern * 0.48);\n    psychedelic += palette(7) * sparkle * 0.75;\n    psychedelic += color * filaments * (0.20 + bass * response * 0.32);\n\n    float vignette = smoothstep(1.05, 0.18, radius);\n    float strength = clamp(uIntensity * (0.72 + 0.28 * uEnergy), 0.0, 1.0);\n    vec3 outRgb = mix(src.rgb, psychedelic, strength * (0.58 + 0.34 * vignette));\n    return vec4(outRgb, src.a);\n}",
+      "params": [
+        {
+          "label": "Kaleidoscope Symmetry",
+          "min": 3,
+          "max": 12,
+          "value": 8
+        },
+        {
+          "label": "Rotation Speed",
+          "min": 0,
+          "max": 2,
+          "value": 0.62
+        },
+        {
+          "label": "Fractal Depth",
+          "min": 4,
+          "max": 18,
+          "value": 13
+        },
+        {
+          "label": "Audio Response",
+          "min": 0,
+          "max": 2,
+          "value": 1.35
+        }
+      ],
+      "slug": "psychedelic-fractal",
+      "prompt": "bold audio-reactive psychedelic fractal tunnel over the image with rotating kaleidoscopic symmetry, liquid radial distortion, rainbow cycling, recursive-looking geometry and glowing trails; bass expands, mids rotate and highs sparkle",
+      "provider": "codex",
+      "model": "hand-authored-v1"
+    },
+    {
       "name": "drifting-embers",
       "notes": "Sparse, softly glowing motes rise slowly behind the scene with parallax layers, gentle sway and slow twinkle.",
       "glsl": "vec3 emberLayer(vec2 uv, float aspect, float seed, float dens, float speed, float glowSize, float thresh) {\n    vec2 st = uv * vec2(aspect, 1.0) * dens;\n    st.x += sin(uTime * 0.043 + seed * 3.17) * 0.45;\n    st.y += uTime * speed;\n    vec2 cell = floor(st);\n    vec2 f = st - cell;\n    vec3 acc = vec3(0.0);\n    for (int j = -1; j <= 1; j++) {\n        for (int i = -1; i <= 1; i++) {\n            vec2 g = vec2(float(i), float(j));\n            vec2 id = cell + g;\n            float r = hash21(id + vec2(seed * 17.3, seed * 5.1));\n            if (r < thresh) continue;\n            vec2 off = vec2(hash21(id + vec2(3.7, 1.9)), hash21(id + vec2(9.1, 5.3)));\n            off.x += 0.14 * sin(uTime * 0.19 + r * 24.0);\n            off.y += 0.06 * sin(uTime * 0.11 + r * 11.0);\n            vec2 d2 = f - g - off;\n            float d = length(d2);\n            float sv = max(glowSize * (0.55 + 0.9 * hash21(id + vec2(2.2, 8.8))), 0.002);\n            float core = exp(-(d * d) / (sv * sv) * 2.6);\n            float halo = exp(-d / (sv * 3.0));\n            float tw = 0.62 + 0.38 * sin(uTime * 0.33 + r * 31.0);\n            vec3 col = mix(palette(5), palette(7), hash21(id + vec2(4.4, 6.6)));\n            acc += col * (core + halo * 0.30) * tw;\n        }\n    }\n    return acc;\n}\n\nvec4 effect(vec2 uv, vec4 src) {\n    float aspect = uResolution.x / max(uResolution.y, 1.0);\n    float dens = max(uP0, 2.0);\n    float spd = uP1;\n    float gs = uP2;\n\n    vec3 g = vec3(0.0);\n    g += emberLayer(uv, aspect, 1.0, dens, spd, gs, 0.80) * 1.00;\n    g += emberLayer(uv, aspect, 2.0, dens * 1.63, spd * 0.62, gs * 0.72, 0.84) * 0.55;\n    g += emberLayer(uv, aspect, 3.0, dens * 0.71, spd * 1.41, gs * 1.35, 0.88) * 0.35;\n\n    // soft vertical fade so motes appear and dissolve rather than pop at edges\n    float fade = smoothstep(0.0, 0.22, uv.y) * smoothstep(1.0, 0.72, uv.y);\n    float breath = 0.85 + 0.15 * sin(uTime * 0.07);\n    float lift = 0.30 + 0.70 * uEnergy;\n    float snd = 1.0 + 0.25 * audio(1);\n\n    g *= uP3 * uIntensity * fade * breath * lift * snd;\n\n    // mostly behind the scene, with a faint bleed through solid areas\n    float behind = 1.0 - src.a * 0.85;\n    return vec4(src.rgb + g * behind, src.a);\n}",
