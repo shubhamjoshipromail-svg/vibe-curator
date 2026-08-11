@@ -2,6 +2,7 @@ export interface MediaCapabilities {
   sceneGeneration: boolean;
   motionGeneration?: boolean;
   musicGeneration: boolean;
+  musicPromptAdaptation?: boolean;
   imageProvider?: string;
   imageModel?: string;
   motionModel?: string;
@@ -27,6 +28,10 @@ export interface GeneratedMusic {
   model: string;
   provider: string;
   durationSeconds?: number;
+  adaptedPrompt?: string;
+  promptProvider?: string;
+  promptModel?: string;
+  estimatedCostUsd?: number;
 }
 
 async function safeMessage(res: Response): Promise<string> {
@@ -110,6 +115,10 @@ export async function generateMusic(prompt: string): Promise<GeneratedMusic> {
     model: string;
     provider: string;
     durationSeconds?: number;
+    adaptedPrompt?: string;
+    promptProvider?: string;
+    promptModel?: string;
+    estimatedCostUsd?: number;
   };
   const bytes = Uint8Array.from(atob(body.data), (char) => char.charCodeAt(0));
   return {
@@ -118,5 +127,9 @@ export async function generateMusic(prompt: string): Promise<GeneratedMusic> {
     model: body.model,
     provider: body.provider,
     durationSeconds: body.durationSeconds,
+    adaptedPrompt: body.adaptedPrompt,
+    promptProvider: body.promptProvider,
+    promptModel: body.promptModel,
+    estimatedCostUsd: body.estimatedCostUsd,
   };
 }

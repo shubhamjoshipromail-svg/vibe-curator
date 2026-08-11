@@ -574,7 +574,10 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         musicGo.disabled = true;
         musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
       } else {
-        musicStatus.textContent = 'One explicit 30-second generation · approximately $0.075 at current list pricing.';
+        musicStatus.textContent = caps.musicPromptAdaptation
+          ? 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 30-second generation · approximately $0.076.'
+          : 'Add ANTHROPIC_API_KEY to translate artist references before music generation.';
+        if (!caps.musicPromptAdaptation) musicGo.disabled = true;
       }
     })
     .catch(() => {
@@ -592,14 +595,15 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     musicStatus.textContent = 'Composing one track… your current music keeps playing.';
     try {
       const generated = await generateMusic(prompt);
+      const savedPrompt = generated.adaptedPrompt ?? prompt;
       const assetId = await storeAsset(generated.blob, 'music');
       draft.music = {
         assetId,
-        name: prompt.length > 46 ? `${prompt.slice(0, 43)}…` : prompt,
+        name: savedPrompt.length > 46 ? `${savedPrompt.slice(0, 43)}…` : savedPrompt,
         mimeType: generated.mimeType,
         durationSeconds: generated.durationSeconds,
         provenance: {
-          prompt,
+          prompt: savedPrompt,
           provider: generated.provider,
           model: generated.model,
           createdAt: new Date().toISOString(),
@@ -609,7 +613,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       const url = await assetUrl(assetId);
       if (state.started) await state.audio.setGeneratedMusic(url);
       drawMusic();
-      musicStatus.textContent = 'Track saved locally and attached to this room. It will be reused during playback.';
+      musicPrompt.value = savedPrompt;
+      musicStatus.textContent = 'Track saved. The text box now shows the name-free descriptive prompt sent to ElevenLabs.';
     } catch (err) {
       console.error('[vibe] music generation failed', err);
       musicStatus.textContent = err instanceof Error ? err.message : 'Music generation failed. Your current mix is unchanged.';

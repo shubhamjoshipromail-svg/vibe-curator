@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 import { readFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 const MUSIC_MODEL = 'music_v2';
 const MUSIC_PROVIDER = 'elevenlabs';
+const MUSIC_PROMPT_MODEL = 'claude-haiku-4-5';
+const MUSIC_PROMPT_PROVIDER = 'anthropic';
 const IMAGE_MODEL = 'gpt-image-2';
 const IMAGE_PROVIDER = 'openai';
 const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
@@ -15,6 +18,7 @@ const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
 const IMAGE_COST_USD = 0.01;
 const VIDEO_COST_USD = 0.20;
 const MUSIC_COST_USD = 0.075;
+const MUSIC_PROMPT_COST_USD = 0.001;
 const DEFAULT_SESSION_CAP_USD = 3;
 
 async function readBody(req: { on: (e: string, cb: (c?: unknown) => void) => void }): Promise<string> {
@@ -66,6 +70,56 @@ function openAiImageMessage(status: number, detail: string): { status: number; m
   return { status: 502, message: 'The image service could not complete this request. No result was stored.' };
 }
 
+const MUSIC_PROMPT_SCHEMA = {
+  type: 'object',
+  properties: {
+    prompt: { type: 'string' },
+    removedReferences: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['prompt', 'removedReferences'],
+  additionalProperties: false,
+} as const;
+
+function stripReferences(prompt: string, references: string[]): string {
+  let clean = prompt;
+  for (const reference of references) {
+    const term = reference.trim();
+    if (!term) continue;
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    clean = clean.replace(new RegExp(escaped, 'gi'), '');
+  }
+  return clean
+    .replace(/\b(?:in the style of|inspired by|sounds? like|reminiscent of)\b\s*[,;:]?/gi, '')
+    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+async function adaptMusicPrompt(client: Anthropic, request: string): Promise<{ prompt: string; removedReferences: string[] }> {
+  const message = await client.messages.create({
+    model: MUSIC_PROMPT_MODEL,
+    max_tokens: 500,
+    system: [
+      'Convert a user music request into a concise production prompt for a music-generation model.',
+      'Infer musical DNA from any named artists, bands, songs, albums, producers, or eras: instrumentation, tempo, groove, harmony, arrangement, production texture, performance feel, dynamics, and emotional arc.',
+      'The output prompt must contain no artist, band, song, album, label, producer, celebrity, or other proper-name references from the request.',
+      'Never write “in the style of”, “inspired by”, “sounds like”, or equivalent comparison language.',
+      'Do not copy lyrics, melodies, titles, or signature phrases. Describe transferable musical characteristics only.',
+      'Shape the direction for a strong 30-second instrumental excerpt, but do not mention a duration in the output.',
+      'Write 45–90 words, usable directly as an instrumental generation prompt. Return every removed named reference in removedReferences.',
+    ].join(' '),
+    output_config: { format: { type: 'json_schema', schema: MUSIC_PROMPT_SCHEMA } },
+    messages: [{ role: 'user', content: request }],
+  });
+  const text = message.content.find((block) => block.type === 'text');
+  if (!text || text.type !== 'text') throw new Error('Prompt adapter returned no text.');
+  const parsed = JSON.parse(text.text) as { prompt?: string; removedReferences?: string[] };
+  const references = Array.isArray(parsed.removedReferences) ? parsed.removedReferences : [];
+  const prompt = stripReferences(parsed.prompt?.trim() ?? '', references);
+  if (!prompt) throw new Error('Prompt adapter returned an empty prompt.');
+  return { prompt, removedReferences: references };
+}
+
 /** Direct media operations behind one capability-shaped local boundary. */
 export function mediaPlugin(mode: string): Plugin {
   let estimatedSpendUsd = 0;
@@ -76,8 +130,10 @@ export function mediaPlugin(mode: string): Plugin {
       const elevenKey = env.ELEVENLABS_API_KEY || process.env.ELEVENLABS_API_KEY;
       const geminiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
       const openAiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      const anthropicKey = env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const spendCapUsd = Number(env.MEDIA_GENERATION_CAP_USD || DEFAULT_SESSION_CAP_USD);
       const gemini = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : undefined;
+      const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : undefined;
 
       const reserve = (estimatedCost: number) => {
         if (estimatedSpendUsd + estimatedCost > spendCapUsd + 0.0001) return false;
@@ -96,6 +152,7 @@ export function mediaPlugin(mode: string): Plugin {
             sceneGeneration: Boolean(openAiKey),
             motionGeneration: Boolean(gemini),
             musicGeneration: Boolean(elevenKey),
+            musicPromptAdaptation: Boolean(anthropic),
             imageProvider: IMAGE_PROVIDER,
             imageModel: IMAGE_MODEL,
             motionModel: VIDEO_MODEL,
@@ -103,7 +160,7 @@ export function mediaPlugin(mode: string): Plugin {
             estimatedCostsUsd: {
               image: IMAGE_COST_USD,
               motionDraft: VIDEO_COST_USD,
-              music: MUSIC_COST_USD,
+              music: MUSIC_COST_USD + MUSIC_PROMPT_COST_USD,
             },
             estimatedSpendUsd: Number(estimatedSpendUsd.toFixed(3)),
             spendCapUsd,
@@ -257,6 +314,36 @@ export function mediaPlugin(mode: string): Plugin {
           return;
         }
 
+        if (path === '/music-prompt' || path === 'music-prompt') {
+          if (!anthropic) {
+            sendJson(res, 503, { message: 'Artist-reference adaptation needs ANTHROPIC_API_KEY on the local server.' });
+            return;
+          }
+          try {
+            const body = JSON.parse(await readBody(req)) as { prompt?: string };
+            const request = body.prompt?.trim();
+            if (!request) {
+              sendJson(res, 400, { message: 'Describe the music first.' });
+              return;
+            }
+            if (!reserve(MUSIC_PROMPT_COST_USD)) {
+              sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
+              return;
+            }
+            const adapted = await adaptMusicPrompt(anthropic, request);
+            sendJson(res, 200, {
+              ...adapted,
+              provider: MUSIC_PROMPT_PROVIDER,
+              model: MUSIC_PROMPT_MODEL,
+            });
+          } catch (err) {
+            release(MUSIC_PROMPT_COST_USD);
+            server.config.logger.error(`[vibe] music prompt adaptation failed: ${String(err)}`);
+            sendJson(res, 502, { message: 'The music direction could not be translated right now.' });
+          }
+          return;
+        }
+
         if (path !== '/music' && path !== 'music') {
           sendJson(res, 404, { message: 'Media operation not found.' });
           return;
@@ -267,19 +354,30 @@ export function mediaPlugin(mode: string): Plugin {
           });
           return;
         }
-        if (!reserve(MUSIC_COST_USD)) {
+        if (!anthropic) {
+          sendJson(res, 503, {
+            message: 'Music generation needs ANTHROPIC_API_KEY to translate artist references before sending them to ElevenLabs.',
+          });
+          return;
+        }
+        const totalMusicCostUsd = MUSIC_COST_USD + MUSIC_PROMPT_COST_USD;
+        if (!reserve(totalMusicCostUsd)) {
           sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
           return;
         }
 
+        let promptAdapted = false;
         try {
           const body = JSON.parse(await readBody(req)) as { prompt?: string };
           const prompt = body.prompt?.trim();
           if (!prompt) {
-            release(MUSIC_COST_USD);
+            release(totalMusicCostUsd);
             sendJson(res, 400, { message: 'Describe the music first.' });
             return;
           }
+
+          const adapted = await adaptMusicPrompt(anthropic, prompt);
+          promptAdapted = true;
 
           const upstream = await fetch(
             'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
@@ -288,7 +386,7 @@ export function mediaPlugin(mode: string): Plugin {
             headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
             body: JSON.stringify({
               model_id: MUSIC_MODEL,
-              prompt: `Instrumental ambient soundtrack for a visual environment. No vocals. ${prompt}`,
+              prompt: `Instrumental soundtrack for a visual environment. No vocals. ${adapted.prompt}`,
               music_length_ms: 30_000,
               force_instrumental: true,
             }),
@@ -308,7 +406,6 @@ export function mediaPlugin(mode: string): Plugin {
 
           const audio = Buffer.from(await upstream.arrayBuffer());
           if (!audio.length) {
-            release(MUSIC_COST_USD);
             server.config.logger.error('[vibe] Eleven Music response contained no audio bytes');
             sendJson(res, 502, { message: 'The music service returned no playable track.' });
             return;
@@ -321,9 +418,13 @@ export function mediaPlugin(mode: string): Plugin {
             model: MUSIC_MODEL,
             durationSeconds: 30,
             songId: upstream.headers.get('song-id') ?? undefined,
+            adaptedPrompt: adapted.prompt,
+            promptProvider: MUSIC_PROMPT_PROVIDER,
+            promptModel: MUSIC_PROMPT_MODEL,
+            estimatedCostUsd: totalMusicCostUsd,
           });
         } catch (err) {
-          release(MUSIC_COST_USD);
+          release(promptAdapted ? MUSIC_COST_USD : totalMusicCostUsd);
           server.config.logger.error(`[vibe] music generation failed: ${String(err)}`);
           sendJson(res, 500, { message: 'The music could not be generated right now.' });
         }
