@@ -129,8 +129,12 @@ export interface Preset {
   /** Ships with the app; cannot be overwritten, only remixed into a copy. */
   builtIn: boolean;
   createdAt: string;
+  /** Last meaningful edit. Used to resume the newest project and sort the Library. */
+  updatedAt: string;
   /** Set when this was remixed from another preset. Gives Library a lineage. */
   parentId?: string;
+  /** Small automatic facets for Library grouping; users never have to file things manually. */
+  tags: string[];
 
   // --- layers ---
   /** First-class scene source. Missing on v1 saved presets and migrated on read. */

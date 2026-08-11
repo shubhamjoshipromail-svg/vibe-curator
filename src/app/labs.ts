@@ -5,8 +5,8 @@ import { builtInEffects, forkPreset, getPreset, savePreset } from '../preset/lib
 import { CONTROL_DEFS, newId, type Preset } from '../preset/types';
 import { generateEffect } from '../effects/generate';
 import type { EffectManifest } from '../effects/manifest';
-import { assetUrl, storeAsset } from '../media/assets';
-import { generateMusic, mediaCapabilities } from '../media/api';
+import { assetUrl, cachedGeneration, generationFingerprint, getAsset, rememberGeneration, storeAsset } from '../media/assets';
+import { generateMusic, generateSceneMotion, mediaCapabilities } from '../media/api';
 import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '../source-aware/types';
 
 /**
@@ -56,9 +56,11 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <div class="scene-actions">
             <label class="button-like primary" for="scene-upload">Use image or video</label>
             <input id="scene-upload" class="file-input" type="file" accept="image/*,video/*" />
+            <button class="ghost" id="scene-animate">Animate source · ~$0.20</button>
             <button class="ghost" id="scene-restore">Restore original</button>
           </div>
           <p class="fx-status" id="scene-status"></p>
+          <div class="source-motion" id="source-motion"></div>
           <div class="source-treatments">
             <h3>Source-aware treatments</h3>
             <p class="hint">These read motion and contours from the source. Atmospheric effects below still compose on top.</p>
@@ -89,7 +91,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
             <h3>Music asset</h3>
             <div id="music-current"></div>
             <textarea id="music-prompt" rows="2" placeholder="calm instrumental, felt piano and distant strings…"></textarea>
-            <button class="primary wide" id="music-go">Generate 30-second track</button>
+            <button class="primary wide" id="music-go">Generate music from this visual</button>
             <p class="fx-status" id="music-status"></p>
           </div>
         </section>
@@ -106,6 +108,49 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const sceneSummary = host.querySelector<HTMLDivElement>('#scene-summary')!;
   const sceneStatus = host.querySelector<HTMLParagraphElement>('#scene-status')!;
   const sceneUpload = host.querySelector<HTMLInputElement>('#scene-upload')!;
+  const sceneAnimate = host.querySelector<HTMLButtonElement>('#scene-animate')!;
+  const sourceMotion = host.querySelector<HTMLDivElement>('#source-motion')!;
+
+  function drawSourceMotion() {
+    sourceMotion.innerHTML = '';
+    if (draft.scene.kind !== 'image' && draft.scene.kind !== 'video') return;
+    const motion = draft.scene.motion ?? {
+      kind: draft.scene.kind === 'image' ? 'flow' as const : 'none' as const,
+      amount: 0.025,
+      speed: draft.scene.kind === 'video' ? 1 : 0.8,
+    };
+    draft.scene.motion = motion;
+    sourceMotion.innerHTML = `
+      <div class="source-motion-head"><strong>Motion</strong><span>${draft.scene.kind === 'video' ? 'playback' : 'live image movement'}</span></div>
+      <div class="motion-kind" role="group" aria-label="Motion style"></div>
+      <label class="ctl ctl-tight"><div class="ctl-head"><span>Speed</span><output>${(motion.speed ?? .8).toFixed(2)}×</output></div><input data-motion="speed" type="range" min="0.2" max="2" step="0.01" value="${motion.speed ?? .8}" /></label>
+      ${draft.scene.kind === 'image' ? `<label class="ctl ctl-tight"><div class="ctl-head"><span>Amount</span><output>${Math.round((motion.amount ?? .025) * 100)}%</output></div><input data-motion="amount" type="range" min="0" max="0.09" step="0.001" value="${motion.amount ?? .025}" /></label>` : ''}
+    `;
+    const choices = draft.scene.kind === 'image' ? ['none', 'drift', 'flow'] as const : ['none'] as const;
+    const kindHost = sourceMotion.querySelector<HTMLDivElement>('.motion-kind')!;
+    for (const kind of choices) {
+      const button = document.createElement('button');
+      button.className = `filter-chip${motion.kind === kind ? ' active' : ''}`;
+      button.textContent = kind;
+      button.addEventListener('click', () => {
+        motion.kind = kind;
+        state.scene.setSourceMotion(motion);
+        drawSourceMotion();
+      });
+      kindHost.appendChild(button);
+    }
+    for (const input of sourceMotion.querySelectorAll<HTMLInputElement>('input[data-motion]')) {
+      input.addEventListener('input', () => {
+        if (input.dataset.motion === 'speed') motion.speed = Number(input.value);
+        else motion.amount = Number(input.value);
+        const output = input.closest('label')?.querySelector('output');
+        if (output) output.textContent = input.dataset.motion === 'speed'
+          ? `${Number(input.value).toFixed(2)}×`
+          : `${Math.round(Number(input.value) * 100)}%`;
+        state.scene.setSourceMotion(motion);
+      });
+    }
+  }
 
   function drawScene() {
     const kind = draft.scene.kind === 'renderer'
@@ -119,6 +164,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       <div><strong>${draft.scene.label}</strong><span>${kind} · ${draft.scene.style}</span></div>
       <span class="scene-kind">${draft.scene.kind}</span>
     `;
+    sceneAnimate.hidden = draft.scene.kind !== 'image' || !draft.scene.assetId;
+    drawSourceMotion();
   }
 
   sceneUpload.addEventListener('change', async () => {
@@ -143,6 +190,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         label: file.name.replace(/\.[^.]+$/, ''),
         style: 'uploaded',
         provenance: { createdAt: new Date().toISOString(), parentPresetId: source.id },
+        motion: kind === 'image' ? { kind: 'flow', amount: 0.025, speed: 0.8 } : { kind: 'none', speed: 1 },
       };
       await loadPreset(state, draft);
       drawScene();
@@ -153,6 +201,48 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       sceneStatus.textContent = 'That file could not be used as a scene.';
     } finally {
       sceneUpload.value = '';
+    }
+  });
+
+  sceneAnimate.addEventListener('click', async () => {
+    if (draft.scene.kind !== 'image' || !draft.scene.assetId) return;
+    sceneAnimate.disabled = true;
+    sceneStatus.textContent = 'Creating one 4-second motion draft… this can take a few minutes.';
+    try {
+      const image = await getAsset(draft.scene.assetId);
+      if (!image) throw new Error('The source image is no longer available locally.');
+      const request = draft.scene.provenance?.prompt ?? draft.description;
+      const fingerprint = await generationFingerprint('scene-motion', draft.scene.assetId, request);
+      const cached = await cachedGeneration(fingerprint);
+      let assetId = cached?.id;
+      let mimeType = cached?.blob.type || 'video/mp4';
+      let provider = 'google';
+      let model = 'veo-3.1-lite-generate-preview';
+      if (!assetId) {
+        const generated = await generateSceneMotion(request, image);
+        assetId = await storeAsset(generated.blob, 'scene');
+        mimeType = generated.mimeType;
+        provider = generated.provider;
+        model = generated.model;
+        rememberGeneration(fingerprint, assetId);
+      }
+      draft.scene = {
+        kind: 'video',
+        assetId,
+        mimeType,
+        label: draft.scene.label,
+        style: draft.scene.style,
+        motion: { kind: 'none', speed: 1 },
+        provenance: { ...draft.scene.provenance, provider, model, createdAt: new Date().toISOString() },
+      };
+      await loadPreset(state, draft);
+      drawScene();
+      sceneStatus.textContent = cached ? 'Cached motion reused. Adjust playback speed below.' : 'Motion saved locally. Adjust playback speed below.';
+    } catch (error) {
+      console.error('[vibe] source motion failed', error);
+      sceneStatus.textContent = error instanceof Error ? error.message : 'Motion generation failed; the image is unchanged.';
+    } finally {
+      sceneAnimate.disabled = false;
     }
   });
 
@@ -174,6 +264,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     { key: 'glow', label: 'Glow', min: 0, max: 1.5, step: 0.01 },
     { key: 'density', label: 'Density', min: 0.08, max: 1, step: 0.01 },
     { key: 'response', label: 'Response', min: 0.2, max: 3, step: 0.02 },
+    { key: 'sourceVisibility', label: 'Source detail', min: 0, max: 1, step: 0.01 },
   ];
 
   function syncSourceTreatments() {
@@ -219,10 +310,10 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     return el;
   }
 
-  function addSourceTreatment(kind: 'motion-cells' | 'edge-echo') {
+  function addSourceTreatment(kind: 'motion-cells' | 'edge-echo' | 'tracked-grid') {
     const recipe = sourceEffect(
       kind,
-      kind === 'motion-cells' ? 'Motion cells' : 'Edge echo',
+      kind === 'motion-cells' ? 'Motion cells' : kind === 'edge-echo' ? 'Edge echo' : 'Tracked grid',
       draft.palette.accent,
     );
     recipe.id = newId('source');
@@ -236,6 +327,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     for (const option of [
       { kind: 'motion-cells' as const, label: '+ Motion cells' },
       { kind: 'edge-echo' as const, label: '+ Edge echo' },
+      { kind: 'tracked-grid' as const, label: '+ Tracked grid' },
     ]) {
       const button = document.createElement('button');
       button.className = 'stock-effect';
@@ -455,6 +547,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const musicPrompt = host.querySelector<HTMLTextAreaElement>('#music-prompt')!;
   const musicGo = host.querySelector<HTMLButtonElement>('#music-go')!;
   const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
+  const visualPrompt = draft.scene.provenance?.prompt ?? draft.description;
+  musicPrompt.value = `Instrumental soundtrack for: ${visualPrompt}. Cohesive, atmospheric, no vocals.`;
 
   function drawMusic() {
     musicCurrent.innerHTML = '';

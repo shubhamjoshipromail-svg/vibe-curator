@@ -11,7 +11,7 @@ import { arcAt } from './arc';
 import { DEFAULT_CONTROLS, type Controls } from './preset/types';
 import type { EffectFilter } from './effects/filter';
 import type { Filter } from 'pixi.js';
-import { SourceAwareSurface } from './source-aware/processor';
+import { SourceAwareSurface, type SourceMetrics } from './source-aware/processor';
 import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from './source-aware/types';
 
 /**
@@ -360,6 +360,14 @@ export class Scene {
     this.sourceSurface?.setRecipes(recipes);
   }
 
+  setSourceMotion(motion?: SourceMotion): void {
+    this.sourceSurface?.setMotion(motion);
+  }
+
+  getSourceMetrics(): SourceMetrics | undefined {
+    return this.sourceSurface?.getMetrics();
+  }
+
   private stopMedia(): void {
     if (this.mediaElement) {
       this.mediaElement.pause();
@@ -501,8 +509,7 @@ export class Scene {
 
     const ctx = this.frameCtx(dt);
     if (this.sourceSurface && this.sourceTexture) {
-      this.sourceSurface.update(this.t, dt);
-      this.sourceTexture.source.update();
+      if (this.sourceSurface.update(this.t, dt)) this.sourceTexture.source.update();
     }
     for (const layer of this.layers) {
       ANIMATORS[layer.def.animator].update(layer, ctx);

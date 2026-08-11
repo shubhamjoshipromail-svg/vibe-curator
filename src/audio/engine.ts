@@ -64,6 +64,7 @@ export class AudioEngine {
   private meter?: Tone.Meter;
   private analyser?: Tone.Analyser;
   private bands = new Float32Array(8);
+  private visual = { brightness: 0, motion: 0, centroidX: 0.5 };
 
   /**
    * Eight spectrum bands, 0..1, low to high.
@@ -168,6 +169,21 @@ export class AudioEngine {
     // The room gets quieter and darker as the session settles.
     const target = this.spec.lowpass_hz * (0.55 + 0.45 * e);
     this.filter.frequency.rampTo(target, 2);
+  }
+
+  /** The image becomes a continuous control signal: motion opens the mix,
+   * brightness lifts the cutoff, and the subject position steers the motif. */
+  setVisualMetrics(metrics?: { brightness: number; motion: number; centroidX: number }): void {
+    if (!metrics) return;
+    this.visual.brightness += (metrics.brightness - this.visual.brightness) * 0.12;
+    this.visual.motion += (metrics.motion - this.visual.motion) * 0.18;
+    this.visual.centroidX += (metrics.centroidX - this.visual.centroidX) * 0.14;
+    if (this.spec && this.filter) {
+      const arcScale = 0.55 + 0.45 * this.energy;
+      const visualScale = 0.78 + this.visual.brightness * 0.3 + this.visual.motion * 0.34;
+      this.filter.frequency.rampTo(this.spec.lowpass_hz * arcScale * visualScale, 0.18);
+    }
+    this.motifPan?.pan.rampTo((this.visual.centroidX - 0.5) * 1.35, 0.22);
   }
 
   stop(): void {

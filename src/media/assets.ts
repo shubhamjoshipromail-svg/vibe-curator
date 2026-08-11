@@ -6,6 +6,7 @@
 const DB_NAME = 'vibe-media-v1';
 const STORE = 'assets';
 const urls = new Map<string, string>();
+const GENERATION_CACHE_KEY = 'vibe.media-generations.v1';
 
 interface StoredAsset {
   id: string;
@@ -68,4 +69,32 @@ export async function deleteAsset(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+}
+
+function readGenerationCache(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GENERATION_CACHE_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function generationFingerprint(...parts: string[]): Promise<string> {
+  const normalized = parts.map((part) => part.trim().toLowerCase()).join('\u241f');
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
+  return Array.from(new Uint8Array(bytes)).slice(0, 12).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function cachedGeneration(fingerprint: string): Promise<{ id: string; blob: Blob } | undefined> {
+  const id = readGenerationCache()[fingerprint];
+  if (!id) return undefined;
+  const blob = await getAsset(id);
+  return blob ? { id, blob } : undefined;
+}
+
+export function rememberGeneration(fingerprint: string, assetId: string): void {
+  const cache = readGenerationCache();
+  cache[fingerprint] = assetId;
+  localStorage.setItem(GENERATION_CACHE_KEY, JSON.stringify(cache));
 }

@@ -24,6 +24,16 @@ import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
 
 const STORAGE_KEY = 'vibe.library.v1';
 
+function automaticTags(scene: SceneLayer, style: string, prompt = ''): string[] {
+  const text = `${prompt} ${scene.label} ${style}`.toLowerCase();
+  const tags = new Set<string>([scene.kind, style.toLowerCase().replace(/\s+/g, '-')]);
+  for (const tag of ['fish', 'flower', 'cloud', 'portrait', 'landscape', 'abstract', 'nature', 'space']) {
+    if (text.includes(tag)) tags.add(tag);
+  }
+  if (scene.kind === 'image' || scene.kind === 'video') tags.add('media');
+  return [...tags];
+}
+
 // --- built-in effects --------------------------------------------------------
 
 interface BuiltinEffectFile {
@@ -119,6 +129,8 @@ function seed(
     description,
     builtIn: true,
     createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    tags: automaticTags(scene ?? { kind: 'renderer', label: name, style: 'procedural' }, 'starting-point', description),
     baseVibeId,
     scene: scene ?? { kind: 'renderer', label: 'Living renderer', style: baseVibeId === 'ashen-keep' ? 'pixel art' : 'procedural' },
     palette: pal,
@@ -191,6 +203,8 @@ function seedPresets(): Preset[] {
 function normalizePreset(raw: Preset): Preset {
   return {
     ...raw,
+    updatedAt: raw.updatedAt ?? raw.createdAt,
+    tags: Array.isArray(raw.tags) ? raw.tags : automaticTags(raw.scene, raw.scene?.style ?? 'scene', raw.description),
     scene: raw.scene ?? { kind: 'renderer', label: 'Living renderer', style: 'procedural' },
     effects: Array.isArray(raw.effects) ? raw.effects : [],
     sourceEffects: Array.isArray(raw.sourceEffects) ? raw.sourceEffects : [],
@@ -220,11 +234,27 @@ function writeSaved(list: Preset[]): void {
 }
 
 export function listPresets(): Preset[] {
-  return [...seedPresets(), ...loadSaved()];
+  return [...seedPresets(), ...consolidateSaved(loadSaved())];
 }
 
 export function listSaved(): Preset[] {
-  return loadSaved();
+  return consolidateSaved(loadSaved());
+}
+
+/** Older builds created a new remix on every open. Keep that data recoverable,
+ * but present only the newest revision for each starting point in the Library. */
+function consolidateSaved(saved: Preset[]): Preset[] {
+  const newestByParent = new Map<string, Preset>();
+  const independent: Preset[] = [];
+  for (const preset of saved) {
+    if (!preset.parentId) {
+      independent.push(preset);
+      continue;
+    }
+    const current = newestByParent.get(preset.parentId);
+    if (!current || preset.updatedAt > current.updatedAt) newestByParent.set(preset.parentId, preset);
+  }
+  return [...independent, ...newestByParent.values()];
 }
 
 export function getPreset(id: string): Preset | undefined {
@@ -233,6 +263,8 @@ export function getPreset(id: string): Preset | undefined {
 
 /** Persist a user preset, replacing any existing one with the same id. */
 export function savePreset(preset: Preset): Preset {
+  preset.updatedAt = new Date().toISOString();
+  preset.tags = automaticTags(preset.scene, preset.scene.style, preset.scene.provenance?.prompt ?? preset.description);
   const saved = loadSaved().filter((p) => p.id !== preset.id);
   saved.push(preset);
   writeSaved(saved);
@@ -248,12 +280,72 @@ export function deletePreset(id: string): void {
  * produces a new, owned copy, with `parentId` recording where it came from.
  */
 export function forkPreset(source: Preset, name?: string): Preset {
+  if (source.builtIn) {
+    const existing = loadSaved()
+      .filter((preset) => preset.parentId === source.id)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    if (existing) return structuredClone(existing);
+  }
+  const now = new Date().toISOString();
   return {
     ...structuredClone(source),
     id: newId('preset'),
     name: name ?? `${source.name} remix`,
     builtIn: false,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
+    tags: [...source.tags],
     parentId: source.id,
+  };
+}
+
+export function createMediaPreset(input: {
+  prompt: string;
+  style: string;
+  assetId: string;
+  mimeType: string;
+  provider: string;
+  model: string;
+}): Preset {
+  const now = new Date().toISOString();
+  const words = input.prompt.trim().split(/\s+/).slice(0, 5).join(' ');
+  const name = words ? words.replace(/^./, (letter) => letter.toUpperCase()) : 'Untitled visual';
+  const scene: SceneLayer = {
+    kind: 'image',
+    label: name,
+    style: input.style,
+    assetId: input.assetId,
+    mimeType: input.mimeType,
+    motion: { kind: 'flow', amount: 0.028, speed: 0.75 },
+    provenance: {
+      prompt: input.prompt,
+      provider: input.provider,
+      model: input.model,
+      createdAt: now,
+    },
+  };
+  return {
+    id: newId('project'),
+    name,
+    description: input.prompt,
+    builtIn: false,
+    createdAt: now,
+    updatedAt: now,
+    tags: automaticTags(scene, input.style, input.prompt),
+    scene,
+    baseVibeId: 'signal-drift',
+    palette: structuredClone(SIGNAL),
+    effects: [],
+    sourceEffects: [sourceEffect('tracked-grid', 'Tracked signal grid', '#ff8a5b', {
+      cellSize: 8,
+      density: 0.7,
+      glow: 0.72,
+      trail: 0.7,
+      response: 1.15,
+      sourceVisibility: 0.88,
+    })],
+    audio: structuredClone(DEFAULT_AUDIO),
+    controls: { ...DEFAULT_CONTROLS, motion: 0.72, glow: 0.74, intensity: 0.72 },
+    theme: { accent: SIGNAL.accent },
   };
 }

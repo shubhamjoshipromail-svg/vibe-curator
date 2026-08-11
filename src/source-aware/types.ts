@@ -1,12 +1,12 @@
 export type DemoSourceId = 'living-koi' | 'drifting-cloud' | 'blooming-flower';
 
 export interface SourceMotion {
-  kind: 'none' | 'drift';
+  kind: 'none' | 'drift' | 'flow';
   amount?: number;
   speed?: number;
 }
 
-export type SourceEffectKind = 'motion-cells' | 'edge-echo';
+export type SourceEffectKind = 'motion-cells' | 'edge-echo' | 'tracked-grid';
 
 export interface SourceEffectParams {
   /** Display-space size of each sampled cell. */
@@ -21,6 +21,8 @@ export interface SourceEffectParams {
   response: number;
   /** Hex tint applied to the reconstruction. */
   color: string;
+  /** Amount of the clean source retained underneath the reconstruction. */
+  sourceVisibility: number;
 }
 
 /**
@@ -48,7 +50,9 @@ export function sourceEffect(
     name,
     notes: kind === 'motion-cells'
       ? 'Cells appear where the source itself moves, then dissolve into a short trail.'
-      : 'A luminous reconstruction follows changing contours and source edges.',
+      : kind === 'edge-echo'
+        ? 'A luminous reconstruction follows changing contours and source edges.'
+        : 'A detailed field of pluses, squares and pixels tracks the source silhouette and motion.',
     enabled: true,
     params: {
       cellSize: 12,
@@ -57,6 +61,7 @@ export function sourceEffect(
       density: 0.72,
       response: 1.1,
       color,
+      sourceVisibility: 0.82,
       ...values,
     },
   };

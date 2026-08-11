@@ -91,7 +91,10 @@ app.querySelector<HTMLButtonElement>('#begin')!.addEventListener('click', async 
 
 // Feed the live spectrum to generated effects every frame.
 function pumpAudio() {
-  if (audio.started) scene.setAudioBands(audio.getBands());
+  if (audio.started) {
+    scene.setAudioBands(audio.getBands());
+    audio.setVisualMetrics(scene.getSourceMetrics());
+  }
   requestAnimationFrame(pumpAudio);
 }
 requestAnimationFrame(pumpAudio);
