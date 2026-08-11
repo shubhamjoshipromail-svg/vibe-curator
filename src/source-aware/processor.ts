@@ -46,7 +46,7 @@ function drawCover(
   }
   // Displace narrow horizontal bands independently. This keeps source detail
   // intact while giving any still image obvious, continuous motion.
-  const bands = 42;
+  const bands = 24;
   for (let band = 0; band < bands; band++) {
     const sy = (sh / bands) * band;
     const sourceBandH = sh / bands + 1;
@@ -69,8 +69,8 @@ export class SourceAwareSurface {
   private readonly clean = document.createElement('canvas');
   private readonly cleanG: CanvasRenderingContext2D;
   private readonly ag: CanvasRenderingContext2D;
-  private readonly aw = 192;
-  private readonly ah = 108;
+  private readonly aw = 128;
+  private readonly ah = 72;
   private previous = new Float32Array(this.aw * this.ah);
   private current = new Float32Array(this.aw * this.ah);
   private difference = new Float32Array(this.aw * this.ah);
@@ -114,9 +114,9 @@ export class SourceAwareSurface {
   }
 
   update(t: number, dt: number): boolean {
-    // Source analysis and thousands of vector marks do not need display-rate
-    // updates. A steady 24fps remains fluid and leaves the UI responsive.
-    if (this.initialized && t - this.lastFrameAt < 1 / 24) return false;
+    // Source analysis and canvas-to-GPU uploads do not need display-rate
+    // updates. 18fps is fluid for ambient motion and keeps the editor responsive.
+    if (this.initialized && t - this.lastFrameAt < 1 / 18) return false;
     this.lastFrameAt = t;
     const { width: w, height: h } = this.options;
     this.g.clearRect(0, 0, w, h);
@@ -193,14 +193,16 @@ export class SourceAwareSurface {
   private drawRecipe(recipe: SourceEffectRecipe, current: Float32Array, trail: Float32Array): void {
     const { width: w, height: h } = this.options;
     const p = recipe.params;
-    const stride = Math.max(recipe.kind === 'tracked-grid' ? 3 : 2, Math.round(p.cellSize / (w / this.aw)));
+    const stride = Math.max(recipe.kind === 'tracked-grid' ? 2 : 1, Math.round(p.cellSize / (w / this.aw)));
     const cw = w / this.aw;
     const ch = h / this.ah;
     this.g.save();
     this.g.globalCompositeOperation = 'lighter';
     this.g.fillStyle = p.color;
     this.g.shadowColor = p.color;
-    this.g.shadowBlur = p.glow * (recipe.kind === 'tracked-grid' ? 8 : 18);
+    // Per-symbol shadows are disproportionately expensive. Tracked-grid keeps
+    // crisp luminous source colours; the atmospheric GPU stack supplies bloom.
+    this.g.shadowBlur = p.glow * (recipe.kind === 'tracked-grid' ? 0 : 14);
 
     for (let y = 1; y < this.ah - 1; y += stride) {
       for (let x = 1; x < this.aw - 1; x += stride) {

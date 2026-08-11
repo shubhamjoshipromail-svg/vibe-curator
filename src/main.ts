@@ -5,7 +5,7 @@ import { parseRoute, navigate, onRouteChange, type Route } from './app/router';
 import { renderExplore } from './app/explore';
 import { renderLabs } from './app/labs';
 import { renderPlayer } from './app/player';
-import { listPresets } from './preset/library';
+import { hydrateLibrary, listPresets } from './preset/library';
 import { runEffectSelfTest } from './effects/selftest';
 import { VIBES } from './vibes';
 
@@ -40,6 +40,7 @@ const audio = new AudioEngine();
 const state = createState(scene, audio);
 
 async function boot(): Promise<void> {
+  await hydrateLibrary();
   const first = listPresets()[0];
   try {
     await scene.mount(stage, { ...VIBES[0], palette: first.palette });
@@ -63,6 +64,7 @@ async function render(route: Route): Promise<void> {
       renderPlayer(view, state);
       break;
     default:
+      await hydrateLibrary();
       renderExplore(view);
   }
 }

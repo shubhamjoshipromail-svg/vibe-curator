@@ -240,6 +240,14 @@ select {
   backdrop-filter: blur(14px);
 }
 
+/* Re-blurring a full-screen animated canvas once per panel forced expensive
+   recompositing on every frame in embedded browsers. The denser surface looks
+   the same while keeping sliders and navigation responsive. */
+#app[data-mode='labs'] .panel {
+  background: rgba(12, 11, 17, 0.95);
+  backdrop-filter: none;
+}
+
 .ctl { margin-bottom: 15px; }
 .ctl-tight { margin-bottom: 9px; }
 .ctl-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }

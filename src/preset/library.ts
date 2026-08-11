@@ -11,6 +11,7 @@ import {
 } from './types';
 import builtinEffects from '../effects/builtin.json';
 import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
+import { migrateAssets } from '../media/assets';
 
 /**
  * The Library: what Explore browses and what Save writes to.
@@ -23,6 +24,7 @@ import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
  */
 
 const STORAGE_KEY = 'vibe.library.v1';
+let sharedSaved: Preset[] | undefined;
 
 function automaticTags(scene: SceneLayer, style: string, prompt = ''): string[] {
   const text = `${prompt} ${scene.label} ${style}`.toLowerCase();
@@ -213,7 +215,7 @@ function normalizePreset(raw: Preset): Preset {
   };
 }
 
-function loadSaved(): Preset[] {
+function loadLocalSaved(): Preset[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -225,12 +227,70 @@ function loadSaved(): Preset[] {
   }
 }
 
+function loadSaved(): Preset[] {
+  return sharedSaved ?? loadLocalSaved();
+}
+
 function writeSaved(list: Preset[]): void {
+  sharedSaved = list;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch (err) {
     console.error('[vibe] could not save', err);
   }
+}
+
+async function persistSharedPreset(preset: Preset): Promise<void> {
+  const response = await fetch(`/api/library/projects/${encodeURIComponent(preset.id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(preset),
+  });
+  if (!response.ok) throw new Error('The shared local library could not save this project.');
+}
+
+/** Merge browser-local projects into the server library and pull projects made
+ * in other browsers into this browser cache. Newest updatedAt wins per id. */
+export async function hydrateLibrary(): Promise<void> {
+  const local = loadLocalSaved();
+  let remote: Preset[];
+  try {
+    const response = await fetch('/api/library/projects', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Shared library is unavailable.');
+    const parsed = await response.json();
+    remote = Array.isArray(parsed) ? (parsed as Preset[]).map(normalizePreset) : [];
+  } catch (error) {
+    console.warn('[vibe] using browser library cache', error);
+    sharedSaved = local;
+    return;
+  }
+
+  const merged = new Map<string, Preset>();
+  for (const preset of remote) merged.set(preset.id, preset);
+  for (const preset of local) {
+    const existing = merged.get(preset.id);
+    if (!existing || preset.updatedAt > existing.updatedAt) merged.set(preset.id, preset);
+  }
+
+  // Assets have to arrive before their project documents become visible in a
+  // second browser. Missing legacy assets stay safely cached in their origin.
+  await migrateAssets(local.flatMap((preset) => [
+    preset.scene.kind === 'image' || preset.scene.kind === 'video' ? preset.scene.assetId ?? '' : '',
+    preset.music?.assetId ?? '',
+  ]));
+
+  const remoteById = new Map(remote.map((preset) => [preset.id, preset]));
+  for (const preset of local) {
+    const serverCopy = remoteById.get(preset.id);
+    if (!serverCopy || preset.updatedAt > serverCopy.updatedAt) {
+      try {
+        await persistSharedPreset(preset);
+      } catch (error) {
+        console.warn(`[vibe] could not migrate project ${preset.id}`, error);
+      }
+    }
+  }
+  writeSaved([...merged.values()]);
 }
 
 export function listPresets(): Preset[] {
@@ -268,11 +328,14 @@ export function savePreset(preset: Preset): Preset {
   const saved = loadSaved().filter((p) => p.id !== preset.id);
   saved.push(preset);
   writeSaved(saved);
+  void persistSharedPreset(preset).catch((error) => console.error('[vibe] shared project save failed', error));
   return preset;
 }
 
 export function deletePreset(id: string): void {
   writeSaved(loadSaved().filter((p) => p.id !== id));
+  void fetch(`/api/library/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    .catch((error) => console.warn('[vibe] shared project delete failed', error));
 }
 
 /**

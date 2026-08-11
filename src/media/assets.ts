@@ -1,6 +1,6 @@
 /**
- * Binary generated/uploaded assets belong in IndexedDB, not localStorage.
- * Presets only retain small metadata plus the asset id.
+ * The local server is canonical so every browser sees the same media. IndexedDB
+ * remains a fast cache and a migration source for assets made by older builds.
  */
 
 const DB_NAME = 'vibe-media-v1';
@@ -25,6 +25,12 @@ function openDb(): Promise<IDBDatabase> {
 
 export async function storeAsset(blob: Blob, prefix = 'asset'): Promise<string> {
   const id = `${prefix}_${Date.now().toString(36)}_${crypto.randomUUID().slice(0, 8)}`;
+  await putLocalAsset(id, blob);
+  await uploadAsset(id, blob);
+  return id;
+}
+
+async function putLocalAsset(id: string, blob: Blob): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
@@ -33,10 +39,9 @@ export async function storeAsset(blob: Blob, prefix = 'asset'): Promise<string> 
     tx.onerror = () => reject(tx.error);
   });
   db.close();
-  return id;
 }
 
-export async function getAsset(id: string): Promise<Blob | undefined> {
+async function getLocalAsset(id: string): Promise<Blob | undefined> {
   const db = await openDb();
   const result = await new Promise<StoredAsset | undefined>((resolve, reject) => {
     const req = db.transaction(STORE).objectStore(STORE).get(id);
@@ -45,6 +50,52 @@ export async function getAsset(id: string): Promise<Blob | undefined> {
   });
   db.close();
   return result?.blob;
+}
+
+async function uploadAsset(id: string, blob: Blob): Promise<void> {
+  const response = await fetch(`/api/library/assets/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': blob.type || 'application/octet-stream' },
+    body: blob,
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({})) as { message?: string };
+    throw new Error(detail.message || 'The shared library could not store this media.');
+  }
+}
+
+async function ensureSharedAsset(id: string, blob: Blob): Promise<void> {
+  const existing = await fetch(`/api/library/assets/${encodeURIComponent(id)}`, { method: 'HEAD' });
+  if (existing.ok) return;
+  await uploadAsset(id, blob);
+}
+
+export async function getAsset(id: string): Promise<Blob | undefined> {
+  const local = await getLocalAsset(id);
+  if (local) {
+    // Lazy migration: assets created before shared storage are copied once the
+    // originating browser encounters them again.
+    void ensureSharedAsset(id, local).catch((error) => console.warn('[vibe] asset migration failed', error));
+    return local;
+  }
+  const response = await fetch(`/api/library/assets/${encodeURIComponent(id)}`);
+  if (response.status === 404) return undefined;
+  if (!response.ok) throw new Error('The shared library could not read this media.');
+  const blob = await response.blob();
+  await putLocalAsset(id, blob);
+  return blob;
+}
+
+export async function migrateAssets(ids: string[]): Promise<void> {
+  for (const id of [...new Set(ids.filter(Boolean))]) {
+    const local = await getLocalAsset(id);
+    if (!local) continue;
+    try {
+      await ensureSharedAsset(id, local);
+    } catch (error) {
+      console.warn(`[vibe] could not migrate asset ${id}`, error);
+    }
+  }
 }
 
 export async function assetUrl(id: string): Promise<string | undefined> {
@@ -69,6 +120,7 @@ export async function deleteAsset(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  await fetch(`/api/library/assets/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => undefined);
 }
 
 function readGenerationCache(): Record<string, string> {
