@@ -7,13 +7,19 @@
  */
 export type Route =
   | { name: 'explore' }
-  | { name: 'labs'; presetId: string }
+  | { name: 'marketplace' }
+  | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace' }
   | { name: 'player' };
 
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
-  const [head, arg] = path.split('/');
-  if (head === 'labs' && arg) return { name: 'labs', presetId: decodeURIComponent(arg) };
+  const [pathname, query = ''] = path.split('?');
+  const [head, arg] = pathname.split('/');
+  if (head === 'labs' && arg) {
+    const from = new URLSearchParams(query).get('from');
+    return { name: 'labs', presetId: decodeURIComponent(arg), returnTo: from === 'marketplace' ? 'marketplace' : 'explore' };
+  }
+  if (head === 'marketplace') return { name: 'marketplace' };
   if (head === 'player') return { name: 'player' };
   return { name: 'explore' };
 }
@@ -21,7 +27,9 @@ export function parseRoute(hash: string): Route {
 export function toHash(route: Route): string {
   switch (route.name) {
     case 'labs':
-      return `#/labs/${encodeURIComponent(route.presetId)}`;
+      return `#/labs/${encodeURIComponent(route.presetId)}${route.returnTo === 'marketplace' ? '?from=marketplace' : ''}`;
+    case 'marketplace':
+      return '#/marketplace';
     case 'player':
       return '#/player';
     default:

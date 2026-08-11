@@ -30,7 +30,7 @@ export function renderExplore(host: HTMLElement): void {
       <p class="generation-note" id="visual-status">Checking generation…</p>
     </section>
     <section class="library-section">
-      <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Projects</h2></div><input id="search" class="search" type="search" placeholder="Search projects…" /></div>
+      <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Projects</h2></div><div class="library-tools"><button class="ghost" id="marketplace">Marketplace</button><input id="search" class="search" type="search" placeholder="Search projects…" /></div></div>
       <div class="tag-row" id="tags"></div>
       <div class="grid" id="owned-grid"></div>
     </section>
@@ -45,6 +45,7 @@ export function renderExplore(host: HTMLElement): void {
   const style = host.querySelector<HTMLSelectElement>('#visual-style')!;
   const go = host.querySelector<HTMLButtonElement>('#visual-go')!;
   const upload = host.querySelector<HTMLInputElement>('#quick-upload')!;
+  host.querySelector('#marketplace')?.addEventListener('click', () => navigate({ name: 'marketplace' }));
   let generationEnabled = false;
   let imageModel = 'gemini-2.5-flash-image';
 
@@ -146,7 +147,7 @@ export function renderExplore(host: HTMLElement): void {
     for (const preset of filtered) ownedGrid.appendChild(card(preset, drawLibrary));
   }
 
-  for (const preset of listPresets().filter((item) => item.builtIn)) starterGrid.appendChild(card(preset, drawLibrary));
+  for (const preset of listPresets().filter((item) => item.builtIn && !item.marketplaceOnly)) starterGrid.appendChild(card(preset, drawLibrary));
   search.addEventListener('input', drawLibrary);
   drawLibrary();
 }

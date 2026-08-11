@@ -128,6 +128,8 @@ export interface Preset {
   description: string;
   /** Ships with the app; cannot be overwritten, only remixed into a copy. */
   builtIn: boolean;
+  /** Curated discovery content shown in Marketplace, not Explore starting points. */
+  marketplaceOnly?: boolean;
   createdAt: string;
   /** Last meaningful edit. Used to resume the newest project and sort the Library. */
   updatedAt: string;

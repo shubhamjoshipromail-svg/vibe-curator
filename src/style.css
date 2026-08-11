@@ -33,7 +33,7 @@ body { overflow: hidden; }
 
 canvas.pixelated { image-rendering: pixelated; }
 
-#app[data-mode='explore'] #stage { opacity: 0.18; filter: blur(6px) saturate(0.7); }
+#app[data-mode='explore'] #stage, #app[data-mode='marketplace'] #stage { opacity: 0.18; filter: blur(6px) saturate(0.7); }
 #app[data-mode='labs'] #stage { opacity: 0.5; }
 #app[data-mode='player'] #stage { opacity: 1; }
 
@@ -139,6 +139,7 @@ select {
 .generation-note { min-height: 1.2em; margin: 12px 2px 0; color: var(--dim); font-size: 11px; }
 .library-section, .starter-section { max-width: 1220px; margin: 0 auto; }
 .section-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 14px; }
+.library-tools { display: flex; align-items: center; gap: 9px; }
 .tag-row { display: flex; gap: 7px; flex-wrap: wrap; min-height: 30px; margin-bottom: 18px; }
 .filter-chip { padding: 5px 11px; font-size: 11px; text-transform: capitalize; }
 .filter-chip.active { color: #111; background: var(--ink); }
@@ -182,10 +183,26 @@ select {
 
 .card-actions { display: flex; gap: 8px; padding: 10px 16px 16px; }
 
+/* --- marketplace --------------------------------------------------------- */
+.market-head { max-width: 1220px; margin: 24px auto 30px; align-items: center; }
+.market-head h1 { font-size: clamp(38px, 6vw, 72px); line-height: .95; letter-spacing: -.05em; }
+.market-head .sub { max-width: 680px; font-size: 15px; line-height: 1.55; }
+.market-filters { max-width: 1220px; margin: 0 auto 28px; }
+.market-section { max-width: 1220px; margin: 0 auto 52px; }
+.market-card .card-body { padding-top: 12px; }
+.post-author { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-bottom: 14px; }
+.post-avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; background: var(--faint); font-size: 11px; }
+.post-author > div { display: flex; flex-direction: column; min-width: 0; }
+.post-author strong { font-size: 11px; font-weight: 600; }
+.post-author strong b { margin-left: 4px; color: #e6cba0; font-size: 9px; font-weight: 600; text-transform: uppercase; }
+.post-author small, .post-likes { color: var(--dim); font-size: 10px; }
+.post-likes { white-space: nowrap; }
+
 @media (max-width: 640px) {
   #view { padding-inline: 16px; }
   .create-toolbar #visual-go { margin-left: 0; width: 100%; }
   .section-head { align-items: stretch; flex-direction: column; }
+  .library-tools { align-items: stretch; flex-direction: column; }
   .search { max-width: none; }
 }
 

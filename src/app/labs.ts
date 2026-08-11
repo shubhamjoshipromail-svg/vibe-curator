@@ -17,11 +17,11 @@ import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '
  * a built-in never damages it — opening one starts an owned copy, so the
  * starting library is always intact to come back to.
  */
-export async function renderLabs(host: HTMLElement, state: AppState, presetId: string): Promise<void> {
+export async function renderLabs(host: HTMLElement, state: AppState, presetId: string, returnTo: 'explore' | 'marketplace' = 'explore'): Promise<void> {
   const source = getPreset(presetId);
   if (!source) {
     host.innerHTML = `<div class="empty-stage"><p>That room no longer exists.</p><button class="primary" id="go">Back to Explore</button></div>`;
-    host.querySelector('#go')?.addEventListener('click', () => navigate({ name: 'explore' }));
+    host.querySelector('#go')?.addEventListener('click', () => navigate({ name: returnTo }));
     return;
   }
 
@@ -42,7 +42,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <p class="sub">${source.builtIn ? `Remixing <strong>${source.name}</strong> — the original stays untouched.` : 'Your room.'}</p>
         </div>
         <div class="labs-actions">
-          <button class="ghost" id="back">Explore</button>
+          <button class="ghost" id="back">${returnTo === 'marketplace' ? 'Marketplace' : 'Explore'}</button>
           <button class="ghost" id="save">Save</button>
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
@@ -633,7 +633,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     return draft;
   }
 
-  host.querySelector('#back')?.addEventListener('click', () => navigate({ name: 'explore' }));
+  host.querySelector('#back')?.addEventListener('click', () => navigate({ name: returnTo }));
   host.querySelector('#save')?.addEventListener('click', () => {
     commit();
     const btn = host.querySelector<HTMLButtonElement>('#save')!;

@@ -197,6 +197,53 @@ function seedPresets(): Preset[] {
       [sourceEffect('edge-echo', 'Bloom contour echo', '#ff82ad', { cellSize: 9, trail: 1.25, glow: 0.92, density: 0.82, response: 1.2 })]),
   );
 
+  const market = (preset: Preset): Preset => ({ ...preset, marketplaceOnly: true });
+  rooms.push(
+    market(seed('market-artist-color-orbit', 'Color Orbit Garden', 'A psychedelic flower world folded into an audio-reactive color tunnel.', 'signal-drift', NOCTURNE,
+      { mood: 0.82, motion: 0.84, depth: 0.88, glow: 0.96, atmosphere: 0.35, intensity: 0.9 },
+      ['builtin_psychedelic-fractal'],
+      { kind: 'procedural', label: 'Blooming color-orbit source', style: 'artist DNA', sourceId: 'blooming-flower' },
+      [sourceEffect('edge-echo', 'Prismatic contour echo', '#ff63ca', { cellSize: 8, trail: 1.1, glow: 0.94, density: 0.8, response: 1.25 })])),
+    market(seed('market-vibes-midnight-haze', 'Midnight Haze', 'A slow violet field where rain refraction and aurora light breathe together.', 'signal-drift', NOCTURNE,
+      { mood: 0.48, motion: 0.42, depth: 0.9, glow: 0.82, atmosphere: 0.8, intensity: 0.58 },
+      ['builtin_aurora-veil', 'builtin_rain-on-glass'])),
+    market(seed('market-nature-moon-bloom', 'Moon Bloom', 'A quiet flower opening with a luminous contour that follows every new petal.', 'signal-drift', PAPER,
+      { mood: 0.7, motion: 0.56, depth: 0.76, glow: 0.86, atmosphere: 0.5, intensity: 0.48 },
+      ['builtin_underwater-light'],
+      { kind: 'procedural', label: 'Moonlit blooming source', style: 'living nature', sourceId: 'blooming-flower' },
+      [sourceEffect('edge-echo', 'Moonlit petal echo', '#d8f4dd', { cellSize: 9, trail: 1.35, glow: 0.82, density: 0.78, response: 1.15 })])),
+    market(seed('market-electro-neon-koi', 'Neon Koi Circuit', 'Living koi reconstructed as a bright moving signal field.', 'signal-drift', SIGNAL,
+      { mood: 0.5, motion: 0.78, depth: 0.84, glow: 0.95, atmosphere: 0.25, intensity: 0.7 },
+      ['builtin_underwater-light'],
+      { kind: 'procedural', label: 'Electro koi source', style: 'electro nature', sourceId: 'living-koi' },
+      [sourceEffect('tracked-grid', 'Neon anatomy grid', '#78fff0', { cellSize: 7, trail: 0.9, glow: 0.86, density: 0.82, response: 1.45, sourceVisibility: 0.75 })])),
+    market(seed('market-dark-ember-throne', 'Ember Throne', 'A firelit dark-fantasy chamber with drifting sparks and a high broken light shaft.', 'ashen-keep', ASHEN,
+      { mood: 0.92, motion: 0.58, depth: 0.66, glow: 0.82, atmosphere: 0.52, intensity: 0.62 },
+      ['builtin_drifting-motes', 'builtin_volumetric-shaft'])),
+
+    market(seed('community-cloud-radio', 'Cloud Radio', 'Soft cloud banks become a flickering broadcast of moving cells.', 'paper-valley', PAPER,
+      { mood: 0.58, motion: 0.62, depth: 0.72, glow: 0.6, atmosphere: 0.68, intensity: 0.5 },
+      ['builtin_crt-phosphor'],
+      { kind: 'procedural', label: 'Broadcast cloud source', style: 'electro nature', sourceId: 'drifting-cloud' },
+      [sourceEffect('motion-cells', 'Broadcast cloud cells', '#ffcfad', { cellSize: 13, trail: 1.4, density: 0.66, response: 1.75 })])),
+    market(seed('community-rose-tunnel', 'Rose Tunnel', 'A blooming flower pulled through a saturated kaleidoscopic tunnel.', 'signal-drift', NOCTURNE,
+      { mood: 0.8, motion: 0.88, depth: 0.9, glow: 0.95, atmosphere: 0.3, intensity: 0.92 },
+      ['builtin_psychedelic-fractal'],
+      { kind: 'procedural', label: 'Rose tunnel source', style: 'artist DNA', sourceId: 'blooming-flower' },
+      [sourceEffect('edge-echo', 'Rose contour trail', '#ff77a9', { cellSize: 8, trail: 1.2, glow: 0.9, density: 0.82, response: 1.25 })])),
+    market(seed('community-tidal-signal', 'Tidal Signal', 'A calm school of koi with long luminous motion wakes.', 'signal-drift', SIGNAL,
+      { mood: 0.38, motion: 0.7, depth: 0.88, glow: 0.86, atmosphere: 0.38, intensity: 0.58 },
+      ['builtin_underwater-light'],
+      { kind: 'procedural', label: 'Tidal koi source', style: 'nature signal', sourceId: 'living-koi' },
+      [sourceEffect('motion-cells', 'Tidal wake', '#61f0e6', { cellSize: 10, trail: 1.65, density: 0.7, response: 1.4 })])),
+    market(seed('community-green-ruin', 'Green Ruin', 'An abandoned fire hall overtaken by wet moss and refracted rain.', 'ashen-keep', MOSSGLASS,
+      { mood: 0.28, motion: 0.38, depth: 0.72, glow: 0.48, atmosphere: 0.78, intensity: 0.5 },
+      ['builtin_rain-on-glass', 'builtin_volumetric-shaft'])),
+    market(seed('community-ember-sentinel', 'Ember Sentinel', 'A lone armored watcher beside restless flame and analog phosphor bloom.', 'ashen-keep', ASHEN,
+      { mood: 0.9, motion: 0.64, depth: 0.62, glow: 0.86, atmosphere: 0.46, intensity: 0.66 },
+      ['builtin_drifting-motes', 'builtin_crt-phosphor'])),
+  );
+
   return rooms;
 }
 

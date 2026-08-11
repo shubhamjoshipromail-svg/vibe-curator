@@ -3,6 +3,7 @@ import { AudioEngine } from './audio/engine';
 import { createState, loadPreset, syncGeneratedMusic } from './app/state';
 import { parseRoute, navigate, onRouteChange, type Route } from './app/router';
 import { renderExplore } from './app/explore';
+import { renderMarketplace } from './app/marketplace';
 import { renderLabs } from './app/labs';
 import { renderPlayer } from './app/player';
 import { hydrateLibrary, listPresets } from './preset/library';
@@ -58,7 +59,10 @@ async function render(route: Route): Promise<void> {
 
   switch (route.name) {
     case 'labs':
-      await renderLabs(view, state, route.presetId);
+      await renderLabs(view, state, route.presetId, route.returnTo);
+      break;
+    case 'marketplace':
+      renderMarketplace(view);
       break;
     case 'player':
       renderPlayer(view, state);
