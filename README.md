@@ -8,7 +8,24 @@ The thesis is simple:
 
 > Generative media should not end as a static file. It should become a reusable, editable environment that can live on your screen.
 
-This repository contains a working vertical slice of that vision: AI image generation, image/video input, source-aware motion graphics, safe AI-generated shaders, AI music with vocal control, persistent project organization, a curated Market, and a full-screen Player—all built around one continuous real-time scene.
+This repository contains a working multi-model generative media studio—not merely a renderer mockup. It generates source images with OpenAI, generates original music with ElevenLabs, generates custom visual effects with Anthropic, and includes a wired image-to-video pipeline through Gemini Veo. Generated and uploaded media then enter the same editable source-aware renderer, persistent project library, curated Market, and full-screen Player.
+
+## Generated media already created in the working prototype
+
+The current local library contains real outputs created through the product pipeline:
+
+- **37 saved projects** across generated, uploaded, procedural, and renderer-based scenes;
+- **8 OpenAI GPT Image 2 source images** at 1536×1024;
+- **11 saved ElevenLabs Music v2 tracks** stored as reusable MP3 assets;
+- **2 user-uploaded source images** processed through the same visual system;
+- **9 procedural source scenes** and **7 layered renderer scenes**;
+- **7 built-in live GLSL effects**, plus saved generated and remixed effects;
+- **3 source-aware treatment families**: tracked color grids, motion cells, and edge echoes;
+- **19 seeded starting/Market cards** across living nature, electro-nature, psychedelic, atmospheric, and dark-fantasy directions.
+
+The video-generation path is implemented end to end: a source image can be sent to Gemini Veo for a four-second 720p motion draft, persisted as a video scene, looped, tracked, treated, and saved in Labs. The configured account has not yet produced a stored Veo asset because its video quota was unavailable; that is a provider-account limitation, not a missing product pipeline.
+
+Generated binaries stay in the gitignored local `.vibe-data` store because they include large media and private iteration history. The public repository contains the complete generation, persistence, editing, and playback code plus safe public fixtures and benchmark assets.
 
 ![Vibe Curator fish benchmark](public/benchmarks/fish-benchmark.png)
 
@@ -77,11 +94,11 @@ The finished environment.
 | Prompt → source image | Working | OpenAI `gpt-image-2`, low-cost 1536×1024 draft |
 | Image upload | Working | Browser upload → IndexedDB/local server asset persistence |
 | Video upload and looping playback | Working | Native browser decode feeding the source-aware compositor |
-| Still image → short motion draft | Working when quota is available | Gemini Veo, 4 seconds, 720p |
+| Still image → generated video | Implemented; awaiting usable account quota | Gemini Veo, 4 seconds, 720p, persisted back as an editable video scene |
 | Source-aware visual tracking | Working | 128×72 clean-frame analysis, motion/edge signals, temporal trails |
 | Reusable visual treatments | Working | Deterministic recipe manifests with editable parameters |
-| AI shader generation | Working | Anthropic → guarded GLSL → compiler → live Pixi filter |
-| Generated music | Working | ElevenLabs Music v2, stored once and replayed locally |
+| Prompt → generated visual effect | Working | Anthropic → guarded GLSL → compiler → parameterized live Pixi filter |
+| Prompt → generated music | Working with many saved outputs | ElevenLabs Music v2, stored once and replayed locally |
 | Vocal music and fast rap intent | Working | Explicit vocal mode plus Anthropic prompt adaptation |
 | Artist-reference translation | Working | Named references converted into transferable musical characteristics |
 | Project persistence | Working | Shared local JSON project store plus browser cache |
