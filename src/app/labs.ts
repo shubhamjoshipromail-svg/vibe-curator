@@ -42,7 +42,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <p class="sub">${source.builtIn ? `Remixing <strong>${source.name}</strong> — the original stays untouched.` : 'Your room.'}</p>
         </div>
         <div class="labs-actions">
-          <button class="ghost" id="back">${returnTo === 'marketplace' ? 'Marketplace' : 'Explore'}</button>
+          <button class="ghost" id="back">← Back</button>
           <button class="ghost" id="save">Save</button>
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
@@ -666,7 +666,10 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     return draft;
   }
 
-  host.querySelector('#back')?.addEventListener('click', () => navigate({ name: returnTo }));
+  host.querySelector('#back')?.addEventListener('click', () => {
+    if (history.length > 1) history.back();
+    else navigate({ name: returnTo });
+  });
   host.querySelector('#save')?.addEventListener('click', () => {
     commit();
     const btn = host.querySelector<HTMLButtonElement>('#save')!;

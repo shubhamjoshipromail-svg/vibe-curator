@@ -25,9 +25,22 @@ const STYLES = [
 ];
 
 type LibraryView = 'projects' | 'market';
+type ProjectType = 'generated' | 'uploads' | 'living' | 'music' | 'remixes';
+
+const PROJECT_TYPES: Array<{ id: ProjectType; name: string; description: string }> = [
+  { id: 'generated', name: 'Generated visuals', description: 'AI-created images and motion drafts.' },
+  { id: 'uploads', name: 'Images & video', description: 'Original media you added yourself.' },
+  { id: 'living', name: 'Living scenes', description: 'Procedural and renderer-based worlds.' },
+  { id: 'music', name: 'Music attached', description: 'Projects with a saved generated track.' },
+  { id: 'remixes', name: 'Remixes', description: 'Work derived from a starting point or Market card.' },
+];
 
 /** Creation stays fixed while the Library switches in place between owned work and discovery. */
-export function renderExplore(host: HTMLElement, initialView: LibraryView = 'projects'): void {
+export function renderExplore(
+  host: HTMLElement,
+  initialView: LibraryView = 'projects',
+  initialSelection: { folder?: string; type?: string; collection?: string } = {},
+): void {
   host.innerHTML = `
     <header class="page-head explore-head">
       <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p></div>
@@ -70,14 +83,13 @@ export function renderExplore(host: HTMLElement, initialView: LibraryView = 'pro
   const projectsTab = host.querySelector<HTMLButtonElement>('#projects-tab')!;
   const marketTab = host.querySelector<HTMLButtonElement>('#market-tab')!;
   let view: LibraryView = initialView;
-  let projectFolder: string | undefined;
-  let marketFolder: MarketCollectionId | undefined;
+  let projectFolder = initialSelection.folder;
+  let projectType = PROJECT_TYPES.some((item) => item.id === initialSelection.type) ? initialSelection.type as ProjectType : undefined;
+  let marketFolder = MARKET_COLLECTIONS.some((item) => item.id === initialSelection.collection) ? initialSelection.collection as MarketCollectionId : undefined;
   let activeTag = 'all';
   let query = '';
 
-  const reset = (next: LibraryView) => {
-    view = next; projectFolder = undefined; marketFolder = undefined; activeTag = 'all'; query = ''; draw();
-  };
+  const reset = (next: LibraryView) => navigate({ name: 'explore', view: next });
   projectsTab.addEventListener('click', () => reset('projects'));
   marketTab.addEventListener('click', () => reset('market'));
 
@@ -94,22 +106,28 @@ export function renderExplore(host: HTMLElement, initialView: LibraryView = 'pro
     const folders = listProjectFolders();
     const saved = listSaved().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     eyebrow.textContent = 'YOUR LIBRARY';
-    title.textContent = projectFolder ? folders.find((item) => item.id === projectFolder)?.name ?? 'Projects' : 'Project folders';
-    copy.textContent = projectFolder ? 'One folder per project; tags can still overlap.' : 'Keep work in simple one-level folders. Unfiled work stays easy to find.';
+    const activeType = PROJECT_TYPES.find((item) => item.id === projectType);
+    title.textContent = projectFolder ? folders.find((item) => item.id === projectFolder)?.name ?? 'Projects' : activeType?.name ?? 'Projects';
+    copy.textContent = projectFolder
+      ? 'This project folder contains only work you explicitly placed here.'
+      : activeType?.description ?? 'Browse work by type, or make a project folder for work you intentionally want together.';
     const search = document.createElement('input'); search.className = 'search'; search.type = 'search'; search.placeholder = 'Search projects…'; search.value = query;
     search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); drawProjectsContent(folders, saved); });
     tools.appendChild(search);
-    if (!projectFolder) {
+    if (!projectFolder && !projectType) {
       const create = document.createElement('button'); create.className = 'ghost'; create.textContent = '+ New folder';
       create.addEventListener('click', () => {
         const name = prompt('Folder name');
-        if (name?.trim()) { projectFolder = createProjectFolder(name).id; draw(); }
+        if (name?.trim()) { const folder = createProjectFolder(name); navigate({ name: 'explore', folder: folder.id }); }
       });
       tools.prepend(create);
     } else {
       const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All folders';
-      back.addEventListener('click', () => { projectFolder = undefined; draw(); }); breadcrumbs.appendChild(back);
-      if (projectFolder !== 'unfiled') {
+      back.addEventListener('click', () => {
+        if (history.length > 1) history.back();
+        else navigate({ name: 'explore' });
+      }); breadcrumbs.appendChild(back);
+      if (projectFolder) {
         const remove = document.createElement('button'); remove.className = 'ghost danger-quiet'; remove.textContent = 'Delete folder';
         remove.addEventListener('click', () => {
           if (confirm('Delete this folder? Its projects will move to Unfiled.')) { deleteProjectFolder(projectFolder!); projectFolder = undefined; draw(); }
@@ -121,18 +139,23 @@ export function renderExplore(host: HTMLElement, initialView: LibraryView = 'pro
 
   function drawProjectsContent(folders: ProjectFolder[], saved: Preset[]): void {
     folderGrid.innerHTML = ''; ownedGrid.innerHTML = ''; tags.innerHTML = '';
-    if (!projectFolder) {
-      const groups = [{ id: 'unfiled', name: 'Unfiled', createdAt: '', updatedAt: '' }, ...folders];
-      const visible = groups.filter((folder) => !query || folder.name.toLowerCase().includes(query) || saved.some((preset) => (folder.id === 'unfiled' ? !preset.folderId : preset.folderId === folder.id) && projectHaystack(preset).includes(query)));
-      for (const folder of visible) {
-        const contents = saved.filter((preset) => folder.id === 'unfiled' ? !preset.folderId : preset.folderId === folder.id);
-        if (folder.id === 'unfiled' && !contents.length && folders.length) continue;
-        folderGrid.appendChild(projectFolderCard(folder.name, contents, () => { projectFolder = folder.id; query = ''; draw(); }));
+    if (!projectFolder && !projectType) {
+      const visibleFolders = folders.filter((folder) => !query || folder.name.toLowerCase().includes(query) || saved.some((preset) => preset.folderId === folder.id && projectHaystack(preset).includes(query)));
+      for (const folder of visibleFolders) {
+        const contents = saved.filter((preset) => preset.folderId === folder.id);
+        folderGrid.appendChild(projectFolderCard(folder.name, contents, () => navigate({ name: 'explore', folder: folder.id })));
       }
-      if (!visible.length) folderGrid.innerHTML = '<div class="empty project-empty"><strong>No matching folders.</strong><span>Create a folder or clear the search.</span></div>';
+      for (const type of PROJECT_TYPES) {
+        const contents = saved.filter((preset) => !preset.folderId && projectMatchesType(preset, type.id));
+        if (!contents.length || (query && !type.name.toLowerCase().includes(query) && !contents.some((preset) => projectHaystack(preset).includes(query)))) continue;
+        folderGrid.appendChild(typeFolderCard(type.name, type.description, contents, () => navigate({ name: 'explore', type: type.id })));
+      }
+      if (!folderGrid.children.length) folderGrid.innerHTML = '<div class="empty project-empty"><strong>No matching projects.</strong><span>Create something new or clear the search.</span></div>';
       return;
     }
-    const folderContents = saved.filter((preset) => projectFolder === 'unfiled' ? !preset.folderId : preset.folderId === projectFolder);
+    const folderContents = projectFolder
+      ? saved.filter((preset) => preset.folderId === projectFolder)
+      : saved.filter((preset) => !preset.folderId && projectType && projectMatchesType(preset, projectType));
     const availableTags = [...new Set(folderContents.flatMap((preset) => preset.tags))].slice(0, 8);
     if (activeTag !== 'all' && !availableTags.includes(activeTag)) activeTag = 'all';
     for (const tag of ['all', ...availableTags]) {
@@ -151,12 +174,15 @@ export function renderExplore(host: HTMLElement, initialView: LibraryView = 'pro
     if (!marketFolder) {
       for (const collection of MARKET_COLLECTIONS) {
         const posts = MARKET_POSTS.filter((post) => post.collection === collection.id);
-        folderGrid.appendChild(marketCollectionCard(collection.name, collection.description, posts.map((post) => post.presetId), () => { marketFolder = collection.id; draw(); }));
+        folderGrid.appendChild(marketCollectionCard(collection.name, collection.description, posts.map((post) => post.presetId), () => navigate({ name: 'explore', view: 'market', collection: collection.id })));
       }
       return;
     }
     const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All collections';
-    back.addEventListener('click', () => { marketFolder = undefined; draw(); }); breadcrumbs.appendChild(back);
+    back.addEventListener('click', () => {
+      if (history.length > 1) history.back();
+      else navigate({ name: 'explore', view: 'market' });
+    }); breadcrumbs.appendChild(back);
     const presets = marketPresets();
     for (const post of MARKET_POSTS.filter((item) => item.collection === marketFolder)) {
       const preset = presets.get(post.presetId); if (preset) ownedGrid.appendChild(renderMarketPost(preset, post));
@@ -203,6 +229,19 @@ function wireCreation(host: HTMLElement): void {
 
 function projectHaystack(preset: Preset): string { return `${preset.name} ${preset.description} ${preset.tags.join(' ')}`.toLowerCase(); }
 
+function projectMatchesType(preset: Preset, type: ProjectType): boolean {
+  return projectTypeFor(preset) === type;
+}
+
+/** Automatic shelves are mutually exclusive so the root never duplicates a project. */
+function projectTypeFor(preset: Preset): ProjectType {
+  if (preset.parentId) return 'remixes';
+  if (preset.music) return 'music';
+  if (preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural') return 'living';
+  if (preset.scene.provenance?.provider === 'upload') return 'uploads';
+  return 'generated';
+}
+
 function thumbnailStack(presets: Preset[]): HTMLElement {
   const stack = document.createElement('div'); stack.className = 'folder-thumbnails';
   for (const preset of presets.slice(0, 3)) { const thumb = renderThumbnail(preset, 300, 170); thumb.className = 'folder-thumb'; stack.appendChild(thumb); }
@@ -216,6 +255,14 @@ function projectFolderCard(name: string, presets: Preset[], open: () => void): H
   const title = document.createElement('strong'); title.textContent = name;
   const count = document.createElement('small'); count.textContent = `${presets.length} project${presets.length === 1 ? '' : 's'} · one level`;
   copy.append(title, count); card.appendChild(copy); card.addEventListener('click', open); return card;
+}
+
+function typeFolderCard(name: string, description: string, presets: Preset[], open: () => void): HTMLElement {
+  const card = projectFolderCard(name, presets, open);
+  card.classList.add('type-folder');
+  const count = card.querySelector('small');
+  if (count) count.textContent = `${description} · ${presets.length}`;
+  return card;
 }
 
 function marketCollectionCard(name: string, description: string, presetIds: string[], open: () => void): HTMLElement {

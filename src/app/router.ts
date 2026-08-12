@@ -6,7 +6,7 @@
  * loaded by a wallpaper host (Plash, Lively) that just points at a URL.
  */
 export type Route =
-  | { name: 'explore' }
+  | { name: 'explore'; view?: 'projects' | 'market'; folder?: string; type?: string; collection?: string }
   | { name: 'marketplace' }
   | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace' }
   | { name: 'player' };
@@ -21,7 +21,14 @@ export function parseRoute(hash: string): Route {
   }
   if (head === 'marketplace') return { name: 'marketplace' };
   if (head === 'player') return { name: 'player' };
-  return { name: 'explore' };
+  const params = new URLSearchParams(query);
+  return {
+    name: 'explore',
+    view: params.get('view') === 'market' ? 'market' : 'projects',
+    folder: params.get('folder') ?? undefined,
+    type: params.get('type') ?? undefined,
+    collection: params.get('collection') ?? undefined,
+  };
 }
 
 export function toHash(route: Route): string {
@@ -33,7 +40,15 @@ export function toHash(route: Route): string {
     case 'player':
       return '#/player';
     default:
-      return '#/explore';
+      {
+        const params = new URLSearchParams();
+        if (route.view === 'market') params.set('view', 'market');
+        if (route.folder) params.set('folder', route.folder);
+        if (route.type) params.set('type', route.type);
+        if (route.collection) params.set('collection', route.collection);
+        const query = params.toString();
+        return `#/explore${query ? `?${query}` : ''}`;
+      }
   }
 }
 

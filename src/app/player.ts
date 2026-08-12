@@ -1,7 +1,8 @@
 import type { AppState } from './state';
-import { syncAudioLayers } from './state';
+import { syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
 import { savePreset } from '../preset/library';
+import { VIBES } from '../vibes';
 
 /**
  * Player — where the environment is actually experienced.
@@ -26,8 +27,9 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
         <p>${preset.description}</p>
       </div>
       <div class="player-actions">
+        <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
         <button class="ghost" id="edit">Customize</button>
-        <button class="ghost" id="browse">Explore</button>
+        <button class="ghost" id="browse">← Back</button>
       </div>
     </div>
     <div class="mixer" id="mixer">
@@ -39,7 +41,33 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
   host.querySelector('#edit')?.addEventListener('click', () =>
     navigate({ name: 'labs', presetId: preset.id }),
   );
-  host.querySelector('#browse')?.addEventListener('click', () => navigate({ name: 'explore' }));
+  host.querySelector('#browse')?.addEventListener('click', () => {
+    if (history.length > 1) history.back();
+    else navigate({ name: 'explore' });
+  });
+  host.querySelector<HTMLButtonElement>('#sound')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    if (state.started) {
+      state.audio.stop();
+      state.started = false;
+      button.textContent = 'Start sound';
+      return;
+    }
+    button.disabled = true;
+    try {
+      const base = VIBES.find((vibe) => vibe.id === preset.baseVibeId) ?? VIBES[0];
+      await state.audio.start(base.audio);
+      state.started = true;
+      syncAudioLayers(state, preset);
+      await syncGeneratedMusic(state, preset);
+      button.textContent = 'Sound on';
+    } catch (error) {
+      console.error('[vibe] audio failed to start', error);
+      button.textContent = 'Sound unavailable';
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   const rows = host.querySelector<HTMLDivElement>('#mix-rows')!;
   const layers = [
