@@ -74,6 +74,13 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <div id="controls"></div>
         </section>
 
+        <section class="panel performance-panel">
+          <h2>Performance</h2>
+          <p class="hint">Automatic controls how often tracking runs and how many full-screen effects render together.</p>
+          <div class="performance-choices" id="performance-choices"></div>
+          <p class="fx-status" id="performance-status"></p>
+        </section>
+
         <section class="panel">
           <h2>Effects</h2>
           <p class="hint">Add an instant reusable treatment, or generate something unusual as an editable shader.</p>
@@ -103,6 +110,32 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   nameInput.addEventListener('input', () => {
     draft.name = nameInput.value.trim() || 'Untitled room';
   });
+
+  const performanceChoices = host.querySelector<HTMLDivElement>('#performance-choices')!;
+  const performanceStatus = host.querySelector<HTMLParagraphElement>('#performance-status')!;
+  const performanceLabels = {
+    light: ['Light', '9fps tracking · 1 shader'],
+    balanced: ['Automatic', '13fps tracking · up to 2 shaders'],
+    full: ['Full', '18fps tracking · every shader'],
+  } as const;
+  function drawPerformance(): void {
+    performanceChoices.innerHTML = '';
+    const tier = draft.performanceTier ?? 'balanced';
+    for (const [id, labels] of Object.entries(performanceLabels) as Array<[NonNullable<Preset['performanceTier']>, readonly [string, string]]>) {
+      const button = document.createElement('button');
+      button.className = `performance-choice${tier === id ? ' active' : ''}`;
+      button.innerHTML = `<strong>${labels[0]}</strong><small>${labels[1]}</small>`;
+      button.addEventListener('click', () => {
+        draft.performanceTier = id;
+        state.scene.setPerformanceTier(id);
+        reloadEffects(state, draft);
+        performanceStatus.textContent = id === 'balanced' ? 'Automatic is recommended for desktop.' : id === 'light' ? 'Light mode prioritizes responsiveness.' : 'Full mode may be heavy with stacked effects.';
+        drawPerformance();
+      });
+      performanceChoices.appendChild(button);
+    }
+  }
+  drawPerformance();
 
   // --- scene ----------------------------------------------------------------
   const sceneSummary = host.querySelector<HTMLDivElement>('#scene-summary')!;

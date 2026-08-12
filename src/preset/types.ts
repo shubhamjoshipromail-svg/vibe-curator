@@ -135,6 +135,10 @@ export interface Preset {
   updatedAt: string;
   /** Set when this was remixed from another preset. Gives Library a lineage. */
   parentId?: string;
+  /** Optional one-level Library folder. Tags remain independent facets. */
+  folderId?: string;
+  /** Runtime budget. Balanced is the automatic desktop default. */
+  performanceTier?: 'light' | 'balanced' | 'full';
   /** Small automatic facets for Library grouping; users never have to file things manually. */
   tags: string[];
 

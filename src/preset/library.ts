@@ -24,7 +24,16 @@ import { migrateAssets } from '../media/assets';
  */
 
 const STORAGE_KEY = 'vibe.library.v1';
+const FOLDER_STORAGE_KEY = 'vibe.project-folders.v1';
 let sharedSaved: Preset[] | undefined;
+let sharedFolders: ProjectFolder[] | undefined;
+
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 function automaticTags(scene: SceneLayer, style: string, prompt = ''): string[] {
   const text = `${prompt} ${scene.label} ${style}`.toLowerCase();
@@ -257,6 +266,7 @@ function normalizePreset(raw: Preset): Preset {
     scene: raw.scene ?? { kind: 'renderer', label: 'Living renderer', style: 'procedural' },
     effects: Array.isArray(raw.effects) ? raw.effects : [],
     sourceEffects: Array.isArray(raw.sourceEffects) ? raw.sourceEffects : [],
+    performanceTier: raw.performanceTier ?? 'balanced',
     audio: raw.audio ?? structuredClone(DEFAULT_AUDIO),
     controls: { ...DEFAULT_CONTROLS, ...(raw.controls ?? {}) },
   };
@@ -287,6 +297,36 @@ function writeSaved(list: Preset[]): void {
   }
 }
 
+function normalizeFolder(raw: ProjectFolder): ProjectFolder {
+  return {
+    id: raw.id,
+    name: String(raw.name || 'Untitled folder').trim().slice(0, 60) || 'Untitled folder',
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? new Date().toISOString(),
+  };
+}
+
+function loadLocalFolders(): ProjectFolder[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FOLDER_STORAGE_KEY) ?? '[]');
+    return Array.isArray(parsed) ? (parsed as ProjectFolder[]).map(normalizeFolder) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFolders(folders: ProjectFolder[]): void {
+  sharedFolders = folders;
+  localStorage.setItem(FOLDER_STORAGE_KEY, JSON.stringify(folders));
+}
+
+async function persistSharedFolder(folder: ProjectFolder): Promise<void> {
+  const response = await fetch(`/api/library/folders/${encodeURIComponent(folder.id)}`, {
+    method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(folder),
+  });
+  if (!response.ok) throw new Error('The shared local library could not save this folder.');
+}
+
 async function persistSharedPreset(preset: Preset): Promise<void> {
   const response = await fetch(`/api/library/projects/${encodeURIComponent(preset.id)}`, {
     method: 'PUT',
@@ -300,15 +340,22 @@ async function persistSharedPreset(preset: Preset): Promise<void> {
  * in other browsers into this browser cache. Newest updatedAt wins per id. */
 export async function hydrateLibrary(): Promise<void> {
   const local = loadLocalSaved();
+  const localFolders = loadLocalFolders();
   let remote: Preset[];
+  let remoteFolders: ProjectFolder[] = [];
   try {
-    const response = await fetch('/api/library/projects', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Shared library is unavailable.');
-    const parsed = await response.json();
+    const [response, folderResponse] = await Promise.all([
+      fetch('/api/library/projects', { cache: 'no-store' }),
+      fetch('/api/library/folders', { cache: 'no-store' }),
+    ]);
+    if (!response.ok || !folderResponse.ok) throw new Error('Shared library is unavailable.');
+    const [parsed, folderParsed] = await Promise.all([response.json(), folderResponse.json()]);
     remote = Array.isArray(parsed) ? (parsed as Preset[]).map(normalizePreset) : [];
+    remoteFolders = Array.isArray(folderParsed) ? (folderParsed as ProjectFolder[]).map(normalizeFolder) : [];
   } catch (error) {
     console.warn('[vibe] using browser library cache', error);
     sharedSaved = local;
+    sharedFolders = localFolders;
     return;
   }
 
@@ -338,6 +385,42 @@ export async function hydrateLibrary(): Promise<void> {
     }
   }
   writeSaved([...merged.values()]);
+
+  const mergedFolders = new Map(remoteFolders.map((folder) => [folder.id, folder]));
+  for (const folder of localFolders) {
+    const existing = mergedFolders.get(folder.id);
+    if (!existing || folder.updatedAt > existing.updatedAt) {
+      mergedFolders.set(folder.id, folder);
+      void persistSharedFolder(folder).catch((error) => console.warn('[vibe] could not migrate folder', error));
+    }
+  }
+  writeFolders([...mergedFolders.values()]);
+}
+
+export function listProjectFolders(): ProjectFolder[] {
+  return [...(sharedFolders ?? loadLocalFolders())].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function createProjectFolder(name: string): ProjectFolder {
+  const now = new Date().toISOString();
+  const folder = normalizeFolder({ id: newId('folder'), name, createdAt: now, updatedAt: now });
+  writeFolders([...listProjectFolders(), folder]);
+  void persistSharedFolder(folder).catch((error) => console.warn('[vibe] shared folder save failed', error));
+  return folder;
+}
+
+export function deleteProjectFolder(id: string): void {
+  writeFolders(listProjectFolders().filter((folder) => folder.id !== id));
+  for (const preset of listSaved().filter((item) => item.folderId === id)) {
+    savePreset({ ...preset, folderId: undefined });
+  }
+  void fetch(`/api/library/folders/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    .catch((error) => console.warn('[vibe] shared folder delete failed', error));
+}
+
+export function movePresetToFolder(presetId: string, folderId?: string): void {
+  const preset = listSaved().find((item) => item.id === presetId);
+  if (preset) savePreset({ ...preset, folderId });
 }
 
 export function listPresets(): Preset[] {
@@ -456,6 +539,7 @@ export function createMediaPreset(input: {
     })],
     audio: structuredClone(DEFAULT_AUDIO),
     controls: { ...DEFAULT_CONTROLS, motion: 0.72, glow: 0.74, intensity: 0.72 },
+    performanceTier: 'balanced',
     theme: { accent: SIGNAL.accent },
   };
 }

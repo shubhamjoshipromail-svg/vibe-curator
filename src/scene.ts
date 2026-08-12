@@ -60,6 +60,7 @@ export class Scene {
   private buildToken = 0;
   private mediaElement?: HTMLVideoElement;
   private sourceSurface?: SourceAwareSurface;
+  private performanceTier: 'light' | 'balanced' | 'full' = 'balanced';
   private sourceTexture?: Texture;
 
   /**
@@ -343,7 +344,7 @@ export class Scene {
     motion?: SourceMotion;
   }): void {
     const [w, h] = this.vibe.internal;
-    this.sourceSurface = new SourceAwareSurface({ width: w, height: h, ...options });
+    this.sourceSurface = new SourceAwareSurface({ width: w, height: h, quality: this.performanceTier, ...options });
     // Seed previous-frame analysis before the texture is uploaded.
     this.sourceSurface.update(0, 1 / 60);
     const texture = Texture.from(this.sourceSurface.canvas);
@@ -362,6 +363,11 @@ export class Scene {
 
   setSourceMotion(motion?: SourceMotion): void {
     this.sourceSurface?.setMotion(motion);
+  }
+
+  setPerformanceTier(tier: 'light' | 'balanced' | 'full'): void {
+    this.performanceTier = tier;
+    this.sourceSurface?.setQuality(tier);
   }
 
   getSourceMetrics(): SourceMetrics | undefined {

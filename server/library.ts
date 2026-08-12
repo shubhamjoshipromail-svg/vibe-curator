@@ -5,6 +5,7 @@ import { join } from 'node:path';
 const DATA_DIR = join(process.cwd(), '.vibe-data');
 const ASSET_DIR = join(DATA_DIR, 'assets');
 const PROJECTS_FILE = join(DATA_DIR, 'projects.json');
+const FOLDERS_FILE = join(DATA_DIR, 'folders.json');
 const MAX_ASSET_BYTES = 100 * 1024 * 1024;
 
 type ResponseLike = {
@@ -46,6 +47,23 @@ async function writeProjects(projects: Array<Record<string, unknown>>): Promise<
   await rename(temporary, PROJECTS_FILE);
 }
 
+async function readFolders(): Promise<Array<Record<string, unknown>>> {
+  try {
+    const parsed = JSON.parse(await readFile(FOLDERS_FILE, 'utf8'));
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function writeFolders(folders: Array<Record<string, unknown>>): Promise<void> {
+  await ensureStorage();
+  const temporary = `${FOLDERS_FILE}.tmp`;
+  await writeFile(temporary, JSON.stringify(folders, null, 2), 'utf8');
+  await rename(temporary, FOLDERS_FILE);
+}
+
 function readRequest(req: NodeJS.ReadableStream, limit: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -67,9 +85,14 @@ function readRequest(req: NodeJS.ReadableStream, limit: number): Promise<Buffer>
 /** Local, browser-independent persistence for the desktop prototype. */
 export function libraryPlugin(): Plugin {
   let projectMutations: Promise<void> = Promise.resolve();
+  let folderMutations: Promise<void> = Promise.resolve();
   const mutateProjects = (operation: () => Promise<void>) => {
     projectMutations = projectMutations.then(operation, operation);
     return projectMutations;
+  };
+  const mutateFolders = (operation: () => Promise<void>) => {
+    folderMutations = folderMutations.then(operation, operation);
+    return folderMutations;
   };
 
   return {
@@ -81,6 +104,42 @@ export function libraryPlugin(): Plugin {
         const path = (req.url ?? '/').split('?')[0];
         const parts = path.split('/').filter(Boolean);
         try {
+          if (parts[0] === 'folders' && parts.length === 1 && req.method === 'GET') {
+            await folderMutations;
+            json(response, 200, await readFolders());
+            return;
+          }
+
+          if (parts[0] === 'folders' && parts.length === 2) {
+            const id = safeId(parts[1]);
+            if (!id) {
+              json(response, 400, { message: 'Invalid folder id.' });
+              return;
+            }
+            if (req.method === 'PUT') {
+              const raw = await readRequest(req, 64 * 1024);
+              const folder = JSON.parse(raw.toString('utf8')) as Record<string, unknown>;
+              if (folder.id !== id || typeof folder.name !== 'string') {
+                json(response, 400, { message: 'Invalid folder.' });
+                return;
+              }
+              await mutateFolders(async () => {
+                const folders = (await readFolders()).filter((item) => item.id !== id);
+                folders.push(folder);
+                await writeFolders(folders);
+              });
+              json(response, 200, { ok: true });
+              return;
+            }
+            if (req.method === 'DELETE') {
+              await mutateFolders(async () => {
+                await writeFolders((await readFolders()).filter((item) => item.id !== id));
+              });
+              json(response, 200, { ok: true });
+              return;
+            }
+          }
+
           if (parts[0] === 'projects' && parts.length === 1 && req.method === 'GET') {
             await projectMutations;
             json(response, 200, await readProjects());

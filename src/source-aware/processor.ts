@@ -16,6 +16,7 @@ export interface SourceSurfaceOptions {
   demoSourceId?: DemoSourceId;
   motion?: SourceMotion;
   recipes: SourceEffectRecipe[];
+  quality?: 'light' | 'balanced' | 'full';
 }
 
 function drawCover(
@@ -109,14 +110,19 @@ export class SourceAwareSurface {
     }
   }
 
+  setQuality(quality: 'light' | 'balanced' | 'full'): void {
+    this.options.quality = quality;
+  }
+
   getMetrics(): SourceMetrics {
     return { ...this.metrics };
   }
 
   update(t: number, dt: number): boolean {
     // Source analysis and canvas-to-GPU uploads do not need display-rate
-    // updates. 18fps is fluid for ambient motion and keeps the editor responsive.
-    if (this.initialized && t - this.lastFrameAt < 1 / 18) return false;
+    // updates. The selected budget keeps ambient motion fluid without starving the editor.
+    const frameRate = this.options.quality === 'full' ? 18 : this.options.quality === 'light' ? 9 : 13;
+    if (this.initialized && t - this.lastFrameAt < 1 / frameRate) return false;
     this.lastFrameAt = t;
     const { width: w, height: h } = this.options;
     this.g.clearRect(0, 0, w, h);
@@ -193,7 +199,8 @@ export class SourceAwareSurface {
   private drawRecipe(recipe: SourceEffectRecipe, current: Float32Array, trail: Float32Array): void {
     const { width: w, height: h } = this.options;
     const p = recipe.params;
-    const stride = Math.max(recipe.kind === 'tracked-grid' ? 2 : 1, Math.round(p.cellSize / (w / this.aw)));
+    const qualityStride = this.options.quality === 'light' ? 2 : this.options.quality === 'balanced' ? 1.35 : 1;
+    const stride = Math.max(recipe.kind === 'tracked-grid' ? 2 : 1, Math.round((p.cellSize / (w / this.aw)) * qualityStride));
     const cw = w / this.aw;
     const ch = h / this.ah;
     this.g.save();

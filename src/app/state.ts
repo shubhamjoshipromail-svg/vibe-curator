@@ -46,6 +46,7 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   state.filters.clear();
 
   const sceneVibe = vibeForPreset(preset);
+  state.scene.setPerformanceTier(preset.performanceTier ?? 'balanced');
   const source = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural'
     ? undefined
     : preset.scene.url ?? (preset.scene.assetId ? await assetUrl(preset.scene.assetId) : undefined);
@@ -62,7 +63,7 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   state.scene.controls = { ...preset.controls };
   state.scene.setSourceEffects(preset.sourceEffects);
 
-  for (const manifest of preset.effects) {
+  for (const manifest of runtimeEffects(preset)) {
     if (!manifest.enabled) continue;
     try {
       const { filter } = instantiate(manifest);
@@ -101,7 +102,7 @@ export function syncAudioLayers(state: AppState, preset: Preset): void {
 export function reloadEffects(state: AppState, preset: Preset): void {
   state.scene.clearAllEffects();
   state.filters.clear();
-  for (const manifest of preset.effects) {
+  for (const manifest of runtimeEffects(preset)) {
     if (!manifest.enabled) continue;
     try {
       const { filter } = instantiate(manifest);
@@ -111,4 +112,11 @@ export function reloadEffects(state: AppState, preset: Preset): void {
       console.warn(`[vibe] skipping effect "${manifest.name}":`, err);
     }
   }
+}
+
+/** Every shader is another full-screen GPU pass. Keep safe defaults automatic. */
+function runtimeEffects(preset: Preset) {
+  const enabled = preset.effects.filter((manifest) => manifest.enabled);
+  const limit = preset.performanceTier === 'full' ? Infinity : preset.performanceTier === 'light' ? 1 : 2;
+  return enabled.slice(0, limit);
 }

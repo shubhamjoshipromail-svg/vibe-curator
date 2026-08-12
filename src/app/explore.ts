@@ -1,9 +1,21 @@
-import { createMediaPreset, deletePreset, listPresets, listSaved, savePreset } from '../preset/library';
+import {
+  createMediaPreset,
+  createProjectFolder,
+  deletePreset,
+  deleteProjectFolder,
+  listPresets,
+  listProjectFolders,
+  listSaved,
+  movePresetToFolder,
+  savePreset,
+  type ProjectFolder,
+} from '../preset/library';
 import { renderThumbnail } from '../preset/thumbnail';
 import { cachedGeneration, generationFingerprint, rememberGeneration, storeAsset } from '../media/assets';
 import { generateSceneImage, mediaCapabilities } from '../media/api';
 import { navigate } from './router';
 import type { Preset } from '../preset/types';
+import { MARKET_COLLECTIONS, MARKET_POSTS, marketPresets, renderMarketPost, type MarketCollectionId } from './marketplace';
 
 const STYLES = [
   { value: 'tracked neon', label: 'Tracked neon' },
@@ -12,8 +24,10 @@ const STYLES = [
   { value: 'cinematic', label: 'Cinematic' },
 ];
 
-/** The front door: create first, then resume owned work, then browse starting points. */
-export function renderExplore(host: HTMLElement): void {
+type LibraryView = 'projects' | 'market';
+
+/** Creation stays fixed while the Library switches in place between owned work and discovery. */
+export function renderExplore(host: HTMLElement, initialView: LibraryView = 'projects'): void {
   host.innerHTML = `
     <header class="page-head explore-head">
       <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p></div>
@@ -30,172 +44,201 @@ export function renderExplore(host: HTMLElement): void {
       <p class="generation-note" id="visual-status">Checking generation…</p>
     </section>
     <section class="library-section">
-      <div class="section-head"><div><p class="eyebrow">YOUR LIBRARY</p><h2>Projects</h2></div><div class="library-tools"><button class="ghost" id="marketplace">Marketplace</button><input id="search" class="search" type="search" placeholder="Search projects…" /></div></div>
+      <div class="library-switch" role="tablist" aria-label="Library view">
+        <button role="tab" id="projects-tab">Projects</button><button role="tab" id="market-tab">Market</button>
+      </div>
+      <div class="section-head library-heading"><div><p class="eyebrow" id="library-eyebrow"></p><h2 id="library-title"></h2><p class="section-copy" id="library-copy"></p></div><div class="library-tools" id="library-tools"></div></div>
+      <div class="library-breadcrumb" id="library-breadcrumb"></div>
       <div class="tag-row" id="tags"></div>
+      <div class="grid folder-grid" id="folder-grid"></div>
       <div class="grid" id="owned-grid"></div>
     </section>
     <details class="starter-section">
       <summary><div><p class="eyebrow">STARTING POINTS</p><h2>Explore treatments</h2></div><span>Open collection</span></summary>
       <div class="grid compact-grid" id="starter-grid"></div>
-    </details>
-  `;
+    </details>`;
 
+  wireCreation(host);
+  const title = host.querySelector<HTMLElement>('#library-title')!;
+  const eyebrow = host.querySelector<HTMLElement>('#library-eyebrow')!;
+  const copy = host.querySelector<HTMLElement>('#library-copy')!;
+  const tools = host.querySelector<HTMLDivElement>('#library-tools')!;
+  const breadcrumbs = host.querySelector<HTMLDivElement>('#library-breadcrumb')!;
+  const tags = host.querySelector<HTMLDivElement>('#tags')!;
+  const folderGrid = host.querySelector<HTMLDivElement>('#folder-grid')!;
+  const ownedGrid = host.querySelector<HTMLDivElement>('#owned-grid')!;
+  const projectsTab = host.querySelector<HTMLButtonElement>('#projects-tab')!;
+  const marketTab = host.querySelector<HTMLButtonElement>('#market-tab')!;
+  let view: LibraryView = initialView;
+  let projectFolder: string | undefined;
+  let marketFolder: MarketCollectionId | undefined;
+  let activeTag = 'all';
+  let query = '';
+
+  const reset = (next: LibraryView) => {
+    view = next; projectFolder = undefined; marketFolder = undefined; activeTag = 'all'; query = ''; draw();
+  };
+  projectsTab.addEventListener('click', () => reset('projects'));
+  marketTab.addEventListener('click', () => reset('market'));
+
+  function draw(): void {
+    projectsTab.className = view === 'projects' ? 'active' : '';
+    marketTab.className = view === 'market' ? 'active' : '';
+    projectsTab.setAttribute('aria-selected', String(view === 'projects'));
+    marketTab.setAttribute('aria-selected', String(view === 'market'));
+    folderGrid.innerHTML = ''; ownedGrid.innerHTML = ''; tags.innerHTML = ''; tools.innerHTML = ''; breadcrumbs.innerHTML = '';
+    if (view === 'market') drawMarket(); else drawProjects();
+  }
+
+  function drawProjects(): void {
+    const folders = listProjectFolders();
+    const saved = listSaved().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    eyebrow.textContent = 'YOUR LIBRARY';
+    title.textContent = projectFolder ? folders.find((item) => item.id === projectFolder)?.name ?? 'Projects' : 'Project folders';
+    copy.textContent = projectFolder ? 'One folder per project; tags can still overlap.' : 'Keep work in simple one-level folders. Unfiled work stays easy to find.';
+    const search = document.createElement('input'); search.className = 'search'; search.type = 'search'; search.placeholder = 'Search projects…'; search.value = query;
+    search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); drawProjectsContent(folders, saved); });
+    tools.appendChild(search);
+    if (!projectFolder) {
+      const create = document.createElement('button'); create.className = 'ghost'; create.textContent = '+ New folder';
+      create.addEventListener('click', () => {
+        const name = prompt('Folder name');
+        if (name?.trim()) { projectFolder = createProjectFolder(name).id; draw(); }
+      });
+      tools.prepend(create);
+    } else {
+      const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All folders';
+      back.addEventListener('click', () => { projectFolder = undefined; draw(); }); breadcrumbs.appendChild(back);
+      if (projectFolder !== 'unfiled') {
+        const remove = document.createElement('button'); remove.className = 'ghost danger-quiet'; remove.textContent = 'Delete folder';
+        remove.addEventListener('click', () => {
+          if (confirm('Delete this folder? Its projects will move to Unfiled.')) { deleteProjectFolder(projectFolder!); projectFolder = undefined; draw(); }
+        }); tools.prepend(remove);
+      }
+    }
+    drawProjectsContent(folders, saved);
+  }
+
+  function drawProjectsContent(folders: ProjectFolder[], saved: Preset[]): void {
+    folderGrid.innerHTML = ''; ownedGrid.innerHTML = ''; tags.innerHTML = '';
+    if (!projectFolder) {
+      const groups = [{ id: 'unfiled', name: 'Unfiled', createdAt: '', updatedAt: '' }, ...folders];
+      const visible = groups.filter((folder) => !query || folder.name.toLowerCase().includes(query) || saved.some((preset) => (folder.id === 'unfiled' ? !preset.folderId : preset.folderId === folder.id) && projectHaystack(preset).includes(query)));
+      for (const folder of visible) {
+        const contents = saved.filter((preset) => folder.id === 'unfiled' ? !preset.folderId : preset.folderId === folder.id);
+        if (folder.id === 'unfiled' && !contents.length && folders.length) continue;
+        folderGrid.appendChild(projectFolderCard(folder.name, contents, () => { projectFolder = folder.id; query = ''; draw(); }));
+      }
+      if (!visible.length) folderGrid.innerHTML = '<div class="empty project-empty"><strong>No matching folders.</strong><span>Create a folder or clear the search.</span></div>';
+      return;
+    }
+    const folderContents = saved.filter((preset) => projectFolder === 'unfiled' ? !preset.folderId : preset.folderId === projectFolder);
+    const availableTags = [...new Set(folderContents.flatMap((preset) => preset.tags))].slice(0, 8);
+    if (activeTag !== 'all' && !availableTags.includes(activeTag)) activeTag = 'all';
+    for (const tag of ['all', ...availableTags]) {
+      const button = document.createElement('button'); button.className = `filter-chip${activeTag === tag ? ' active' : ''}`; button.textContent = tag === 'all' ? 'All' : tag.replace(/-/g, ' ');
+      button.addEventListener('click', () => { activeTag = tag; drawProjectsContent(folders, saved); }); tags.appendChild(button);
+    }
+    const filtered = folderContents.filter((preset) => (activeTag === 'all' || preset.tags.includes(activeTag)) && (!query || projectHaystack(preset).includes(query)));
+    if (!filtered.length) ownedGrid.innerHTML = '<div class="empty project-empty"><strong>This folder is empty.</strong><span>Move a project here from another folder, or create something new.</span></div>';
+    for (const preset of filtered) ownedGrid.appendChild(projectCard(preset, folders, draw));
+  }
+
+  function drawMarket(): void {
+    eyebrow.textContent = 'DISCOVER & REMIX';
+    title.textContent = marketFolder ? MARKET_COLLECTIONS.find((item) => item.id === marketFolder)?.name ?? 'Market' : 'Market collections';
+    copy.textContent = marketFolder ? 'Open a card in Labs. It only joins Projects when you explicitly save it.' : 'Company-made cards and community posts, grouped into browsable collections.';
+    if (!marketFolder) {
+      for (const collection of MARKET_COLLECTIONS) {
+        const posts = MARKET_POSTS.filter((post) => post.collection === collection.id);
+        folderGrid.appendChild(marketCollectionCard(collection.name, collection.description, posts.map((post) => post.presetId), () => { marketFolder = collection.id; draw(); }));
+      }
+      return;
+    }
+    const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All collections';
+    back.addEventListener('click', () => { marketFolder = undefined; draw(); }); breadcrumbs.appendChild(back);
+    const presets = marketPresets();
+    for (const post of MARKET_POSTS.filter((item) => item.collection === marketFolder)) {
+      const preset = presets.get(post.presetId); if (preset) ownedGrid.appendChild(renderMarketPost(preset, post));
+    }
+  }
+
+  const starterGrid = host.querySelector<HTMLDivElement>('#starter-grid')!;
+  const folders = listProjectFolders();
+  for (const preset of listPresets().filter((item) => item.builtIn && !item.marketplaceOnly)) starterGrid.appendChild(projectCard(preset, folders, draw));
+  draw();
+}
+
+function wireCreation(host: HTMLElement): void {
   const status = host.querySelector<HTMLParagraphElement>('#visual-status')!;
-  const prompt = host.querySelector<HTMLTextAreaElement>('#visual-prompt')!;
+  const promptInput = host.querySelector<HTMLTextAreaElement>('#visual-prompt')!;
   const style = host.querySelector<HTMLSelectElement>('#visual-style')!;
   const go = host.querySelector<HTMLButtonElement>('#visual-go')!;
   const upload = host.querySelector<HTMLInputElement>('#quick-upload')!;
-  host.querySelector('#marketplace')?.addEventListener('click', () => navigate({ name: 'marketplace' }));
-  let generationEnabled = false;
-  let imageModel = 'gemini-2.5-flash-image';
-
+  let generationEnabled = false; let imageModel = 'gpt-image-2';
   void mediaCapabilities().then((caps) => {
-    generationEnabled = caps.sceneGeneration;
-    imageModel = caps.imageModel ?? imageModel;
-    go.disabled = !generationEnabled;
-    status.textContent = generationEnabled
-      ? `~$${(caps.estimatedCostsUsd?.image ?? 0.04).toFixed(2)} per new draft · repeats reuse the local cache · session cap $${(caps.spendCapUsd ?? 3).toFixed(2)}`
-      : 'Add GEMINI_API_KEY to generate drafts. Uploads and starting points still work.';
-  }).catch(() => {
-    go.disabled = true;
-    status.textContent = 'Generation is offline. Uploads and starting points still work.';
-  });
-
-  const openProject = (preset: Preset) => {
-    savePreset(preset);
-    navigate({ name: 'labs', presetId: preset.id });
-  };
-
+    generationEnabled = caps.sceneGeneration; imageModel = caps.imageModel ?? imageModel; go.disabled = !generationEnabled;
+    status.textContent = generationEnabled ? `~$${(caps.estimatedCostsUsd?.image ?? 0.01).toFixed(2)} per new draft · repeats reuse the local cache · session cap $${(caps.spendCapUsd ?? 3).toFixed(2)}` : 'Add OPENAI_API_KEY to generate drafts. Uploads and starting points still work.';
+  }).catch(() => { go.disabled = true; status.textContent = 'Generation is offline. Uploads and starting points still work.'; });
+  const openProject = (preset: Preset) => { savePreset(preset); navigate({ name: 'labs', presetId: preset.id }); };
   go.addEventListener('click', async () => {
-    const request = prompt.value.trim();
-    if (!request) {
-      status.textContent = 'Describe what you want to see first.';
-      prompt.focus();
-      return;
-    }
-    if (!generationEnabled) return;
-    go.disabled = true;
-    status.textContent = 'Creating one visual draft…';
+    const request = promptInput.value.trim(); if (!request) { status.textContent = 'Describe what you want to see first.'; promptInput.focus(); return; }
+    if (!generationEnabled) return; go.disabled = true; status.textContent = 'Creating one visual draft…';
     try {
       const fingerprint = await generationFingerprint('scene-image', imageModel, request, style.value);
-      const cached = await cachedGeneration(fingerprint);
-      let assetId = cached?.id;
-      let mimeType = cached?.blob.type || 'image/png';
-      let provider = 'google';
-      let model = imageModel;
-      if (!assetId) {
-        const generated = await generateSceneImage(request, style.value);
-        assetId = await storeAsset(generated.blob, 'scene');
-        mimeType = generated.mimeType;
-        provider = generated.provider;
-        model = generated.model;
-        rememberGeneration(fingerprint, assetId);
-      }
-      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType, provider, model });
+      const cached = await cachedGeneration(fingerprint); let assetId = cached?.id; let mimeType = cached?.blob.type || 'image/png'; let provider = 'openai'; let model = imageModel;
+      if (!assetId) { const generated = await generateSceneImage(request, style.value); assetId = await storeAsset(generated.blob, 'scene'); mimeType = generated.mimeType; provider = generated.provider; model = generated.model; rememberGeneration(fingerprint, assetId); }
       status.textContent = cached ? 'Reused the cached draft. Opening the editor…' : 'Draft saved. Opening the editor…';
-      openProject(preset);
-    } catch (error) {
-      console.error('[vibe] visual generation failed', error);
-      status.textContent = error instanceof Error ? error.message : 'The visual could not be generated.';
-    } finally {
-      go.disabled = !generationEnabled;
-    }
+      openProject(createMediaPreset({ prompt: request, style: style.value, assetId, mimeType, provider, model }));
+    } catch (error) { console.error('[vibe] visual generation failed', error); status.textContent = error instanceof Error ? error.message : 'The visual could not be generated.'; }
+    finally { go.disabled = !generationEnabled; }
   });
-
   upload.addEventListener('change', async () => {
-    const file = upload.files?.[0];
-    if (!file) return;
-    status.textContent = 'Adding your image…';
-    try {
-      const assetId = await storeAsset(file, 'scene');
-      const request = prompt.value.trim() || file.name.replace(/\.[^.]+$/, '');
-      const preset = createMediaPreset({ prompt: request, style: style.value, assetId, mimeType: file.type, provider: 'upload', model: 'original' });
-      openProject(preset);
-    } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'That image could not be added.';
-    } finally {
-      upload.value = '';
-    }
+    const file = upload.files?.[0]; if (!file) return; status.textContent = 'Adding your image…';
+    try { const assetId = await storeAsset(file, 'scene'); const request = promptInput.value.trim() || file.name.replace(/\.[^.]+$/, ''); openProject(createMediaPreset({ prompt: request, style: style.value, assetId, mimeType: file.type, provider: 'upload', model: 'original' })); }
+    catch (error) { status.textContent = error instanceof Error ? error.message : 'That image could not be added.'; }
+    finally { upload.value = ''; }
   });
-
-  const ownedGrid = host.querySelector<HTMLDivElement>('#owned-grid')!;
-  const starterGrid = host.querySelector<HTMLDivElement>('#starter-grid')!;
-  const search = host.querySelector<HTMLInputElement>('#search')!;
-  const tags = host.querySelector<HTMLDivElement>('#tags')!;
-  let activeTag = 'all';
-
-  function drawLibrary() {
-    const saved = listSaved().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    const availableTags = [...new Set(saved.flatMap((preset) => preset.tags))].slice(0, 8);
-    if (activeTag !== 'all' && !availableTags.includes(activeTag)) activeTag = 'all';
-    tags.innerHTML = '';
-    for (const tag of ['all', ...availableTags]) {
-      const button = document.createElement('button');
-      button.className = `filter-chip${activeTag === tag ? ' active' : ''}`;
-      button.textContent = tag === 'all' ? 'All' : tag.replace(/-/g, ' ');
-      button.addEventListener('click', () => { activeTag = tag; drawLibrary(); });
-      tags.appendChild(button);
-    }
-    const q = search.value.trim().toLowerCase();
-    const filtered = saved.filter((preset) => {
-      const matchesTag = activeTag === 'all' || preset.tags.includes(activeTag);
-      const haystack = `${preset.name} ${preset.description} ${preset.tags.join(' ')}`.toLowerCase();
-      return matchesTag && (!q || haystack.includes(q));
-    });
-    ownedGrid.innerHTML = '';
-    if (!filtered.length) ownedGrid.innerHTML = '<div class="empty project-empty"><strong>No projects yet.</strong><span>Generate a draft or use your own image above.</span></div>';
-    for (const preset of filtered) ownedGrid.appendChild(card(preset, drawLibrary));
-  }
-
-  for (const preset of listPresets().filter((item) => item.builtIn && !item.marketplaceOnly)) starterGrid.appendChild(card(preset, drawLibrary));
-  search.addEventListener('input', drawLibrary);
-  drawLibrary();
 }
 
-function card(preset: Preset, refresh: () => void): HTMLElement {
-  const el = document.createElement('article');
-  el.className = 'card';
-  el.tabIndex = 0;
-  const thumb = renderThumbnail(preset, 480, 270);
-  thumb.className = 'card-thumb';
-  el.appendChild(thumb);
-  const body = document.createElement('div');
-  body.className = 'card-body';
-  const title = document.createElement('h2');
-  title.textContent = preset.name;
-  const description = document.createElement('p');
-  description.textContent = preset.description;
-  body.append(title, description);
-  const meta = document.createElement('div');
-  meta.className = 'card-meta';
-  for (const label of [preset.scene.style, preset.scene.kind, preset.music ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.textContent = label;
-    meta.appendChild(chip);
-  }
-  body.appendChild(meta);
-  el.appendChild(body);
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-  const open = document.createElement('button');
-  open.className = 'primary';
-  open.textContent = preset.builtIn ? 'Use starting point' : 'Continue';
-  open.addEventListener('click', (event) => { event.stopPropagation(); navigate({ name: 'labs', presetId: preset.id }); });
-  actions.appendChild(open);
+function projectHaystack(preset: Preset): string { return `${preset.name} ${preset.description} ${preset.tags.join(' ')}`.toLowerCase(); }
+
+function thumbnailStack(presets: Preset[]): HTMLElement {
+  const stack = document.createElement('div'); stack.className = 'folder-thumbnails';
+  for (const preset of presets.slice(0, 3)) { const thumb = renderThumbnail(preset, 300, 170); thumb.className = 'folder-thumb'; stack.appendChild(thumb); }
+  if (!presets.length) stack.innerHTML = '<div class="folder-empty-art"><span>＋</span></div>';
+  return stack;
+}
+
+function projectFolderCard(name: string, presets: Preset[], open: () => void): HTMLElement {
+  const card = document.createElement('button'); card.className = 'folder-card'; card.appendChild(thumbnailStack(presets));
+  const copy = document.createElement('span'); copy.className = 'folder-card-copy';
+  const title = document.createElement('strong'); title.textContent = name;
+  const count = document.createElement('small'); count.textContent = `${presets.length} project${presets.length === 1 ? '' : 's'} · one level`;
+  copy.append(title, count); card.appendChild(copy); card.addEventListener('click', open); return card;
+}
+
+function marketCollectionCard(name: string, description: string, presetIds: string[], open: () => void): HTMLElement {
+  const presets = marketPresets(); const card = document.createElement('button'); card.className = 'folder-card market-folder'; card.appendChild(thumbnailStack(presetIds.map((id) => presets.get(id)).filter((item): item is Preset => Boolean(item))));
+  const copy = document.createElement('span'); copy.className = 'folder-card-copy'; copy.innerHTML = `<strong>${name}</strong><small>${description}</small><em>${presetIds.length} cards →</em>`; card.appendChild(copy); card.addEventListener('click', open); return card;
+}
+
+function projectCard(preset: Preset, folders: ProjectFolder[], refresh: () => void): HTMLElement {
+  const el = document.createElement('article'); el.className = 'card'; el.tabIndex = 0;
+  const thumb = renderThumbnail(preset, 480, 270); thumb.className = 'card-thumb'; el.appendChild(thumb);
+  const body = document.createElement('div'); body.className = 'card-body';
+  const title = document.createElement('h2'); title.textContent = preset.name; const description = document.createElement('p'); description.textContent = preset.description; body.append(title, description);
+  const meta = document.createElement('div'); meta.className = 'card-meta';
+  for (const label of [preset.scene.style, preset.scene.kind, preset.music ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) { const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = label; meta.appendChild(chip); }
+  body.appendChild(meta); el.appendChild(body);
+  const actions = document.createElement('div'); actions.className = 'card-actions'; const open = document.createElement('button'); open.className = 'primary'; open.textContent = preset.builtIn ? 'Use starting point' : 'Continue'; open.addEventListener('click', (event) => { event.stopPropagation(); navigate({ name: 'labs', presetId: preset.id }); }); actions.appendChild(open);
   if (!preset.builtIn) {
-    const del = document.createElement('button');
-    del.className = 'ghost';
-    del.textContent = 'Delete';
-    del.addEventListener('click', (event) => {
-      event.stopPropagation();
-      if (confirm(`Delete “${preset.name}”? This cannot be undone.`)) { deletePreset(preset.id); refresh(); }
-    });
-    actions.appendChild(del);
+    const select = document.createElement('select'); select.className = 'folder-select'; select.setAttribute('aria-label', `Folder for ${preset.name}`);
+    select.add(new Option('Unfiled', ''));
+    for (const folder of folders) select.add(new Option(folder.name, folder.id));
+    select.value = preset.folderId ?? '';
+    select.addEventListener('click', (event) => event.stopPropagation()); select.addEventListener('change', (event) => { event.stopPropagation(); movePresetToFolder(preset.id, select.value || undefined); refresh(); }); actions.appendChild(select);
+    const del = document.createElement('button'); del.className = 'ghost'; del.textContent = 'Delete'; del.addEventListener('click', (event) => { event.stopPropagation(); if (confirm(`Delete “${preset.name}”? This cannot be undone.`)) { deletePreset(preset.id); refresh(); } }); actions.appendChild(del);
   }
-  el.appendChild(actions);
-  const enter = () => navigate({ name: 'labs', presetId: preset.id });
-  el.addEventListener('click', enter);
-  el.addEventListener('keydown', (event) => { if (event.key === 'Enter') enter(); });
-  return el;
+  el.appendChild(actions); const enter = () => navigate({ name: 'labs', presetId: preset.id }); el.addEventListener('click', enter); el.addEventListener('keydown', (event) => { if (event.key === 'Enter') enter(); }); return el;
 }
