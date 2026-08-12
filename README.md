@@ -1,264 +1,418 @@
 # Vibe Curator
 
-> A room you can conjure.
+### An AI-native creative environment for turning an idea, image, or video into a living audiovisual world.
 
-```bash
-npm install && npm run dev
+Vibe Curator is an experimental desktop-first product that sits between a generative media studio, an ambient player, and a creator marketplace. A user describes a world—or brings an image or video—then shapes its motion, visual treatment, atmosphere, and soundtrack without losing editability after generation.
+
+The thesis is simple:
+
+> Generative media should not end as a static file. It should become a reusable, editable environment that can live on your screen.
+
+This repository contains a working vertical slice of that vision: AI image generation, image/video input, source-aware motion graphics, safe AI-generated shaders, AI music with vocal control, persistent project organization, a curated Market, and a full-screen Player—all built around one continuous real-time scene.
+
+![Vibe Curator fish benchmark](public/benchmarks/fish-benchmark.png)
+
+## Why this project exists
+
+Most generative products produce an artifact, download it, and end the relationship. Vibe Curator treats generation as the beginning of an authored system:
+
+- the source visual remains replaceable;
+- motion and treatments remain adjustable;
+- shaders remain parameterized and remixable;
+- ambience and music remain independent layers;
+- the result can evolve over a session instead of repeating forever;
+- a saved project can become a template for another creator.
+
+The long-term product is a native creative surface where someone can say:
+
+> “Make a dark bioluminescent koi world, rebuild the fish as tracked neon cells, make it react to fast psychedelic rap, and let it live behind my desktop.”
+
+The application should translate that intent into an editable scene graph—not flatten it into an opaque video.
+
+## Product experience
+
+The product is organized around three connected surfaces:
+
+### Explore
+
+The creation and library surface.
+
+- Generate a low-cost source image from a text prompt with OpenAI GPT Image.
+- Upload an existing image as the creative starting point.
+- Choose a plain-language starting look: Cinematic image, Neon glow, Printed dots, or Text mosaic.
+- Switch in place between personal Projects and the Market.
+- Browse projects through mutually exclusive automatic shelves: Generated visuals, Images & video, Living scenes, Music attached, and Remixes.
+- Create one-level project folders; projects enter them only when the user explicitly assigns them.
+- Search and filter with automatic tags without creating duplicate project cards.
+
+### Labs
+
+The non-destructive editor.
+
+- Replace the underlying source with an image or looping video.
+- Animate a still source into a short video through Gemini Veo when configured.
+- Add deterministic source-aware treatments such as Motion cells, Edge echo, and Tracked grid.
+- Adjust cell size, trail length, density, response, source visibility, tint, and glow.
+- Stack built-in or AI-generated atmospheric shaders.
+- Tune the scene through human controls—Mood, Motion, Depth, Glow, Atmosphere, and Intensity—instead of exposing rendering jargon.
+- Select Light, Automatic, or Full runtime budgets without changing the saved creative intent.
+- Generate and persist a 30-second ElevenLabs Music v2 track.
+- Choose Auto, Vocals, or Instrumental. Vocal directions such as fast rap, singing style, language, cadence, and original lyrics survive prompt adaptation.
+- Save explicitly; opening a built-in or Market card never silently adds another project.
+
+### Player
+
+The finished environment.
+
+- Full-quality, full-screen playback at the display-oriented runtime budget.
+- Minimal chrome that fades out of the experience.
+- Independent Ambience, Music, and Master buses.
+- Sound remains opt-in and begins only after the user presses **Start sound**.
+- Browser Back and trackpad swipe navigation remain meaningful across the full flow.
+
+## What works today
+
+| Capability | Status | Implementation |
+|---|---:|---|
+| Prompt → source image | Working | OpenAI `gpt-image-2`, low-cost 1536×1024 draft |
+| Image upload | Working | Browser upload → IndexedDB/local server asset persistence |
+| Video upload and looping playback | Working | Native browser decode feeding the source-aware compositor |
+| Still image → short motion draft | Working when quota is available | Gemini Veo, 4 seconds, 720p |
+| Source-aware visual tracking | Working | 128×72 clean-frame analysis, motion/edge signals, temporal trails |
+| Reusable visual treatments | Working | Deterministic recipe manifests with editable parameters |
+| AI shader generation | Working | Anthropic → guarded GLSL → compiler → live Pixi filter |
+| Generated music | Working | ElevenLabs Music v2, stored once and replayed locally |
+| Vocal music and fast rap intent | Working | Explicit vocal mode plus Anthropic prompt adaptation |
+| Artist-reference translation | Working | Named references converted into transferable musical characteristics |
+| Project persistence | Working | Shared local JSON project store plus browser cache |
+| Media persistence | Working | IndexedDB/local binary asset endpoints |
+| Folders, automatic types, tags | Working | One explicit folder per project plus independent tags |
+| Curated/community Market model | Working prototype | Collection folders and remixable preset cards |
+| Performance-aware rendering | Working | 15 fps Explore, 30 fps Labs, 60 fps Player; hidden-tab suspension |
+| Native application | Planned | Tauri 2 is the recommended first shell |
+| Cloud accounts and sync | Planned | Railway/API jobs, Postgres metadata, object storage for media |
+
+## System architecture
+
+```mermaid
+flowchart LR
+    U["Creator intent"] --> E["Explore"]
+    E --> L["Labs editor"]
+    L --> P["Player"]
+
+    E --> IMG["OpenAI image generation"]
+    L --> VEO["Gemini Veo motion"]
+    L --> FX["Anthropic shader generation"]
+    L --> DNA["Anthropic music-prompt adapter"]
+    DNA --> MUSIC["ElevenLabs Music v2"]
+
+    IMG --> ASSETS["Local asset store"]
+    VEO --> ASSETS
+    MUSIC --> ASSETS
+
+    ASSETS --> DOC["Preset document"]
+    FX --> DOC
+    DOC --> SCENE["Shared Scene runtime"]
+
+    SCENE --> SOURCE["Canvas source analysis"]
+    SOURCE --> PIXI["Pixi/WebGL compositor"]
+    PIXI --> P
+
+    DOC --> LIB["Projects, folders, tags, Market"]
 ```
 
-Then open http://localhost:5178 and click **Begin session**. Audio needs that
-first click; browsers require a gesture.
+One `Scene` and one `AudioEngine` sit beneath Explore, Labs, and Player. Navigation changes how the runtime is presented and budgeted; it does not create three unrelated applications. This preserves continuity while avoiding full-rate rendering where the scene is mostly obscured.
+
+## The preset is the product contract
+
+Every project is a structured `Preset`, not a flattened export. It records:
+
+- scene source: procedural rig, generated/uploaded image, or video;
+- source provenance: original prompt, provider, model, timestamp, and lineage;
+- palette and semantic controls;
+- ordered source-aware treatments;
+- ordered generated shader manifests and parameters;
+- ambience/music/master levels;
+- optional persisted music asset;
+- performance preference;
+- tags, folder assignment, parent project, and timestamps.
+
+This document model is the seam between the current web prototype, a future native shell, cloud synchronization, and a marketplace. The renderer can change without invalidating the user’s creative intent.
+
+## Source-aware visual pipeline
+
+The most important technical experiment in the project is turning arbitrary media into a live editable treatment without requiring a new video-generation call for every adjustment.
+
+1. The clean image, video, or procedural source is drawn into a full-resolution Canvas2D surface.
+2. A 128×72 analysis frame is sampled separately, preventing treatment feedback from corrupting the tracker.
+3. Current luminance is compared with the previous frame.
+4. Motion difference, local edges, brightness, and subject centroid are derived.
+5. Each treatment accumulates its own temporal trail.
+6. Motion cells, contour echoes, or tracked color grids are drawn at full resolution.
+7. Pixi uploads that treated canvas as a texture.
+8. Atmospheric GLSL filters compose above the source treatment.
+
+The result is intentionally hybrid: CPU-side analysis is understandable and deterministic; GPU shaders handle full-screen atmospheric work. It validates the interaction model before committing to optical flow, segmentation, or a native compute pipeline.
+
+## Safe generative effects
+
+Vibe Curator can generate GLSL fragment effects from plain language, but generated code is never trusted implicitly.
+
+The pipeline uses two independent gates:
+
+1. **Static guard** — rejects unsafe constructs such as unbounded loops and code outside the supported shader contract.
+2. **Real compilation** — compiles against the same GLSL ES 1.00-compatible Pixi harness used at runtime.
+
+If compilation fails, the exact rebased compiler log is returned to the model for a bounded repair attempt. Successful effects expose 2–4 named parameters that become live sliders and are stored with prompt, provider, model, version, and parent lineage.
+
+Why GLSL instead of generated JavaScript? A fragment shader cannot access the network, DOM, filesystem, or application state. The capability boundary is dramatically smaller, and the remaining GPU-hang risk can be checked statically.
+
+## Music pipeline and vocal intent
+
+Music creation is an authored pipeline, not a playback-time dependency:
+
+```mermaid
+flowchart LR
+    A["User music request"] --> M["Voice mode: Auto / Vocals / Instrumental"]
+    M --> H["Anthropic Haiku adapter"]
+    H --> S["Remove named references; preserve musical and vocal intent"]
+    S --> EL["ElevenLabs Music v2"]
+    EL --> MP3["Persisted MP3 asset"]
+    MP3 --> MIX["Independent Music bus"]
+```
+
+The prompt adapter translates artist, band, producer, song, or era references into transferable musical DNA: tempo, groove, instrumentation, arrangement, production texture, vocal delivery, dynamics, and emotional arc. It removes the named comparison before the request reaches ElevenLabs.
+
+The system stores both the user’s original wording and the final adapted prompt for auditability. Vocal requests are never silently converted to instrumentals; `force_instrumental` is enabled only when Instrumental mode resolves explicitly.
+
+## Performance engineering
+
+The goal is to remove invisible work, not visual quality.
+
+- **Explore:** 15 fps background renderer because the scene sits beneath dense UI.
+- **Labs:** 30 fps live renderer for responsive controls.
+- **Player:** 60 fps quality reference.
+- Hidden documents pause the renderer, uploaded video, and audio-analysis loop.
+- Full-screen CSS blur and repeated backdrop compositing were removed from moving surfaces.
+- Deterministic procedural thumbnails are cached with a bounded memory budget.
+- Scene switches explicitly destroy old Pixi textures and filters.
+- Source tracking is throttled independently from the display refresh rate.
+- Tone.js is dynamically imported only after **Start sound**.
+- The initial JavaScript payload fell from roughly 663 KB to 341 KB, and from roughly 191 KB to 81 KB gzip; the audio engine remains fully available as an on-demand chunk.
+
+See [docs/performance-native-plan.md](docs/performance-native-plan.md) for the profiling plan and native boundary.
+
+## AI provider decisions
+
+| Provider | Responsibility | Why |
+|---|---|---|
+| OpenAI GPT Image | Low-cost source-image drafts | Strong general image quality behind a small provider-neutral media API |
+| Gemini Veo | Optional still-image motion draft | Useful for authored source motion; kept separate from local realtime treatments |
+| Anthropic Claude Haiku | Shader generation and music prompt adaptation | Structured output, inexpensive transformation, and bounded compiler-repair loop |
+| ElevenLabs Music v2 | Persisted music with optional vocals | Supports instrumentals, vocals, complex delivery, and fast rap |
+
+Provider details live behind same-origin server modules. API keys never enter client code, and environment variables deliberately avoid Vite’s public `VITE_` prefix.
+
+## Cost and safety boundaries
+
+- Image generation: approximately `$0.01` per new low-quality draft.
+- Motion generation: approximately `$0.20` per four-second draft.
+- Music: approximately `$0.076` for prompt adaptation plus one 30-second track.
+- Repeated image requests can reuse a local fingerprint cache.
+- Built-in treatments, procedural sources, tracking, editing, playback, and thumbnails are local and free.
+- Generated music is stored once; replay never invokes a model.
+- A server-side session spend cap defaults to `$3` and can be configured.
+- Failed calls release their reserved estimate when possible and do not replace the current asset.
+- User-visible messages avoid leaking provider payloads or credentials.
+- The build fails if content-pack assets lack acceptable license metadata.
+
+## Local persistence model
+
+The prototype is deliberately local-first:
+
+- compact project documents are cached in `localStorage` and mirrored through local JSON endpoints;
+- folders are persisted as their own records;
+- binary images, video, and music use IndexedDB and local asset endpoints;
+- newest `updatedAt` wins during browser/server hydration;
+- built-ins are immutable and fork into owned projects;
+- older duplicate remixes are consolidated in the Library without destroying recoverable data.
+
+This is appropriate for a desktop prototype. In production, Postgres should store users, projects, folders, Market metadata, job state, and permissions; media belongs in object storage, not database rows.
+
+## Why Railway and a database do not fix rendering performance
+
+The current performance bottleneck is local GPU/CPU composition. Railway becomes valuable for asynchronous and collaborative work:
+
+- generation API proxying and secret isolation;
+- durable image/video/music job queues with progress, retry, and cancellation;
+- authentication and cross-device sync;
+- marketplace publishing, favorites, collections, moderation, and attribution;
+- signed object-storage access.
+
+The interactive renderer should remain local-first so opening and playing a world never waits on the network.
+
+## Native application strategy
+
+The recommended next delivery layer is **Tauri 2** around the existing TypeScript/Pixi application.
+
+Tauri offers the smallest responsible step toward a native product while preserving the validated interaction model. The native layer should own:
+
+- secure credential storage;
+- filesystem import/export and project packages;
+- background generation jobs and notifications;
+- window, sleep/wake, wallpaper, and multi-display behavior;
+- system-audio capture permissions where legally and technically appropriate;
+- a separate fixed-quality render/export worker.
+
+The `Scene` interface remains the rendering boundary. A Rust/WGPU rewrite should happen only if measurements show WebView/WebGL is the remaining constraint—not because “native” automatically implies rewriting a working renderer.
+
+## Technical decisions worth highlighting
+
+### One scene graph, three product surfaces
+
+Explore, Labs, and Player share the same runtime. This reduces teardown latency and makes “edit what I am currently experiencing” the default mental model.
+
+### Generated outputs remain layered
+
+Source, source treatment, shader stack, ambience, music, and theme are independently replaceable. This is the difference between a generator and an editor.
+
+### Session arcs make rooms feel alive
+
+The renderer tracks real time and session time separately. A room can settle, hold, revive, and wind down over a long session while moment-to-moment animation remains natural. A static loop is wallpaper; a changing environment is a place.
+
+### Material and light are treated differently
+
+Pixel-art material can be quantized to a palette for coherence, while additive light opts out so smooth falloff does not become a hard-edged disc.
+
+### Performance is route-aware
+
+The application budgets render work according to what the user can see. It does not downgrade the final Player to compensate for an unnecessarily expensive Library background.
+
+### The marketplace is a document-distribution system
+
+Market cards are not flattened videos. They are remixable presets that open in Labs and become owned projects only after explicit Save.
+
+## Repository map
+
+| Path | Responsibility |
+|---|---|
+| [`src/preset/types.ts`](src/preset/types.ts) | The persisted creative document contract |
+| [`src/preset/library.ts`](src/preset/library.ts) | Built-ins, projects, folders, hydration, forks, and consolidation |
+| [`src/app/explore.ts`](src/app/explore.ts) | Creation, Project/Market switch, folders, types, tags, and cards |
+| [`src/app/labs.ts`](src/app/labs.ts) | Non-destructive editing and media generation controls |
+| [`src/app/player.ts`](src/app/player.ts) | Full-screen playback and audio mixer |
+| [`src/scene.ts`](src/scene.ts) | Shared Pixi renderer, lifecycle, effects, and route-aware frame budgets |
+| [`src/source-aware/processor.ts`](src/source-aware/processor.ts) | Clean-frame analysis and treatment compositor |
+| [`src/source-aware/demo-sources.ts`](src/source-aware/demo-sources.ts) | Deterministic koi, cloud, and bloom benchmark sources |
+| [`src/effects/harness.ts`](src/effects/harness.ts) | Generated shader contract and static safety guard |
+| [`src/effects/compile.ts`](src/effects/compile.ts) | Runtime-matched GLSL verification |
+| [`src/effects/generate.ts`](src/effects/generate.ts) | Cached, compiler-repaired generation loop |
+| [`src/audio/engine.ts`](src/audio/engine.ts) | Lazily loaded ambience/music graph and analysis |
+| [`src/media/api.ts`](src/media/api.ts) | Provider-neutral client media boundary |
+| [`server/media.ts`](server/media.ts) | Secret-holding image, motion, prompt-adaptation, and music proxy |
+| [`server/gen-shader.ts`](server/gen-shader.ts) | Secret-holding shader generation proxy |
+| [`server/library.ts`](server/library.ts) | Shared local project, folder, and binary asset endpoints |
+| [`scripts/check-licenses.mjs`](scripts/check-licenses.mjs) | Content licensing build gate |
+
+## Run locally
+
+Requirements: Node.js 20+ and npm.
+
+```bash
+git clone https://github.com/shubhamjoshipromail-svg/vibe-curator.git
+cd vibe-curator
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Open [http://127.0.0.1:5178](http://127.0.0.1:5178).
+
+The application works without generation keys for built-in scenes, local treatments, editing, and playback. Add only the capabilities you want:
+
+```dotenv
+# AI shaders and artist-reference-safe music prompt adaptation
+ANTHROPIC_API_KEY=
+
+# Source-image generation
+OPENAI_API_KEY=
+
+# Still-image motion generation
+GEMINI_API_KEY=
+
+# Persisted music generation
+ELEVENLABS_API_KEY=
+
+# Optional local development spend ceiling
+MEDIA_GENERATION_CAP_USD=3
+```
+
+Never prefix secrets with `VITE_`; Vite exposes those variables to the browser bundle.
+
+## Validate and build
+
+```bash
+npm run build                 # license gate + TypeScript + production bundle
+npm run check:licenses        # validate every declared content asset
+npm run report:effect-costs   # offline report from recorded shader usage
+npm run gen:fixtures          # regenerate development art/audio fixtures
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+## Roadmap
+
+### Product
+
+- Natural-language orchestration across visual, motion, treatment, and sound layers.
+- Real user accounts, publishing, favorites, collections, attribution, and remix lineage.
+- Better Market discovery by creator, visual grammar, mood, media type, and customizability.
+- Project packages that can be exported, shared, and reopened without cloud lock-in.
+- Timeline/section editing for generated vocal music.
+
+### Rendering
+
+- Measured image/video tracking benchmark suite with frame-time p50/p95.
+- Worker/OffscreenCanvas analysis where platform support justifies it.
+- GPU render-texture history, optical flow, and optional semantic masks.
+- Quality-preserving video export separate from interactive preview.
+- Device-aware budgets derived from measured frame time rather than a manual tier alone.
+
+### Platform
+
+- Tauri 2 desktop shell.
+- Railway-hosted generation/job API.
+- Postgres for metadata and object storage for media.
+- Durable job state, cancellation, retries, and background notifications.
+- Secure native keychain integration and production authentication.
+
+### Workflow integrations
+
+ComfyUI is intentionally deferred. It becomes valuable when a single authored workflow truly needs several graph operations—generation, masking, image-to-video, interpolation, seamless looping, upscaling, and stylization. Direct provider calls are easier to reason about until that complexity is real.
+
+## Current limitations
+
+- The Market is seeded prototype content, not a multi-user publishing backend.
+- Source tracking uses lightweight luminance/motion/edge analysis, not semantic understanding.
+- Motion generation depends on Gemini quota and may be unavailable for a configured key.
+- Generated media has estimated rather than provider-reconciled per-request billing.
+- The repository has build/type/license validation but does not yet have a full automated browser performance suite.
+- Some visual content remains deliberately procedural or fixture-based while the product loop is validated.
+
+## What this project demonstrates
+
+- Product thinking that treats AI output as editable state rather than disposable media.
+- A clear boundary between stochastic authoring and deterministic playback.
+- Real-time graphics, Canvas analysis, WebGL shader composition, and audio-reactive control.
+- Multi-provider AI orchestration with secret isolation, provenance, caching, cost caps, and graceful failure.
+- Safe generated-code execution through capability restriction, static analysis, and real compilation.
+- Performance work driven by lifecycle and visibility rather than blunt quality reduction.
+- An incremental path from local web prototype to cloud-backed native product.
 
 ---
 
-## The flow
-
-**Explore → Labs → Player.** One renderer and one audio engine underneath all
-three, so moving between them is a CSS change, not a reload — the room never
-stops playing while you work on it.
-
-- **Explore** — nine rooms as cards with real previews, rendered from each
-  preset's own painters and palette so a card always shows what you'll get.
-  No prompt box here on purpose: a blank field as the first thing you see
-  invites a weak first attempt, and a weak first impression is permanent.
-- **Labs** — six controls named for feelings (Mood, Motion, Depth, Glow,
-  Atmosphere, Intensity), the effect stack with per-effect parameter sliders,
-  and the audio layers. Opening a built-in forks it, so the starting library
-  can never be damaged.
-- **Player** — the environment, with chrome that fades and a layer mixer that
-  doesn't. Ambience and music are separate buses; either can be silenced
-  without touching the other.
-
-Saved rooms persist to localStorage and reappear in Explore tagged `yours` and
-`remix`, with `parentId` recording where they came from.
-
-Explore also includes three source-aware moving studies: **Living Koi**,
-**Cloud Study**, and **Bloom Signal**.
-
-## Layers
-
-| Layer | What it is |
-|---|---|
-| Background visual | An archetype rig recoloured by the preset's palette |
-| Source treatment | Motion/edge analysis plus an editable deterministic recipe |
-| Effect | Generated GLSL shaders, stacked, each with its own controls |
-| Ambience | Room tone, fire, wind — the sound of the place |
-| Music | Bed and motifs — the sound of the mood |
-| Theme | Accent colour carried from the palette |
-
-## GEN-EFFECT
-
-Describe an effect in the panel on the right; it is generated as a GLSL
-fragment shader, validated, compiled, and applied to the live scene.
-
-```bash
-cp .env.example .env   # add ANTHROPIC_API_KEY, then restart the dev server
-```
-
-Six effects ship built-in — real generations produced by `npm run gen:effects`
-through the same prompt the product uses at runtime, so Explore has good content
-instead of an empty gallery and a 40-second wait.
-
-**Effects are editable, not one-shot.** Each generation also declares 2–4 named
-parameters ("Drift Speed", "Caustic Sharpness", "Droplet Density") that become
-sliders in Labs and retune the live shader without regenerating. The manifest
-keeps the prompt, the params, the model and the lineage, so an effect can be
-reopened, re-prompted, and remixed.
-
-Generation takes 30–75 seconds. That is the main known weakness — see below.
-
-Custom effects now default to `claude-haiku-4-5`, are compiler-verified, and
-cache successful prompt/style/palette combinations in the browser. The bundled
-effect shelf is instant and makes no API call. Run `npm run report:effect-costs`
-to compare the already-recorded corpus without spending anything; live model
-evaluation is intentionally a separate, explicit operation.
-
-**Why shaders and not JavaScript.** A fragment shader cannot reach the network,
-the filesystem, or the DOM, so generated code needs no sandbox. The one real
-risk — an unbounded loop hanging the GPU — is a static check, not a hope.
-
-**Two gates, because neither is sufficient alone.** The static guard catches
-what compiles fine and then hangs (unbounded loops). The compiler catches
-syntax. A shader must pass both, and on failure the compiler log is fed back to
-the model verbatim — precise, line-numbered feedback is why the retry converges.
-
-**The language level is GLSL ES 1.00, not 3.00.** Pixi emits no `#version`
-directive, so filter shaders compile as ES 1.00 even on a WebGL2 context; the
-ES3-looking `in`/`out`/`texture()` syntax survives only via compatibility
-defines. No integer `clamp`, no dynamic indexing, no `%`. The verifier
-reproduces Pixi's exact preamble — an earlier version tested against
-`#version 300 es` and passed shaders the renderer then refused.
-
-**The key never reaches the browser.** Requests go to a same-origin proxy that
-holds it server-side. Note `ANTHROPIC_API_KEY`, not `VITE_ANTHROPIC_KEY` — Vite
-inlines `VITE_`-prefixed variables into the client bundle.
-
-## Status
-
-**The highest-value dynamic-media slice is working.** Procedural moving sources,
-uploaded video, and gently animated images can pass through one source-aware
-surface. It samples the clean current frame at 128×72, compares it with the
-previous frame, derives motion and edge signals, accumulates per-recipe temporal
-trails, and draws a full-resolution treatment canvas that Pixi uploads each
-frame. Existing GLSL effects remain a separate atmospheric stack above it.
-
-Source-aware recipes are compact persisted data (`motion-cells` or `edge-echo`
-plus cell size, trail, glow, density, response, and tint). Labs can add, remove,
-mute, and retune them without regeneration. This is also the contract a later
-intent planner can emit; playback itself is deterministic and makes no model
-calls.
-
-**Milestone 2 seams are in.** Real art and real audio can now be dropped in
-without touching engine code, and a license gate blocks anything undocumented.
-The content shipped here is still placeholder — see "Bring your own content".
-
-**Scene is now a first-class preset layer.** The procedural renderer remains a
-scene source, alongside built-in images and user-uploaded image/video assets.
-Uploads and generated music are stored as blobs in IndexedDB; presets retain
-small metadata and provenance in localStorage. Live Pixi effects compose over
-all scene kinds.
-
-**Generated music is an authored asset.** With `ELEVENLABS_API_KEY` configured,
-Labs can explicitly request one 30-second Eleven Music v2 track. The MP3 is stored locally,
-reused on every play, and replaces the procedural score while preserving the
-independent Ambience, Music and Master buses. Playback never calls a model.
-
-The internal media boundary is deliberately small: the UI asks for a media
-capability and server modules own provider details. ComfyUI remains deferred.
-It becomes useful when scene workflows actually require several of generation,
-masking, image-to-video, interpolation, looping, upscaling and stylization in a
-single graph; direct API operations are simpler until then.
-
-## Cost boundary
-
-- Procedural sources, source analysis, recipes, thumbnails, and playback: free
-  and local.
-- Built-in GLSL treatments: free and local. Custom shader generation is one
-  explicit cached model call.
-- Generated Eleven Music: one explicit call, then the saved MP3 is reused.
-- No media generation API is called to render or replay any source-aware demo.
-- ComfyUI stays deferred until a workflow genuinely needs a graph spanning
-  generation, masks, animation/interpolation, looping, and upscaling.
-
-## What this is
-
-The backbone: an archetype rig, an animator library, a generative audio engine,
-and several scene sources that share all of it. Built-in playback is entirely
-deterministic; optional custom shaders and music are explicit authored assets,
-cached or persisted after generation.
-
-That is deliberate. It means the two questions worth answering can be answered
-today, with nothing sourced and nothing licensed:
-
-1. **Does subtle procedural motion actually feel alive?** If it reads as alive on
-   placeholder art, real art can only improve it.
-2. **Does the rig generalize, or is it a campfire-specific toy?** Three
-   archetypes in three aesthetics, sharing one renderer, is the cheap test.
-
-## The framing
-
-The unit of value is **time spent inside a room**, not the artifact generated.
-A scene identical at minute 40 is wallpaper; one where the light has changed is a
-room. So the session arc is a first-class concept, not a later feature — see
-`ArcSpec` in [src/types.ts](src/types.ts) and the two-clock tick in
-[src/scene.ts](src/scene.ts).
-
-Use the `120×` button to watch a 25-minute arc in 13 seconds. Evaluating a slow
-idea in real time is how slow ideas go unevaluated.
-
-## Layout
-
-| Path | What it is |
-|---|---|
-| [src/types.ts](src/types.ts) | The vibe spec. The spine — everything downstream reads from this. |
-| [src/archetypes.ts](src/archetypes.ts) | Slot rigs. Named slots + an animator each. |
-| [src/animators/index.ts](src/animators/index.ts) | **The durable asset.** Written once, reused forever. |
-| [src/scene.ts](src/scene.ts) | Renderer. Knows nothing about any specific scene. |
-| [src/audio/engine.ts](src/audio/engine.ts) | Bed + textures + sparse randomized events. |
-| [src/vibes/index.ts](src/vibes/index.ts) | The library. Three rooms. |
-| [src/arc.ts](src/arc.ts) | Session arc shapes. Settle / steady / build / none. |
-| [src/art/pack.ts](src/art/pack.ts) | Asset packs: load, trim to alpha, register. |
-| [src/audio/pack.ts](src/audio/pack.ts) | Audio packs: sampled textures and instruments. |
-| [src/art/painters.ts](src/art/painters.ts) | **Disposable.** Placeholder art, drawn in code. |
-| [src/effects/harness.ts](src/effects/harness.ts) | GEN-EFFECT contract + static guard. |
-| [src/effects/compile.ts](src/effects/compile.ts) | Shader verification. Must match Pixi's preamble exactly. |
-| [src/effects/generate.ts](src/effects/generate.ts) | The self-healing generation loop. |
-| [src/source-aware/processor.ts](src/source-aware/processor.ts) | Current/previous-frame analysis and deterministic treatment compositor. |
-| [src/source-aware/demo-sources.ts](src/source-aware/demo-sources.ts) | Moving koi, cloud, and flower sources for the vertical slice. |
-| [server/gen-shader.ts](server/gen-shader.ts) | Key-holding proxy. Becomes a Worker or desktop process later. |
-| [scripts/check-licenses.mjs](scripts/check-licenses.mjs) | Build gate. Fails on any asset without a license row. |
-
-## Bring your own content
-
-Both seams work the same way: a pack declares named entries, anything it
-provides wins, anything it omits falls back to the procedural/synthesized
-version. **Partial packs are the normal case** — that is also what per-slot
-reroll will look like later.
-
-**Art** — drop images in `public/packs/<your-pack>/` with a `pack.json`, then set
-`pack` on the vibe. Every asset is trimmed to its alpha bounding box on load and
-positioned by the slot's anchor, so source padding does not matter and sprites
-from unrelated sources still stand on the same floor.
-
-**Audio** — same shape in `public/audio/<your-pack>/`. Textures pick a
-`loop_mode`: `player` preserves transients (fire, rain), `granular` is seamless
-on material never prepared for looping (room tone, wind). Instruments are
-note-name → file maps for `Tone.Sampler`.
-
-Run `npm run gen:fixtures` to regenerate the placeholder pack, and
-`npm run check:licenses` to validate. **Only CC0 or public domain passes.**
-"Royalty-free" is deliberately rejected — many such licenses forbid exactly this
-kind of redistribution.
-
-## As an actual wallpaper
-
-```bash
-npm run build && npm run preview
-```
-
-Then point [Plash](https://sindresorhus.com/plash) at `http://localhost:5179`.
-Zero code, and it answers the "is this actually a wallpaper" question far faster
-than a native shell would. On Windows, point Lively at the built `dist/`.
-
-## Three decisions worth knowing about
-
-**The arc is not a decay.** It settles, holds a long breathing plateau, revives
-around 75%, and only then winds down. A monotonic fade reads as "the fire is
-dying"; the revival is what makes the ending feel chosen rather than inevitable.
-See [src/arc.ts](src/arc.ts).
-
-
-**Quantization applies to material, not light.** Every pixel-art layer is snapped
-to `palette.ramp`, which is what makes independently-produced layers look like
-one scene. But quantizing an additive glow turns its falloff into a hard-edged
-disc — so light layers opt out. See `bake()`.
-
-**Render style is per-vibe, not global.** `internal` resolution and
-nearest-vs-linear filtering live on the vibe spec. Pixel art is a style this can
-render, not the identity of the product.
-
-## Known weakness
-
-**Effect generation takes 30–75 s.** Labs shows a live counter rather than a
-spinner that lies, but this needs a real job queue — queued → generating → ready
-— so a generation runs in the background while you keep working. That same queue
-is what image, video and music generation will need, so it isn't effect-specific
-plumbing.
-
-The source analyzer is intentionally a browser Canvas2D implementation at a
-small analysis resolution. It proves the product loop and supports uploads, but
-semantic segmentation, optical flow, GPU render-texture history, and authored
-long-form video are not implemented yet.
-
-## Not built yet, on purpose
-
-- Image/video generation. The provider seam is designed but nothing is wired;
-  a queued provider should only be added after the authored-video path is
-  validated with real clips.
-- A job queue with persistent results.
-- Spotify. Their terms prohibit synchronizing recordings with visual media,
-  which is exactly this product. System-audio loopback is the better path.
-- Tauri / native shell. Needs a Rust toolchain; Plash answers the same question
-  for now at zero cost.
-- `rain` and `snow` animators — the next two to add.
-- Save/name a vibe, and the seed-based reroll the seeded RNG already allows for.
+Built as a product and systems experiment in what comes after the prompt box: a creative environment that users can keep shaping, inhabit, and share.
