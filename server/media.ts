@@ -95,7 +95,24 @@ function stripReferences(prompt: string, references: string[]): string {
     .trim();
 }
 
-async function adaptMusicPrompt(client: Anthropic, request: string): Promise<{ prompt: string; removedReferences: string[] }> {
+type VocalMode = 'auto' | 'vocals' | 'instrumental';
+
+function resolveVocalMode(request: string, requested: VocalMode): Exclude<VocalMode, 'auto'> {
+  if (requested !== 'auto') return requested;
+  const text = request.toLowerCase();
+  // Positive vocal intent wins over contradictory template residue such as
+  // "no vocals" left in an older saved prompt.
+  if (/\b(vocals?|sing(?:er|ing)?|rap(?:per|ping)?|lyrics?|verse|chorus|hook|chant|spoken word|ad[- ]?libs?)\b/.test(text)) return 'vocals';
+  if (/\b(instrumental|no vocals?|without vocals?|music only)\b/.test(text)) return 'instrumental';
+  return 'instrumental';
+}
+
+async function adaptMusicPrompt(
+  client: Anthropic,
+  request: string,
+  requestedMode: VocalMode = 'auto',
+): Promise<{ prompt: string; removedReferences: string[]; vocalMode: Exclude<VocalMode, 'auto'> }> {
+  const vocalMode = resolveVocalMode(request, requestedMode);
   const message = await client.messages.create({
     model: MUSIC_PROMPT_MODEL,
     max_tokens: 500,
@@ -104,9 +121,12 @@ async function adaptMusicPrompt(client: Anthropic, request: string): Promise<{ p
       'Infer musical DNA from any named artists, bands, songs, albums, producers, or eras: instrumentation, tempo, groove, harmony, arrangement, production texture, performance feel, dynamics, and emotional arc.',
       'The output prompt must contain no artist, band, song, album, label, producer, celebrity, or other proper-name references from the request.',
       'Never write “in the style of”, “inspired by”, “sounds like”, or equivalent comparison language.',
-      'Do not copy lyrics, melodies, titles, or signature phrases. Describe transferable musical characteristics only.',
-      'Shape the direction for a strong 30-second instrumental excerpt, but do not mention a duration in the output.',
-      'Write 45–90 words, usable directly as an instrumental generation prompt. Return every removed named reference in removedReferences.',
+      'Do not reproduce lyrics, melodies, titles, or signature phrases associated with a removed reference. Describe transferable musical characteristics only.',
+      vocalMode === 'vocals'
+        ? 'The user wants vocals. Preserve their requested vocal language, delivery, speed, tone, structure, and any clearly original lyrics they supplied. Explicitly require prominent vocals; never turn this into an instrumental or add “no vocals”.'
+        : 'The user wants an instrumental. Explicitly state that it has no vocals.',
+      'Shape the direction for a strong short excerpt, but do not mention a duration in the output.',
+      'Write 45–110 words, usable directly as a music generation prompt. Return every removed named reference in removedReferences.',
     ].join(' '),
     output_config: { format: { type: 'json_schema', schema: MUSIC_PROMPT_SCHEMA } },
     messages: [{ role: 'user', content: request }],
@@ -117,7 +137,7 @@ async function adaptMusicPrompt(client: Anthropic, request: string): Promise<{ p
   const references = Array.isArray(parsed.removedReferences) ? parsed.removedReferences : [];
   const prompt = stripReferences(parsed.prompt?.trim() ?? '', references);
   if (!prompt) throw new Error('Prompt adapter returned an empty prompt.');
-  return { prompt, removedReferences: references };
+  return { prompt, removedReferences: references, vocalMode };
 }
 
 /** Direct media operations behind one capability-shaped local boundary. */
@@ -320,7 +340,7 @@ export function mediaPlugin(mode: string): Plugin {
             return;
           }
           try {
-            const body = JSON.parse(await readBody(req)) as { prompt?: string };
+            const body = JSON.parse(await readBody(req)) as { prompt?: string; vocalMode?: VocalMode };
             const request = body.prompt?.trim();
             if (!request) {
               sendJson(res, 400, { message: 'Describe the music first.' });
@@ -330,7 +350,7 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
               return;
             }
-            const adapted = await adaptMusicPrompt(anthropic, request);
+            const adapted = await adaptMusicPrompt(anthropic, request, body.vocalMode ?? 'auto');
             sendJson(res, 200, {
               ...adapted,
               provider: MUSIC_PROMPT_PROVIDER,
@@ -368,7 +388,7 @@ export function mediaPlugin(mode: string): Plugin {
 
         let promptAdapted = false;
         try {
-          const body = JSON.parse(await readBody(req)) as { prompt?: string };
+          const body = JSON.parse(await readBody(req)) as { prompt?: string; vocalMode?: VocalMode };
           const prompt = body.prompt?.trim();
           if (!prompt) {
             release(totalMusicCostUsd);
@@ -376,7 +396,7 @@ export function mediaPlugin(mode: string): Plugin {
             return;
           }
 
-          const adapted = await adaptMusicPrompt(anthropic, prompt);
+          const adapted = await adaptMusicPrompt(anthropic, prompt, body.vocalMode ?? 'auto');
           promptAdapted = true;
 
           const upstream = await fetch(
@@ -386,9 +406,11 @@ export function mediaPlugin(mode: string): Plugin {
             headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
             body: JSON.stringify({
               model_id: MUSIC_MODEL,
-              prompt: `Instrumental soundtrack for a visual environment. No vocals. ${adapted.prompt}`,
+              prompt: adapted.vocalMode === 'vocals'
+                ? `Song with prominent vocals. ${adapted.prompt}`
+                : `Instrumental music with no vocals. ${adapted.prompt}`,
               music_length_ms: 30_000,
-              force_instrumental: true,
+              force_instrumental: adapted.vocalMode === 'instrumental',
             }),
             },
           );
@@ -419,6 +441,7 @@ export function mediaPlugin(mode: string): Plugin {
             durationSeconds: 30,
             songId: upstream.headers.get('song-id') ?? undefined,
             adaptedPrompt: adapted.prompt,
+            vocalMode: adapted.vocalMode,
             promptProvider: MUSIC_PROMPT_PROVIDER,
             promptModel: MUSIC_PROMPT_MODEL,
             estimatedCostUsd: totalMusicCostUsd,

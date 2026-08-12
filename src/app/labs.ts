@@ -97,7 +97,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <div class="music-maker">
             <h3>Music asset</h3>
             <div id="music-current"></div>
-            <textarea id="music-prompt" rows="2" placeholder="calm instrumental, felt piano and distant strings…"></textarea>
+            <div class="vocal-mode" id="vocal-mode" role="group" aria-label="Voice in generated music"></div>
+            <textarea id="music-prompt" rows="3" placeholder="Fast aggressive rap vocals, tight double-time flow, heavy 808s…"></textarea>
             <button class="primary wide" id="music-go">Generate music from this visual</button>
             <p class="fx-status" id="music-status"></p>
           </div>
@@ -580,8 +581,28 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const musicPrompt = host.querySelector<HTMLTextAreaElement>('#music-prompt')!;
   const musicGo = host.querySelector<HTMLButtonElement>('#music-go')!;
   const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
+  const vocalModeHost = host.querySelector<HTMLDivElement>('#vocal-mode')!;
+  let vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto';
   const visualPrompt = draft.scene.provenance?.prompt ?? draft.description;
-  musicPrompt.value = `Instrumental soundtrack for: ${visualPrompt}. Cohesive, atmospheric, no vocals.`;
+  musicPrompt.value = draft.music?.provenance.inputPrompt
+    ?? `Music for this visual: ${visualPrompt}. Match the energy, mood and pacing.`;
+  if (draft.music?.provenance.vocalMode) vocalMode = draft.music.provenance.vocalMode;
+
+  function drawVocalMode(): void {
+    vocalModeHost.innerHTML = '';
+    for (const option of [
+      { id: 'auto' as const, label: 'Auto', hint: 'follow my prompt' },
+      { id: 'vocals' as const, label: 'Vocals', hint: 'singing or rap' },
+      { id: 'instrumental' as const, label: 'Instrumental', hint: 'music only' },
+    ]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `vocal-choice${vocalMode === option.id ? ' active' : ''}`;
+      button.innerHTML = `<strong>${option.label}</strong><small>${option.hint}</small>`;
+      button.addEventListener('click', () => { vocalMode = option.id; drawVocalMode(); });
+      vocalModeHost.appendChild(button);
+    }
+  }
 
   function drawMusic() {
     musicCurrent.innerHTML = '';
@@ -627,7 +648,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     musicGo.disabled = true;
     musicStatus.textContent = 'Composing one track… your current music keeps playing.';
     try {
-      const generated = await generateMusic(prompt);
+      const generated = await generateMusic(prompt, vocalMode);
       const savedPrompt = generated.adaptedPrompt ?? prompt;
       const assetId = await storeAsset(generated.blob, 'music');
       draft.music = {
@@ -637,6 +658,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         durationSeconds: generated.durationSeconds,
         provenance: {
           prompt: savedPrompt,
+          inputPrompt: prompt,
+          vocalMode: generated.vocalMode,
           provider: generated.provider,
           model: generated.model,
           createdAt: new Date().toISOString(),
@@ -647,7 +670,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       if (state.started) await state.audio.setGeneratedMusic(url);
       drawMusic();
       musicPrompt.value = savedPrompt;
-      musicStatus.textContent = 'Track saved. The text box now shows the name-free descriptive prompt sent to ElevenLabs.';
+      musicStatus.textContent = `Track saved with ${generated.vocalMode === 'vocals' ? 'vocals enabled' : 'instrumental mode'}. The box shows the name-free prompt sent to ElevenLabs.`;
     } catch (err) {
       console.error('[vibe] music generation failed', err);
       musicStatus.textContent = err instanceof Error ? err.message : 'Music generation failed. Your current mix is unchanged.';
@@ -655,6 +678,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       musicGo.disabled = false;
     }
   });
+  drawVocalMode();
   drawMusic();
 
   // --- save / apply ----------------------------------------------------------

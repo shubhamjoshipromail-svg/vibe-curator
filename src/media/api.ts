@@ -32,6 +32,7 @@ export interface GeneratedMusic {
   promptProvider?: string;
   promptModel?: string;
   estimatedCostUsd?: number;
+  vocalMode?: 'vocals' | 'instrumental';
 }
 
 async function safeMessage(res: Response): Promise<string> {
@@ -101,11 +102,11 @@ export async function generateSceneMotion(
 }
 
 /** Vendor-neutral client call. Labs asks for music, not for a specific SDK. */
-export async function generateMusic(prompt: string): Promise<GeneratedMusic> {
+export async function generateMusic(prompt: string, vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto'): Promise<GeneratedMusic> {
   const res = await fetch('/api/media/music', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, vocalMode }),
   });
   if (!res.ok) throw new Error(await safeMessage(res));
 
@@ -119,6 +120,7 @@ export async function generateMusic(prompt: string): Promise<GeneratedMusic> {
     promptProvider?: string;
     promptModel?: string;
     estimatedCostUsd?: number;
+    vocalMode?: 'vocals' | 'instrumental';
   };
   const bytes = Uint8Array.from(atob(body.data), (char) => char.charCodeAt(0));
   return {
@@ -131,5 +133,6 @@ export async function generateMusic(prompt: string): Promise<GeneratedMusic> {
     promptProvider: body.promptProvider,
     promptModel: body.promptModel,
     estimatedCostUsd: body.estimatedCostUsd,
+    vocalMode: body.vocalMode,
   };
 }

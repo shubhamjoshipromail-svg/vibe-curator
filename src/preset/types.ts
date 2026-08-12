@@ -73,6 +73,9 @@ export interface AudioLayers {
 
 export interface MediaProvenance {
   prompt?: string;
+  /** The user's wording before any safe provider-specific adaptation. */
+  inputPrompt?: string;
+  vocalMode?: 'vocals' | 'instrumental';
   provider?: string;
   model?: string;
   createdAt: string;

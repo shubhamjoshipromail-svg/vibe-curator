@@ -137,6 +137,9 @@ select {
 .create-copy p { margin: 5px 0 0; color: var(--dim); font-size: 13px; }
 .create-studio textarea { min-height: 104px; padding: 18px; font-size: clamp(16px, 2vw, 22px); line-height: 1.4; border-radius: 16px; background: rgba(0, 0, 0, .22); }
 .create-toolbar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.style-picker { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 11px; }
+.style-picker > span { white-space: nowrap; }
+.style-help { margin: 9px 2px 0; color: var(--dim); font-size: 11px; }
 .create-toolbar #visual-go { margin-left: auto; padding-inline: 24px; }
 .button-like.ghost { border: 1px solid var(--line); background: transparent; }
 .generation-note { min-height: 1.2em; margin: 12px 2px 0; color: var(--dim); font-size: 11px; }
@@ -325,6 +328,12 @@ input[type='range'] {
 .music-maker { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
 .music-maker h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
 .music-maker textarea { margin-top: 10px; }
+.vocal-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 10px 0 4px; }
+.vocal-choice { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 9px 8px; border-radius: 11px; text-align: left; }
+.vocal-choice strong { font-size: 12px; }
+.vocal-choice small { color: var(--dim); font-size: 9px; }
+.vocal-choice.active { color: #111014; background: var(--ink); border-color: transparent; }
+.vocal-choice.active small { color: rgba(17,16,20,.62); }
 
 /* --- mixer ---------------------------------------------------------------- */
 

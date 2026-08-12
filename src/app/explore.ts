@@ -18,10 +18,10 @@ import type { Preset } from '../preset/types';
 import { MARKET_COLLECTIONS, MARKET_POSTS, marketPresets, renderMarketPost, type MarketCollectionId } from './marketplace';
 
 const STYLES = [
-  { value: 'tracked neon', label: 'Tracked neon' },
-  { value: 'halftone print', label: 'Halftone print' },
-  { value: 'ascii glow', label: 'ASCII glow' },
-  { value: 'cinematic', label: 'Cinematic' },
+  { value: 'cinematic, realistic lighting and detailed subject', label: 'Cinematic image', help: 'A detailed, film-like source image. Best general starting point.' },
+  { value: 'neon motion graphic, luminous edges and dark background', label: 'Neon glow', help: 'Bright luminous edges on a dark background.' },
+  { value: 'editorial halftone print, tactile ink dots and bold color', label: 'Printed dots', help: 'A graphic print look made from visible ink-like dots.' },
+  { value: 'ASCII character mosaic, high contrast digital typography', label: 'Text mosaic', help: 'The image is rebuilt with characters and digital texture.' },
 ];
 
 type LibraryView = 'projects' | 'market';
@@ -49,11 +49,12 @@ export function renderExplore(
       <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
       <textarea id="visual-prompt" rows="3" placeholder="Two bioluminescent blue fish swimming through black water…"></textarea>
       <div class="create-toolbar">
-        <select id="visual-style" aria-label="Visual treatment">${STYLES.map((style) => `<option value="${style.value}">${style.label}</option>`).join('')}</select>
+        <label class="style-picker"><span>Starting look</span><select id="visual-style" aria-label="Starting look">${STYLES.map((style) => `<option value="${style.value}">${style.label}</option>`).join('')}</select></label>
         <label class="button-like ghost" for="quick-upload">Use your image</label>
         <input id="quick-upload" class="file-input" type="file" accept="image/*" />
         <button class="primary" id="visual-go">Generate draft</button>
       </div>
+      <p class="style-help" id="style-help"></p>
       <p class="generation-note" id="visual-status">Checking generation…</p>
     </section>
     <section class="library-section">
@@ -201,6 +202,12 @@ function wireCreation(host: HTMLElement): void {
   const style = host.querySelector<HTMLSelectElement>('#visual-style')!;
   const go = host.querySelector<HTMLButtonElement>('#visual-go')!;
   const upload = host.querySelector<HTMLInputElement>('#quick-upload')!;
+  const styleHelp = host.querySelector<HTMLParagraphElement>('#style-help')!;
+  const explainStyle = () => {
+    styleHelp.textContent = STYLES.find((option) => option.value === style.value)?.help ?? '';
+  };
+  style.addEventListener('change', explainStyle);
+  explainStyle();
   let generationEnabled = false; let imageModel = 'gpt-image-2';
   void mediaCapabilities().then((caps) => {
     generationEnabled = caps.sceneGeneration; imageModel = caps.imageModel ?? imageModel; go.disabled = !generationEnabled;
