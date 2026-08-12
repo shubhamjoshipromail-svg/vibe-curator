@@ -62,6 +62,7 @@ export class Scene {
   private sourceSurface?: SourceAwareSurface;
   private performanceTier: 'light' | 'balanced' | 'full' = 'balanced';
   private sourceTexture?: Texture;
+  private bakedTextures = new Set<Texture>();
 
   /**
    * Generated effects, keyed by target ('scene' or a slot name).
@@ -87,6 +88,7 @@ export class Scene {
    */
   controls: Controls = { ...DEFAULT_CONTROLS };
   private depthBlur?: BlurFilter;
+  private viewMode: 'explore' | 'labs' | 'player' = 'explore';
 
   async mount(host: HTMLElement, vibe: VibeSpec): Promise<void> {
     this.host = host;
@@ -115,6 +117,16 @@ export class Scene {
       this.tick(Math.min(ticker.deltaMS / 1000, 0.05));
     });
 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.app.ticker.stop();
+        this.mediaElement?.pause();
+      } else {
+        this.app.ticker.start();
+        if (this.mediaElement) void this.mediaElement.play().catch(() => undefined);
+      }
+    });
+
     window.addEventListener('resize', () => this.fit());
     this.fit();
   }
@@ -128,9 +140,8 @@ export class Scene {
     this.t = 0;
     this.sessionT = 0;
 
-    this.root.removeChildren();
+    this.clearRenderTree();
     this.layers = [];
-    this.baseFilters.clear();
     this.depthBlur = undefined;
     this.root.filters = [];
 
@@ -199,6 +210,7 @@ export class Scene {
           vibe.render_style,
           !isLight,
         );
+        this.bakedTextures.add(tex);
         const sprite = def.tiling
           ? new TilingSprite({ texture: tex, width: w, height: h })
           : new Sprite(tex);
@@ -250,9 +262,8 @@ export class Scene {
     this.shared = {};
     this.t = 0;
     this.sessionT = 0;
-    this.root.removeChildren();
+    this.clearRenderTree();
     this.layers = [];
-    this.baseFilters.clear();
     this.depthBlur = undefined;
     this.root.filters = [];
 
@@ -321,9 +332,8 @@ export class Scene {
     this.shared = {};
     this.t = 0;
     this.sessionT = 0;
-    this.root.removeChildren();
+    this.clearRenderTree();
     this.layers = [];
-    this.baseFilters.clear();
     this.depthBlur = undefined;
     this.root.filters = [];
 
@@ -370,6 +380,18 @@ export class Scene {
     this.sourceSurface?.setQuality(tier);
   }
 
+  /** Match render work to what is actually visible without changing Player quality. */
+  setViewMode(mode: 'explore' | 'labs' | 'player'): void {
+    this.viewMode = mode;
+    // Explore only shows the scene under dense UI at 18% opacity. Labs needs
+    // responsive controls; Player remains native display-rate quality.
+    this.app.ticker.maxFPS = mode === 'player' ? 60 : mode === 'labs' ? 30 : 15;
+  }
+
+  getViewMode(): 'explore' | 'labs' | 'player' {
+    return this.viewMode;
+  }
+
   getSourceMetrics(): SourceMetrics | undefined {
     return this.sourceSurface?.getMetrics();
   }
@@ -386,6 +408,17 @@ export class Scene {
     this.sourceSurface = undefined;
   }
 
+  /** Release scene-owned GPU/Display resources when switching documents. */
+  private clearRenderTree(): void {
+    for (const filters of this.baseFilters.values()) {
+      for (const filter of filters) filter.destroy();
+    }
+    this.baseFilters.clear();
+    for (const child of this.root.removeChildren()) child.destroy({ children: true });
+    for (const texture of this.bakedTextures) texture.destroy(true);
+    this.bakedTextures.clear();
+  }
+
   /** Attach a generated shader effect to the whole scene or a single slot. */
   addEffect(target: string, filter: EffectFilter): void {
     const list = this.effects.get(target) ?? [];
@@ -396,6 +429,7 @@ export class Scene {
 
   removeEffect(target: string, filter: EffectFilter): void {
     const list = (this.effects.get(target) ?? []).filter((f) => f !== filter);
+    filter.destroy();
     if (list.length) this.effects.set(target, list);
     else this.effects.delete(target);
     this.syncFilters(target);
@@ -404,6 +438,9 @@ export class Scene {
   /** Drop every generated effect. Used when switching to a different preset. */
   clearAllEffects(): void {
     const targets = [...this.effects.keys()];
+    for (const filters of this.effects.values()) {
+      for (const filter of filters) filter.destroy();
+    }
     this.effects.clear();
     for (const t of targets) this.syncFilters(t);
   }

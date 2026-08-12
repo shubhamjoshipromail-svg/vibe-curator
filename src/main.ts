@@ -54,6 +54,7 @@ async function boot(): Promise<void> {
 
 async function render(route: Route): Promise<void> {
   app.dataset.mode = route.name;
+  scene.setViewMode(route.name === 'player' ? 'player' : route.name === 'labs' ? 'labs' : 'explore');
   view.scrollTop = 0;
 
   switch (route.name) {
@@ -85,14 +86,19 @@ app.querySelector<HTMLButtonElement>('#begin')!.addEventListener('click', async 
 });
 
 // Feed the live spectrum to generated effects every frame.
+let audioPump = 0;
 function pumpAudio() {
   if (audio.started) {
     scene.setAudioBands(audio.getBands());
     audio.setVisualMetrics(scene.getSourceMetrics());
   }
-  requestAnimationFrame(pumpAudio);
+  audioPump = requestAnimationFrame(pumpAudio);
 }
-requestAnimationFrame(pumpAudio);
+document.addEventListener('visibilitychange', () => {
+  cancelAnimationFrame(audioPump);
+  if (!document.hidden) audioPump = requestAnimationFrame(pumpAudio);
+});
+audioPump = requestAnimationFrame(pumpAudio);
 
 if (!location.hash) navigate({ name: 'explore' });
 void boot();

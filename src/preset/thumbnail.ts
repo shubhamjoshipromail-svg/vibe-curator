@@ -22,7 +22,21 @@ const BLEND: Record<string, GlobalCompositeOperation> = {
   normal: 'source-over',
 };
 
+const STATIC_CACHE = new Map<string, HTMLCanvasElement>();
+
+function cloneCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
+  const copy = document.createElement('canvas');
+  copy.width = source.width;
+  copy.height = source.height;
+  copy.getContext('2d')?.drawImage(source, 0, 0);
+  return copy;
+}
+
 export function renderThumbnail(preset: Preset, w = 480, h = 270): HTMLCanvasElement {
+  const cacheable = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural';
+  const cacheKey = `${preset.id}:${preset.updatedAt}:${w}x${h}`;
+  const cached = cacheable ? STATIC_CACHE.get(cacheKey) : undefined;
+  if (cached) return cloneCanvas(cached);
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -38,7 +52,8 @@ export function renderThumbnail(preset: Preset, w = 480, h = 270): HTMLCanvasEle
     surface.update(2.1, 1 / 30);
     surface.update(2.32, 0.22);
     g.drawImage(surface.canvas, 0, 0);
-    return canvas;
+    STATIC_CACHE.set(cacheKey, canvas);
+    return cloneCanvas(canvas);
   }
 
   if (preset.scene.kind !== 'renderer') {
@@ -119,5 +134,11 @@ export function renderThumbnail(preset: Preset, w = 480, h = 270): HTMLCanvasEle
     g.fillRect(0, 0, w, h);
   }
 
+  if (cacheable) {
+    STATIC_CACHE.set(cacheKey, canvas);
+    // Bound memory even during long editing sessions.
+    while (STATIC_CACHE.size > 24) STATIC_CACHE.delete(STATIC_CACHE.keys().next().value!);
+    return cloneCanvas(canvas);
+  }
   return canvas;
 }

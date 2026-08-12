@@ -1,4 +1,4 @@
-import * as Tone from 'tone';
+import type * as Tone from 'tone';
 import type { AudioSpec } from '../types';
 import { loadAudioPack, refineLoopPoints, type AudioPack, type AudioTexture } from './pack';
 
@@ -29,6 +29,18 @@ const SCALES: Record<AudioSpec['scale'], number[]> = {
   major_pentatonic: [0, 2, 4, 7, 9],
   lydian: [0, 2, 4, 6, 7, 9, 11],
 };
+
+let toneRuntime: typeof import('tone') | undefined;
+
+async function loadTone(): Promise<typeof import('tone')> {
+  toneRuntime ??= await import('tone');
+  return toneRuntime;
+}
+
+function tone(): typeof import('tone') {
+  if (!toneRuntime) throw new Error('Sound has not been started yet.');
+  return toneRuntime;
+}
 
 export class AudioEngine {
   started = false;
@@ -102,11 +114,12 @@ export class AudioEngine {
 
   async start(spec: AudioSpec): Promise<void> {
     // Browsers require a user gesture before audio. The caller supplies one.
-    await Tone.start();
+    const ToneRuntime = await loadTone();
+    await ToneRuntime.start();
     this.started = true;
     await this.build(spec);
-    Tone.getTransport().bpm.value = 60;
-    Tone.getTransport().start();
+    ToneRuntime.getTransport().bpm.value = 60;
+    ToneRuntime.getTransport().start();
   }
 
   async setSpec(spec: AudioSpec): Promise<void> {
@@ -145,7 +158,7 @@ export class AudioEngine {
     }
 
     this.proceduralMusic?.gain.rampTo(0, 0.3);
-    const player = this.track(new Tone.Player({ loop: true })).connect(this.buses.music);
+    const player = this.track(new (tone().Player)({ loop: true })).connect(this.buses.music);
     this.generatedMusic = player;
     await player.load(url);
     player.start();
@@ -187,13 +200,13 @@ export class AudioEngine {
   }
 
   stop(): void {
-    Tone.getTransport().stop();
+    if (toneRuntime) toneRuntime.getTransport().stop();
     this.teardown();
     this.started = false;
   }
 
   private teardown(): void {
-    for (const id of this.scheduled) Tone.getTransport().clear(id);
+    if (toneRuntime) for (const id of this.scheduled) toneRuntime.getTransport().clear(id);
     this.scheduled = [];
     this.pending = [];
     this.bed?.releaseAll();
@@ -233,7 +246,7 @@ export class AudioEngine {
   /** A texture backed by a real recording rather than filtered noise. */
   private buildSampledTexture(name: string, tex: AudioTexture, base: string): void {
     const url = base + tex.file;
-    const gain = this.track(new Tone.Gain(Tone.dbToGain(tex.gain_db ?? -24))).connect(
+    const gain = this.track(new (tone().Gain)(tone().dbToGain(tex.gain_db ?? -24))).connect(
       this.buses.ambience!,
     );
     this.sampled.push(name);
@@ -242,13 +255,13 @@ export class AudioEngine {
       // Overlapping grains: seamless on material never prepared for looping,
       // at the cost of softened transients. Right for beds, wrong for crackle.
       const gp = this.track(
-        new Tone.GrainPlayer({ url, loop: true, grainSize: 0.22, overlap: 0.12 }),
+        new (tone().GrainPlayer)({ url, loop: true, grainSize: 0.22, overlap: 0.12 }),
       ).connect(gain);
       this.pending.push(() => gp.start());
       return;
     }
 
-    const player = this.track(new Tone.Player({ url, loop: true })).connect(gain);
+    const player = this.track(new (tone().Player)({ url, loop: true })).connect(gain);
     this.pending.push(() => {
       const buf = player.buffer;
       const pts = refineLoopPoints(buf.getChannelData(0), buf.sampleRate);
@@ -280,28 +293,28 @@ export class AudioEngine {
     // whose 6-second attack stacks on top of both. Measured output was already
     // reaching -1.6 dB with placeholder content. Without this, the first hot
     // file a user drops in clips the mix.
-    const limiter = this.track(new Tone.Limiter(-1)).toDestination();
+    const limiter = this.track(new (tone().Limiter)(-1)).toDestination();
 
     const reverb = this.track(
-      new Tone.Reverb({ decay: 1 + spec.reverb.size * 9, wet: spec.reverb.wet }),
+      new (tone().Reverb)({ decay: 1 + spec.reverb.size * 9, wet: spec.reverb.wet }),
     ).connect(limiter);
     await reverb.generate();
 
-    this.filter = this.track(new Tone.Filter(spec.lowpass_hz, 'lowpass')).connect(reverb);
+    this.filter = this.track(new (tone().Filter)(spec.lowpass_hz, 'lowpass')).connect(reverb);
     // Headroom trim. Ambient material should sit well below unity so the
     // limiter is a safety net rather than part of the sound.
-    this.master = this.track(new Tone.Gain(0.55)).connect(this.filter);
+    this.master = this.track(new (tone().Gain)(0.55)).connect(this.filter);
 
     // Tapped post-limiter so the reading is the actual output, not an intention.
-    this.meter = this.track(new Tone.Meter({ smoothing: 0.6 }));
+    this.meter = this.track(new (tone().Meter)({ smoothing: 0.6 }));
     limiter.connect(this.meter);
 
-    this.buses.ambience = this.track(new Tone.Gain(1)).connect(this.master);
-    this.buses.music = this.track(new Tone.Gain(1)).connect(this.master);
-    this.proceduralMusic = this.track(new Tone.Gain(1)).connect(this.buses.music);
+    this.buses.ambience = this.track(new (tone().Gain)(1)).connect(this.master);
+    this.buses.music = this.track(new (tone().Gain)(1)).connect(this.master);
+    this.proceduralMusic = this.track(new (tone().Gain)(1)).connect(this.buses.music);
     this.applyLayerGains();
 
-    this.analyser = this.track(new Tone.Analyser('fft', 64));
+    this.analyser = this.track(new (tone().Analyser)('fft', 64));
     limiter.connect(this.analyser);
 
     this.buildBed(spec);
@@ -318,7 +331,7 @@ export class AudioEngine {
     this.buildMotif(spec, pack, base);
 
     // One wait for every buffer this build requested.
-    if (this.sampled.length) await Tone.loaded();
+    if (this.sampled.length) await tone().loaded();
     this.startSampledSources();
 
     this.setEnergy(this.energy);
@@ -326,18 +339,18 @@ export class AudioEngine {
 
   /** Sustained drone: root, fifth, octave, with slow independent drift. */
   private buildBed(spec: AudioSpec): void {
-    const gain = this.track(new Tone.Gain(Tone.dbToGain(spec.bed_gain_db))).connect(
+    const gain = this.track(new (tone().Gain)(tone().dbToGain(spec.bed_gain_db))).connect(
       this.proceduralMusic!,
     );
 
     this.bed = this.track(
-      new Tone.PolySynth(Tone.Synth, {
+      new (tone().PolySynth)(tone().Synth, {
         oscillator: { type: 'triangle' },
         envelope: { attack: 6, decay: 2, sustain: 1, release: 8 },
       }),
     ).connect(gain) as Tone.PolySynth;
 
-    const root = Tone.Frequency(spec.root);
+    const root = tone().Frequency(spec.root);
     this.bed.triggerAttack([
       root.toNote(),
       root.transpose(7).toNote(),
@@ -345,7 +358,7 @@ export class AudioEngine {
     ]);
 
     // A very slow amplitude wander so the bed breathes rather than sits.
-    const lfo = this.track(new Tone.LFO({ frequency: 0.013, min: 0.75, max: 1 }));
+    const lfo = this.track(new (tone().LFO)({ frequency: 0.013, min: 0.75, max: 1 }));
     lfo.connect(gain.gain);
     lfo.start();
   }
@@ -355,27 +368,27 @@ export class AudioEngine {
 
     if (kind === 'fire_crackle') {
       // A quiet brown-noise bed for the body of the fire...
-      const body = this.track(new Tone.Noise('brown')).start();
-      const bodyFilter = this.track(new Tone.Filter(320, 'lowpass'));
-      const bodyGain = this.track(new Tone.Gain(Tone.dbToGain(-26)));
+      const body = this.track(new (tone().Noise)('brown')).start();
+      const bodyFilter = this.track(new (tone().Filter)(320, 'lowpass'));
+      const bodyGain = this.track(new (tone().Gain)(tone().dbToGain(-26)));
       body.connect(bodyFilter);
       bodyFilter.connect(bodyGain);
       bodyGain.connect(out);
 
       // ...plus discrete pops. Individually random, so it never patterns.
-      const pops = this.track(new Tone.Filter(1400, 'bandpass'));
-      const popGain = this.track(new Tone.Gain(Tone.dbToGain(-14)));
+      const pops = this.track(new (tone().Filter)(1400, 'bandpass'));
+      const popGain = this.track(new (tone().Gain)(tone().dbToGain(-14)));
       pops.connect(popGain);
       popGain.connect(out);
 
       this.crackle = this.track(
-        new Tone.NoiseSynth({
+        new (tone().NoiseSynth)({
           noise: { type: 'brown' },
           envelope: { attack: 0.001, decay: 0.02, sustain: 0, release: 0.02 },
         }),
       ).connect(pops) as Tone.NoiseSynth;
 
-      const id = Tone.getTransport().scheduleRepeat((time) => {
+      const id = tone().getTransport().scheduleRepeat((time) => {
         // ~18 pops/sec at full energy, thinning as the fire burns down.
         if (Math.random() > 0.42 * this.energy) return;
         this.crackle?.triggerAttackRelease(0.02, time, 0.25 + Math.random() * 0.75);
@@ -385,9 +398,9 @@ export class AudioEngine {
     }
 
     if (kind === 'room_air') {
-      const n = this.track(new Tone.Noise('pink')).start();
-      const f = this.track(new Tone.Filter(380, 'lowpass'));
-      const g = this.track(new Tone.Gain(Tone.dbToGain(-34)));
+      const n = this.track(new (tone().Noise)('pink')).start();
+      const f = this.track(new (tone().Filter)(380, 'lowpass'));
+      const g = this.track(new (tone().Gain)(tone().dbToGain(-34)));
       n.connect(f);
       f.connect(g);
       g.connect(out);
@@ -395,18 +408,18 @@ export class AudioEngine {
     }
 
     if (kind === 'wind') {
-      const n = this.track(new Tone.Noise('pink')).start();
-      const f = this.track(new Tone.Filter(500, 'lowpass'));
-      const g = this.track(new Tone.Gain(Tone.dbToGain(-27)));
+      const n = this.track(new (tone().Noise)('pink')).start();
+      const f = this.track(new (tone().Filter)(500, 'lowpass'));
+      const g = this.track(new (tone().Gain)(tone().dbToGain(-27)));
       n.connect(f);
       f.connect(g);
       g.connect(out);
       // Two incommensurate LFOs: gusts that never land on the same beat twice.
-      const sweep = this.track(new Tone.LFO({ frequency: 0.031, min: 220, max: 900 }));
+      const sweep = this.track(new (tone().LFO)({ frequency: 0.031, min: 220, max: 900 }));
       sweep.connect(f.frequency);
       sweep.start();
       const swell = this.track(
-        new Tone.LFO({ frequency: 0.019, min: Tone.dbToGain(-38), max: Tone.dbToGain(-24) }),
+        new (tone().LFO)({ frequency: 0.019, min: tone().dbToGain(-38), max: tone().dbToGain(-24) }),
       );
       swell.connect(g.gain);
       swell.start();
@@ -414,22 +427,22 @@ export class AudioEngine {
     }
 
     if (kind === 'water') {
-      const n = this.track(new Tone.Noise('white')).start();
-      const f = this.track(new Tone.Filter(1100, 'bandpass'));
-      const g = this.track(new Tone.Gain(Tone.dbToGain(-33)));
+      const n = this.track(new (tone().Noise)('white')).start();
+      const f = this.track(new (tone().Filter)(1100, 'bandpass'));
+      const g = this.track(new (tone().Gain)(tone().dbToGain(-33)));
       n.connect(f);
       f.connect(g);
       g.connect(out);
-      const lap = this.track(new Tone.LFO({ frequency: 0.13, min: 700, max: 1600 }));
+      const lap = this.track(new (tone().LFO)({ frequency: 0.13, min: 700, max: 1600 }));
       lap.connect(f.frequency);
       lap.start();
       return;
     }
 
     if (kind === 'rain') {
-      const n = this.track(new Tone.Noise('white')).start();
-      const f = this.track(new Tone.Filter(900, 'highpass'));
-      const g = this.track(new Tone.Gain(Tone.dbToGain(-30)));
+      const n = this.track(new (tone().Noise)('white')).start();
+      const f = this.track(new (tone().Filter)(900, 'highpass'));
+      const g = this.track(new (tone().Gain)(tone().dbToGain(-30)));
       n.connect(f);
       f.connect(g);
       g.connect(out);
@@ -440,8 +453,8 @@ export class AudioEngine {
   private buildMotif(spec: AudioSpec, pack?: AudioPack, base = ''): void {
     if (spec.motif.instrument === 'none') return;
 
-    this.motifPan = this.track(new Tone.Panner(0)).connect(this.proceduralMusic!);
-    const gain = this.track(new Tone.Gain(Tone.dbToGain(spec.motif.gain_db))).connect(
+    this.motifPan = this.track(new (tone().Panner)(0)).connect(this.proceduralMusic!);
+    const gain = this.track(new (tone().Gain)(tone().dbToGain(spec.motif.gain_db))).connect(
       this.motifPan,
     );
 
@@ -452,18 +465,18 @@ export class AudioEngine {
 
     if (instrument) {
       const sampler = this.track(
-        new Tone.Sampler({ urls: instrument.samples, baseUrl: base, release: 1.4 }),
+        new (tone().Sampler)({ urls: instrument.samples, baseUrl: base, release: 1.4 }),
       ).connect(gain) as Tone.Sampler;
       this.sampled.push(`motif:${spec.motif.instrument}`);
       this.playNote = (note, time, vel) => sampler.triggerAttackRelease(note, 2.4, time, vel);
     } else if (spec.motif.instrument === 'pluck') {
       const pluck = this.track(
-        new Tone.PluckSynth({ attackNoise: 1.2, dampening: 1800, resonance: 0.92 }),
+        new (tone().PluckSynth)({ attackNoise: 1.2, dampening: 1800, resonance: 0.92 }),
       ).connect(gain) as Tone.PluckSynth;
       this.playNote = (note, time) => pluck.triggerAttack(note, time);
     } else {
       const fm = this.track(
-        new Tone.FMSynth({
+        new (tone().FMSynth)({
           harmonicity: 3.01,
           modulationIndex: 9,
           envelope: { attack: 0.005, decay: 2.4, sustain: 0, release: 2 },
@@ -474,12 +487,12 @@ export class AudioEngine {
     }
 
     const scale = SCALES[spec.scale];
-    const root = Tone.Frequency(spec.root);
+    const root = tone().Frequency(spec.root);
 
     // Probabilistic scheduling rather than a fixed grid: notes land off-pattern,
     // which is what keeps it from resolving into a recognisable loop.
     const perSecond = 4; // 16th notes at 60bpm
-    const id = Tone.getTransport().scheduleRepeat((time) => {
+    const id = tone().getTransport().scheduleRepeat((time) => {
       const perMin = spec.motif.density_per_min * this.energy;
       if (Math.random() > perMin / 60 / perSecond) return;
 
