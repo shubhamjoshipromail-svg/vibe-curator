@@ -2,6 +2,8 @@
 
 ### An AI-native creative environment for turning an idea, image, or video into a living audiovisual world.
 
+**Live app:** <https://vibe-curator-production.up.railway.app>
+
 Vibe Curator is an experimental desktop-first product that sits between a generative media studio, an ambient player, and a creator marketplace. A user describes a world—or brings an image or video—then shapes its motion, visual treatment, atmosphere, and soundtrack without losing editability after generation.
 
 The thesis is simple:
@@ -106,8 +108,9 @@ The finished environment.
 | Folders, automatic types, tags | Working | One explicit folder per project plus independent tags |
 | Curated/community Market model | Working prototype | Collection folders and remixable preset cards |
 | Performance-aware rendering | Working | 15 fps Explore, 30 fps Labs, 60 fps Player; hidden-tab suspension |
+| Railway web deployment | Shipped | Production app at `vibe-curator-production.up.railway.app` |
 | Native application | Planned | Tauri 2 is the recommended first shell |
-| Cloud accounts and sync | Planned | Railway/API jobs, Postgres metadata, object storage for media |
+| Cloud accounts and sync | Planned | Postgres metadata, object storage for media, and durable background jobs |
 
 ## System architecture
 
@@ -402,7 +405,7 @@ npm run preview
 ### Platform
 
 - Tauri 2 desktop shell.
-- Railway-hosted generation/job API.
+- Expand the shipped Railway web deployment into a durable generation/job API.
 - Postgres for metadata and object storage for media.
 - Durable job state, cancellation, retries, and background notifications.
 - Secure native keychain integration and production authentication.
