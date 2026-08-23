@@ -5,9 +5,11 @@ import { parseRoute, navigate, onRouteChange, type Route } from './app/router';
 import { renderExplore } from './app/explore';
 import { renderLabs } from './app/labs';
 import { renderPlayer } from './app/player';
-import { hydrateLibrary, listPresets } from './preset/library';
+import { hydrateLibrary, listPresets, pruneRedundantPresets } from './preset/library';
 import { runEffectSelfTest } from './effects/selftest';
 import { VIBES } from './vibes';
+import { ensureViewer } from './auth/client';
+import { mountAccountControl } from './auth/account';
 
 /**
  * App shell.
@@ -22,6 +24,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div id="stage"></div>
   <div id="view"></div>
+  <div id="account-slot"></div>
   <div id="gate">
     <div class="gate-inner">
       <h1>Vibe Curator</h1>
@@ -39,8 +42,26 @@ const scene = new Scene();
 const audio = new AudioEngine();
 const state = createState(scene, audio);
 
+/**
+ * Collapse exact-duplicate remixes left by older builds. Runs once per browser;
+ * the flag stops it re-scanning a clean library on every load.
+ */
+const PRUNE_FLAG = 'vibe.pruned.v1';
+function cleanUpLegacyDuplicates(): void {
+  if (localStorage.getItem(PRUNE_FLAG)) return;
+  try {
+    const removed = pruneRedundantPresets();
+    localStorage.setItem(PRUNE_FLAG, new Date().toISOString());
+    if (removed) console.info(`[vibe] removed ${removed} duplicate project record(s) from older builds`);
+  } catch (err) {
+    console.warn('[vibe] library cleanup skipped', err);
+  }
+}
+
 async function boot(): Promise<void> {
+  await ensureViewer();
   await hydrateLibrary();
+  cleanUpLegacyDuplicates();
   const first = listPresets()[0];
   try {
     await scene.mount(stage, { ...VIBES[0], palette: first.palette });
@@ -50,6 +71,7 @@ async function boot(): Promise<void> {
     stage.innerHTML = `<pre class="fatal">Could not start the renderer.\n${String(err)}</pre>`;
   }
   render(parseRoute(location.hash));
+  await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
 }
 
 async function render(route: Route): Promise<void> {
@@ -70,7 +92,7 @@ async function render(route: Route): Promise<void> {
       break;
     default:
       await hydrateLibrary();
-      renderExplore(view, route.view ?? 'projects', {
+      renderExplore(view, route.view ?? 'market', {
         folder: route.folder,
         type: route.type,
         collection: route.collection,
@@ -100,7 +122,7 @@ document.addEventListener('visibilitychange', () => {
 });
 audioPump = requestAnimationFrame(pumpAudio);
 
-if (!location.hash) navigate({ name: 'explore' });
+if (!location.hash) navigate({ name: 'explore', view: 'market' });
 void boot();
 
 if (import.meta.env.DEV) {

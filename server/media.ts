@@ -17,7 +17,7 @@ const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
 // Conservative draft estimate. OpenAI bills GPT Image 2 output by image tokens.
 const IMAGE_COST_USD = 0.01;
 const VIDEO_COST_USD = 0.20;
-const MUSIC_COST_USD = 0.075;
+const MUSIC_COST_USD = 0.225;
 const MUSIC_PROMPT_COST_USD = 0.001;
 const DEFAULT_SESSION_CAP_USD = 3;
 
@@ -125,7 +125,8 @@ async function adaptMusicPrompt(
       vocalMode === 'vocals'
         ? 'The user wants vocals. Preserve their requested vocal language, delivery, speed, tone, structure, and any clearly original lyrics they supplied. Explicitly require prominent vocals; never turn this into an instrumental or add “no vocals”.'
         : 'The user wants an instrumental. Explicitly state that it has no vocals.',
-      'Shape the direction for a strong short excerpt, but do not mention a duration in the output.',
+      'Shape a restrained long-form ambient bed that can repeat invisibly. Begin immediately at the established texture: no count-in, opening swell, fanfare, or long fade-in. Maintain stable harmony, dynamics and instrumentation. End in the same musical state as the beginning: no cadence, resolution, final hit, fade-out, or trailing silence.',
+      'Match the image’s emotional valence exactly. Dark, lonely, ominous, contemplative or melancholic imagery must not become cheerful, jaunty, triumphant or whimsical unless explicitly requested.',
       'Write 45–110 words, usable directly as a music generation prompt. Return every removed named reference in removedReferences.',
     ].join(' '),
     output_config: { format: { type: 'json_schema', schema: MUSIC_PROMPT_SCHEMA } },
@@ -409,7 +410,7 @@ export function mediaPlugin(mode: string): Plugin {
               prompt: adapted.vocalMode === 'vocals'
                 ? `Song with prominent vocals. ${adapted.prompt}`
                 : `Instrumental music with no vocals. ${adapted.prompt}`,
-              music_length_ms: 30_000,
+              music_length_ms: 90_000,
               force_instrumental: adapted.vocalMode === 'instrumental',
             }),
             },
@@ -438,7 +439,7 @@ export function mediaPlugin(mode: string): Plugin {
             mimeType: upstream.headers.get('content-type') ?? 'audio/mpeg',
             provider: MUSIC_PROVIDER,
             model: MUSIC_MODEL,
-            durationSeconds: 30,
+            durationSeconds: 90,
             songId: upstream.headers.get('song-id') ?? undefined,
             adaptedPrompt: adapted.prompt,
             vocalMode: adapted.vocalMode,

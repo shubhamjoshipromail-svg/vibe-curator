@@ -160,4 +160,36 @@ const signalDrift: VibeSpec = {
   },
 };
 
-export const VIBES: VibeSpec[] = [ashenKeep, paperValley, signalDrift];
+const pixelBroadcast: VibeSpec = {
+  id: 'pixel-broadcast',
+  label: 'Pixel Broadcast',
+  user_prompt: 'poetic 16-bit coastal night, distant signal, quiet wonder',
+  render_style: 'pixel_art',
+  internal: [480, 270],
+  archetype: 'exterior_landscape',
+  seed: 6813,
+  palette: {
+    base: '#071327', surface: '#142b4d', primary: '#385b91', accent: '#f1b767', text: '#f8edcf',
+    ramp: ['#071327', '#0c1d38', '#142b4d', '#203d69', '#385b91', '#6f83b5', '#b8add0', '#f8edcf'],
+  },
+  layers: [],
+  audio: {
+    root: 'D2',
+    scale: 'major_pentatonic',
+    textures: ['wind', 'water'],
+    motif: { instrument: 'bell', density_per_min: 4, gain_db: -21 },
+    lowpass_hz: 5200,
+    reverb: { size: 0.88, wet: 0.38 },
+    bed_gain_db: -25,
+  },
+  arc: {
+    minutes: 35,
+    shape: 'settle',
+    energy_start: 0.72,
+    energy_end: 0.38,
+    warmth_start: 0.9,
+    warmth_end: 0.62,
+  },
+};
+
+export const VIBES: VibeSpec[] = [ashenKeep, paperValley, signalDrift, pixelBroadcast];

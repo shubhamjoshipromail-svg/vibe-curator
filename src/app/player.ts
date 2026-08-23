@@ -1,8 +1,7 @@
 import type { AppState } from './state';
-import { syncAudioLayers, syncGeneratedMusic } from './state';
+import { audioSpecForPreset, syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
 import { savePreset } from '../preset/library';
-import { VIBES } from '../vibes';
 
 /**
  * Player — where the environment is actually experienced.
@@ -20,23 +19,41 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     return;
   }
 
+  host.dataset.artStyle = preset.scene.style.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
   host.innerHTML = `
-    <div class="player-chrome">
-      <div class="player-title">
-        <h1>${preset.name}</h1>
-        <p>${preset.description}</p>
-      </div>
+    <button class="player-menu-trigger" id="player-menu" aria-label="Open player controls" aria-expanded="false">•••</button>
+    <button class="player-drawer-backdrop" id="player-backdrop" aria-label="Close player controls"></button>
+    <div class="player-control-drawer" id="player-drawer" aria-hidden="true">
       <div class="player-actions">
         <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
-    </div>
-    <div class="mixer" id="mixer">
-      <h2>Layers</h2>
-      <div id="mix-rows"></div>
+      <div class="mixer" id="mixer">
+        <h2>Sound layers</h2>
+        <div id="mix-rows"></div>
+      </div>
     </div>
   `;
+
+  const menu = host.querySelector<HTMLButtonElement>('#player-menu')!;
+  const drawer = host.querySelector<HTMLDivElement>('#player-drawer')!;
+  const backdrop = host.querySelector<HTMLButtonElement>('#player-backdrop')!;
+  const setDrawer = (open: boolean) => {
+    drawer.classList.toggle('open', open);
+    drawer.setAttribute('aria-hidden', String(!open));
+    menu.setAttribute('aria-expanded', String(open));
+    backdrop.classList.toggle('open', open);
+  };
+  menu.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setDrawer(!drawer.classList.contains('open'));
+  });
+  drawer.addEventListener('click', (event) => event.stopPropagation());
+  backdrop.addEventListener('click', () => setDrawer(false));
+  const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setDrawer(false); };
+  host.addEventListener('keydown', closeOnEscape);
 
   host.querySelector('#edit')?.addEventListener('click', () =>
     navigate({ name: 'labs', presetId: preset.id }),
@@ -55,8 +72,8 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     }
     button.disabled = true;
     try {
-      const base = VIBES.find((vibe) => vibe.id === preset.baseVibeId) ?? VIBES[0];
-      await state.audio.start(base.audio);
+      state.audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
+      await state.audio.start(audioSpecForPreset(preset));
       state.started = true;
       syncAudioLayers(state, preset);
       await syncGeneratedMusic(state, preset);

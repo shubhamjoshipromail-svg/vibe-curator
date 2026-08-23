@@ -40,6 +40,20 @@ export function vibeForPreset(preset: Preset): VibeSpec {
   return { ...base, palette: preset.palette };
 }
 
+export function audioSpecForPreset(preset: Preset): VibeSpec['audio'] {
+  const base = VIBES.find((v) => v.id === preset.baseVibeId) ?? VIBES[0];
+  const extra = preset.livingStill?.audio.textures ?? [];
+  const mood = preset.livingStill?.audio.musicMood;
+  const score = mood === 'dark_ambient' || mood === 'tense'
+    ? { root: 'D2', scale: 'aeolian' as const, motif: { ...base.audio.motif, density_per_min: mood === 'tense' ? 4 : 2, gain_db: -22 }, lowpass_hz: 2800, bed_gain_db: -27 }
+    : mood === 'warm_ambient'
+      ? { root: 'A2', scale: 'major_pentatonic' as const, motif: { ...base.audio.motif, density_per_min: 3, gain_db: -21 }, lowpass_hz: 4200, bed_gain_db: -26 }
+      : mood === 'minimal'
+        ? { motif: { ...base.audio.motif, density_per_min: 1, gain_db: -24 }, bed_gain_db: -28 }
+        : {};
+  return { ...base.audio, ...score, textures: [...new Set([...base.audio.textures, ...extra])] };
+}
+
 /** Load a preset into the live engine: visuals, effects, controls and audio. */
 export async function loadPreset(state: AppState, preset: Preset): Promise<void> {
   state.scene.clearAllEffects();
@@ -53,7 +67,7 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   if (preset.scene.kind === 'procedural') {
     await state.scene.setProceduralSource(preset.scene.sourceId, sceneVibe, preset.sourceEffects);
   } else if (source && preset.scene.kind !== 'renderer') {
-    await state.scene.setMedia(source, preset.scene.kind, sceneVibe, preset.sourceEffects, preset.scene.motion);
+    await state.scene.setMedia(source, preset.scene.kind, sceneVibe, preset.sourceEffects, preset.scene.motion, preset.livingStill?.effects);
   } else {
     if (preset.scene.kind !== 'renderer') {
       console.warn(`[vibe] scene asset missing for "${preset.scene.label}"; using renderer fallback`);
@@ -75,9 +89,9 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
     }
   }
 
-  const base = VIBES.find((v) => v.id === preset.baseVibeId) ?? VIBES[0];
   if (state.started) {
-    await state.audio.setSpec(base.audio);
+    state.audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
+    await state.audio.setSpec(audioSpecForPreset(preset));
     await syncGeneratedMusic(state, preset);
   }
   syncAudioLayers(state, preset);

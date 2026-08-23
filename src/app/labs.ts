@@ -8,6 +8,45 @@ import type { EffectManifest } from '../effects/manifest';
 import { assetUrl, cachedGeneration, generationFingerprint, getAsset, rememberGeneration, storeAsset } from '../media/assets';
 import { generateMusic, generateSceneMotion, mediaCapabilities } from '../media/api';
 import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '../source-aware/types';
+import { orchestrateLivingStill } from '../living-still/orchestrator';
+import { directLivingStill } from '../living-still/api';
+
+/**
+ * While a slider is being dragged, fade the panels so the change can be judged
+ * against the actual image rather than the 6% of it left visible between cards.
+ * The panel holding the control keeps its opacity so its value stays readable.
+ */
+function installPeekWhileAdjusting(host: HTMLElement): void {
+  const app = document.querySelector<HTMLElement>('#app');
+  if (!app) return;
+
+  let active: HTMLElement | null = null;
+
+  const start = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (!(target instanceof HTMLInputElement) || target.type !== 'range') return;
+    active = target.closest('.panel');
+    active?.classList.add('is-adjusting');
+    app.classList.add('is-peeking');
+  };
+
+  const stop = () => {
+    if (!app.classList.contains('is-peeking')) return;
+    app.classList.remove('is-peeking');
+    active?.classList.remove('is-adjusting');
+    active = null;
+  };
+
+  host.addEventListener('pointerdown', start);
+  // Keyboard users get the same affordance when nudging a focused slider.
+  host.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key.startsWith('Arrow')) start(e);
+  });
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+  host.addEventListener('keyup', stop);
+  host.addEventListener('focusout', stop);
+}
 
 /**
  * Labs — where a room becomes yours.
@@ -61,8 +100,25 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           </div>
           <p class="fx-status" id="scene-status"></p>
           <div class="source-motion" id="source-motion"></div>
+        </section>
+
+        <!-- The director used to sit at the bottom of the Scene panel, roughly
+             1300px down, which put the single most interesting control in the
+             product below the fold on a laptop. It gets its own panel. -->
+        <section class="panel">
+          <h2>Living Still director</h2>
+          <div class="living-director">
+            <p class="hint">Describe only what should move or sound. The director prefers tested effects and preserves the image.</p>
+            <textarea id="living-intent" rows="2" placeholder="Gentle rain outside, quiet fire, occasional owl…"></textarea>
+            <button class="primary wide" id="living-run">Auto-direct</button>
+            <p class="fx-status" id="living-status"></p>
+            <div id="living-layers"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Source-aware treatments</h2>
           <div class="source-treatments">
-            <h3>Source-aware treatments</h3>
             <p class="hint">These read motion and contours from the source. Atmospheric effects below still compose on top.</p>
             <div class="stock-effects" id="source-stock"></div>
             <div id="source-list"></div>
@@ -107,6 +163,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     </div>
   `;
 
+  installPeekWhileAdjusting(host);
+
   const nameInput = host.querySelector<HTMLInputElement>('#name')!;
   nameInput.addEventListener('input', () => {
     draft.name = nameInput.value.trim() || 'Untitled room';
@@ -144,14 +202,83 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const sceneUpload = host.querySelector<HTMLInputElement>('#scene-upload')!;
   const sceneAnimate = host.querySelector<HTMLButtonElement>('#scene-animate')!;
   const sourceMotion = host.querySelector<HTMLDivElement>('#source-motion')!;
+  const livingIntent = host.querySelector<HTMLTextAreaElement>('#living-intent')!;
+  const livingRun = host.querySelector<HTMLButtonElement>('#living-run')!;
+  const livingStatus = host.querySelector<HTMLParagraphElement>('#living-status')!;
+  const livingLayers = host.querySelector<HTMLDivElement>('#living-layers')!;
+
+  livingIntent.value = draft.livingStill?.intent ?? '';
+
+  function drawLivingStill(): void {
+    livingLayers.innerHTML = '';
+    const manifest = draft.livingStill;
+    if (!manifest) {
+      livingStatus.textContent = 'No directed motion yet. The image remains untouched.';
+      return;
+    }
+    livingStatus.textContent = `${Math.round(manifest.confidence * 100)}% match · ${manifest.rationale}`;
+    for (const effect of manifest.effects) {
+      const row = document.createElement('div');
+      row.className = 'mix-row living-layer-row';
+      row.innerHTML = `<button class="mute ${effect.enabled ? '' : 'is-muted'}">${effect.enabled ? '●' : '✕'}</button><label>${effect.kind}<small>trusted motion recipe</small></label><input type="range" min="0" max="1" step="0.01" value="${effect.intensity}" />`;
+      const toggle = row.querySelector<HTMLButtonElement>('button')!;
+      const slider = row.querySelector<HTMLInputElement>('input')!;
+      toggle.addEventListener('click', () => {
+        effect.enabled = !effect.enabled;
+        state.scene.setLivingEffects(manifest.effects);
+        drawLivingStill();
+      });
+      slider.addEventListener('input', () => {
+        effect.intensity = Number(slider.value);
+        state.scene.setLivingEffects(manifest.effects);
+      });
+      livingLayers.appendChild(row);
+    }
+    if (manifest.audio.events.length) {
+      const events = document.createElement('p');
+      events.className = 'hint';
+      events.textContent = `Occasional sounds: ${manifest.audio.events.map((event) => event.kind).join(', ')}`;
+      livingLayers.appendChild(events);
+    }
+  }
+
+  livingRun.addEventListener('click', async () => {
+    if (draft.scene.kind !== 'image') {
+      livingStatus.textContent = 'Living Still direction currently requires a still image.';
+      return;
+    }
+    const intent = livingIntent.value.trim();
+    if (!intent) return;
+    livingRun.disabled = true;
+    livingStatus.textContent = 'Analyzing visible regions and selecting the smallest matching effect set…';
+    try {
+      const sceneSource = draft.scene.url ?? (draft.scene.assetId ? await assetUrl(draft.scene.assetId) : undefined);
+      if (!sceneSource) throw new Error('The source image is unavailable for analysis.');
+      draft.livingStill = await directLivingStill(intent, sceneSource);
+      await loadPreset(state, draft);
+      drawLivingStill();
+    } catch (error) {
+      console.warn('[vibe] vision direction unavailable; using local intent fallback', error);
+      draft.livingStill = orchestrateLivingStill(intent, {
+        fire: { x: 0.4, y: 0.48, width: 0.2, height: 0.34 },
+        exterior: { x: 0.56, y: 0.06, width: 0.44, height: 0.82 },
+        sky: { x: 0, y: 0, width: 1, height: 0.55 },
+      });
+      await loadPreset(state, draft);
+      drawLivingStill();
+      livingStatus.textContent = `${error instanceof Error ? error.message : 'Vision analysis unavailable'} Using the local safe fallback.`;
+    } finally {
+      livingRun.disabled = false;
+    }
+  });
 
   function drawSourceMotion() {
     sourceMotion.innerHTML = '';
     if (draft.scene.kind !== 'image' && draft.scene.kind !== 'video') return;
     const motion = draft.scene.motion ?? {
-      kind: draft.scene.kind === 'image' ? 'flow' as const : 'none' as const,
-      amount: 0.025,
-      speed: draft.scene.kind === 'video' ? 1 : 0.8,
+      kind: draft.scene.kind === 'image' ? 'drift' as const : 'none' as const,
+      amount: 0.06,
+      speed: draft.scene.kind === 'video' ? 1 : 0.05,
     };
     draft.scene.motion = motion;
     sourceMotion.innerHTML = `
@@ -200,6 +327,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     `;
     sceneAnimate.hidden = draft.scene.kind !== 'image' || !draft.scene.assetId;
     drawSourceMotion();
+    drawLivingStill();
   }
 
   sceneUpload.addEventListener('change', async () => {
@@ -224,7 +352,9 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         label: file.name.replace(/\.[^.]+$/, ''),
         style: 'uploaded',
         provenance: { createdAt: new Date().toISOString(), parentPresetId: source.id },
-        motion: kind === 'image' ? { kind: 'flow', amount: 0.025, speed: 0.8 } : { kind: 'none', speed: 1 },
+        // Same reasoning as generated visuals: drift preserves an uploaded
+        // photo, flow re-slices it. See preset/library.ts.
+        motion: kind === 'image' ? { kind: 'drift', amount: 0.06, speed: 0.05 } : { kind: 'none', speed: 1 },
       };
       await loadPreset(state, draft);
       drawScene();
@@ -583,9 +713,9 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
   const vocalModeHost = host.querySelector<HTMLDivElement>('#vocal-mode')!;
   let vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto';
-  const visualPrompt = draft.scene.provenance?.prompt ?? draft.description;
+  const visualPrompt = [draft.scene.provenance?.prompt, draft.description, draft.scene.style, draft.livingStill?.intent, draft.livingStill?.audio.musicDirection].filter(Boolean).join('. ');
   musicPrompt.value = draft.music?.provenance.inputPrompt
-    ?? `Music for this visual: ${visualPrompt}. Match the energy, mood and pacing.`;
+    ?? `Create a restrained instrumental ambient bed for this visual: ${visualPrompt}. Match its emotional valence, darkness, energy and historical atmosphere exactly. No cheerful, jaunty, triumphant or whimsical feeling. Begin fully inside the texture with no intro or fade-in. Keep a stable arrangement without a dramatic arc. End in the same unresolved musical state with no cadence, finale, fade-out or trailing silence, suitable for an invisible repeat.`;
   if (draft.music?.provenance.vocalMode) vocalMode = draft.music.provenance.vocalMode;
 
   function drawVocalMode(): void {
@@ -629,7 +759,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
       } else {
         musicStatus.textContent = caps.musicPromptAdaptation
-          ? 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 30-second generation · approximately $0.076.'
+          ? 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 90-second seamless-bed generation · approximately $0.226.'
           : 'Add ANTHROPIC_API_KEY to translate artist references before music generation.';
         if (!caps.musicPromptAdaptation) musicGo.disabled = true;
       }

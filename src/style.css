@@ -32,12 +32,19 @@ body { overflow: hidden; }
   place-items: center;
   transition: opacity 0.4s ease, filter 0.4s ease;
   z-index: 0;
+  overflow: hidden;
 }
+
+#app[data-mode='player'] #stage canvas { max-width: none; max-height: none; }
 
 canvas.pixelated { image-rendering: pixelated; }
 
 #app[data-mode='explore'] #stage, #app[data-mode='marketplace'] #stage { opacity: 0.13; filter: saturate(0.72); }
-#app[data-mode='labs'] #stage { opacity: 0.5; }
+/* Full fidelity in Labs. Mood, Glow and Atmosphere are colour judgements, and
+   grading them against a 50%-dimmed preview meant the thing on screen was never
+   the thing you were shipping. The panels still cover most of it, which is what
+   the peek behaviour below is for. */
+#app[data-mode='labs'] #stage { opacity: 1; }
 #app[data-mode='player'] #stage { opacity: 1; }
 
 #view {
@@ -85,6 +92,12 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--ink); color: #14110f; border-color: transparent; font-weight: 500; }
 button.primary:hover { background: #fff; }
 button.ghost { background: transparent; }
+.account-control { position: fixed; z-index: 80; top: 22px; right: 24px; }
+.account-trigger { min-width: 74px; padding: 9px 15px; background: rgba(11,10,13,.24); border-color: rgba(255,255,255,.14); backdrop-filter: blur(18px); }
+.account-popover { position: absolute; top: calc(100% + 10px); right: 0; width: min(300px, calc(100vw - 32px)); padding: 18px; border: 1px solid rgba(255,255,255,.13); border-radius: 18px; background: rgba(14,12,16,.88); box-shadow: 0 18px 60px rgba(0,0,0,.38); backdrop-filter: blur(24px); }
+.account-popover strong { display: block; font-size: 16px; line-height: 1.25; }
+.account-popover p { margin: 7px 0 0; color: rgba(236,230,221,.66); font-size: 13px; line-height: 1.45; }
+.account-popover .account-kicker { margin: 0 0 7px; font-size: 10px; font-weight: 800; letter-spacing: .16em; color: rgba(236,230,221,.42); }
 button.wide { width: 100%; margin-top: 8px; }
 button.tiny { padding: 2px 9px; font-size: 14px; line-height: 1; }
 .button-like { display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 13px; padding: 9px 16px; border-radius: 999px; cursor: pointer; }
@@ -173,7 +186,22 @@ select {
 .folder-card-copy strong { font-size: 18px; }
 .folder-card-copy small { color: var(--muted); line-height: 1.42; }
 .folder-card-copy em { margin-top: auto; color: var(--paper); font-size: 12px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.market-folder .folder-thumbnails { background: radial-gradient(circle at 72% 30%, rgba(108,88,255,.17), transparent 45%), #07070b; }
+.market-collection-card { position: relative; background: #0b0a0f; }
+.collection-hero { width: 100%; aspect-ratio: 16 / 10; display: block; object-fit: cover; transition: transform .35s ease; }
+.market-collection-card:hover .collection-hero { transform: scale(1.025); }
+.market-collection-card .folder-card-copy { position: relative; min-height: 142px; background: linear-gradient(180deg, rgba(11,10,15,.93), #0b0a0f); }
+.market-collection-card .folder-card-copy strong { font-size: 22px; letter-spacing: -.02em; }
+.collection-kicker { color: #d5b278; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.style-recipe { grid-column: 1 / -1; padding: clamp(18px, 3vw, 28px); border: 1px solid rgba(213,178,120,.38); border-radius: 18px; background: linear-gradient(135deg, rgba(33,27,24,.96), rgba(12,11,17,.96)); }
+.style-recipe-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.style-recipe-head span { color: #d5b278; font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.style-recipe-head h3 { margin: 5px 0; font-size: 20px; }
+.style-recipe-head p { margin: 0; color: var(--dim); font-size: 12px; }
+.style-recipe-fields { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 9px; margin: 20px 0 12px; }
+.style-recipe-fields label { display: grid; gap: 6px; color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.style-recipe-fields input, .style-recipe-fields select { width: 100%; min-width: 0; }
+.style-recipe textarea { width: 100%; min-height: 100px; margin-bottom: 10px; color: rgba(236,230,221,.72); font-size: 11px; line-height: 1.5; }
+@media (max-width: 900px) { .style-recipe-fields { grid-template-columns: repeat(2, 1fr); } }
 .type-folder .folder-thumbnails { background: radial-gradient(circle at 30% 90%, rgba(212,180,131,.13), transparent 46%), #0a0910; }
 .folder-select { min-width: 112px; max-width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 999px; background: #111016; color: var(--paper); }
 .danger-quiet { color: #e9aaa3; }
@@ -305,6 +333,27 @@ select {
   backdrop-filter: none;
 }
 
+/* Peek-while-adjusting.
+
+   Labs panels cover roughly the whole frame, so every slider was being judged
+   against a sliver of image. While a control is actually being dragged the
+   panels step aside; the one you are holding stays legible so you can still see
+   its value. Opacity only — touching pointer-events mid-drag cancels the drag. */
+#app[data-mode='labs'] .panel,
+#app[data-mode='labs'] .labs-head {
+  transition: opacity 0.22s ease;
+}
+
+#app[data-mode='labs'].is-peeking .panel,
+#app[data-mode='labs'].is-peeking .labs-head {
+  opacity: 0.12;
+}
+
+#app[data-mode='labs'].is-peeking .panel:has(input:active),
+#app[data-mode='labs'].is-peeking .panel.is-adjusting {
+  opacity: 0.94;
+}
+
 .ctl { margin-bottom: 15px; }
 .ctl-tight { margin-bottom: 9px; }
 .ctl-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
@@ -346,32 +395,68 @@ input[type='range'] {
 
 /* --- player --------------------------------------------------------------- */
 
-.player-chrome {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  opacity: 0.25;
-  transition: opacity 0.3s ease;
+.player-menu-trigger {
+  position: fixed;
+  top: 20px;
+  right: 22px;
+  width: 42px;
+  height: 42px;
+  padding: 0 0 7px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 50%;
+  background: rgba(4,4,7,.08);
+  color: rgba(255,255,255,.22);
+  font-size: 19px;
+  letter-spacing: 2px;
+  backdrop-filter: blur(3px);
+  opacity: .32;
+  transition: opacity .2s ease, background .2s ease, color .2s ease;
 }
-.player-chrome:hover { opacity: 1; }
-.player-title p { margin: 6px 0 0; color: var(--dim); font-size: 13px; }
-.player-actions { display: flex; gap: 8px; }
+.player-menu-trigger:hover, .player-menu-trigger:focus-visible, .player-menu-trigger[aria-expanded='true'] {
+  opacity: 1;
+  color: rgba(255,255,255,.82);
+  background: rgba(8,8,12,.52);
+}
+.player-control-drawer {
+  position: fixed;
+  top: 70px;
+  right: 22px;
+  width: min(270px, calc(100vw - 44px));
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  background: rgba(8,8,12,.74);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px rgba(0,0,0,.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity .18s ease, transform .18s ease, visibility .18s;
+}
+.player-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  visibility: hidden;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+.player-drawer-backdrop.open { visibility: visible; }
+.player-control-drawer.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.player-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.player-actions #browse { grid-column: 1 / -1; }
 
 .mixer {
-  position: fixed;
-  right: clamp(20px, 5vw, 64px);
-  bottom: 32px;
-  width: 236px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(12, 11, 17, 0.78);
-  backdrop-filter: blur(8px);
-  opacity: 0.3;
-  transition: opacity 0.25s ease;
+  position: static;
+  width: auto;
+  margin-top: 14px;
+  padding: 14px 2px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  opacity: 1;
 }
-.mixer:hover, .mixer:focus-within { opacity: 1; }
 
 .empty-stage { display: grid; place-items: center; gap: 14px; height: 60vh; text-align: center; color: var(--dim); }
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173} --strictPort",
     "build": "npm run check:licenses && tsc --noEmit && vite build",
     "preview": "vite preview",
     "check:licenses": "node scripts/check-licenses.mjs",
@@ -15,10 +16,16 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
     "@google/genai": "^2.16.0",
+    "@tauri-apps/api": "^2.11.1",
+    "better-auth": "^1.6.30",
+    "pg": "^8.23.0",
     "pixi.js": "^8.6.6",
     "tone": "^15.0.4"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/pg": "^8.23.1",
+    "auth": "^1.6.30",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
   }

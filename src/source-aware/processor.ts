@@ -1,5 +1,6 @@
 import { paintDemoSource } from './demo-sources';
 import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from './types';
+import type { LivingEffect } from '../living-still/types';
 
 type MediaSource = HTMLImageElement | HTMLVideoElement | HTMLCanvasElement;
 
@@ -17,6 +18,8 @@ export interface SourceSurfaceOptions {
   motion?: SourceMotion;
   recipes: SourceEffectRecipe[];
   quality?: 'light' | 'balanced' | 'full';
+  pixelated?: boolean;
+  livingEffects?: LivingEffect[];
 }
 
 function drawCover(
@@ -45,15 +48,33 @@ function drawCover(
     g.drawImage(source, dx, dy, dw, dh);
     return;
   }
-  // Displace narrow horizontal bands independently. This keeps source detail
-  // intact while giving any still image obvious, continuous motion.
-  const bands = 24;
+
+  // Flow displaces horizontal bands along a travelling wave.
+  //
+  // The band COUNT is what decides whether this reads as motion or as damage.
+  // The original used 24 bands with a fixed 0.46 rad phase step, which on a
+  // 1536px image at amount 0.028 sheared neighbouring bands by up to ~20px:
+  // a photoreal source tore into visible rectangular slabs that looked like
+  // compression artifacts rather than movement.
+  //
+  // What matters is the offset DIFFERENCE between adjacent bands, not the
+  // overall amplitude. Derive the band count from the amplitude so that
+  // difference stays under a pixel, and the same wave becomes continuous.
+  const maxOffset = w * amount;
+  const WAVES = 1; // one cycle down the image; more cycles means more shear
+  const MAX_SHEAR_PX = 0.75; // sub-pixel: no visible seam between bands
+  const span = Math.PI * 2 * WAVES;
+  // Upper bound keeps the per-frame drawImage count sane at 9-18fps.
+  const bands = Math.min(Math.max(Math.ceil((span * maxOffset) / MAX_SHEAR_PX), 48), 640);
+  const phaseStep = span / bands;
+
   for (let band = 0; band < bands; band++) {
     const sy = (sh / bands) * band;
+    // Overlap by a source pixel so rounding cannot open a hairline gap.
     const sourceBandH = sh / bands + 1;
     const y = dy + (dh / bands) * band;
     const bandH = dh / bands + 1;
-    const wave = Math.sin(t * speed * 2.1 + band * 0.46) * w * amount;
+    const wave = Math.sin(t * speed * 2.1 + band * phaseStep) * maxOffset;
     g.drawImage(source, 0, sy, sw, sourceBandH, dx + wave, y, dw, bandH);
   }
 }
@@ -97,6 +118,8 @@ export class SourceAwareSurface {
     this.g = g;
     this.ag = ag;
     this.cleanG = cleanG;
+    this.g.imageSmoothingEnabled = !options.pixelated;
+    this.cleanG.imageSmoothingEnabled = !options.pixelated;
   }
 
   setRecipes(recipes: SourceEffectRecipe[]): void {
@@ -114,6 +137,10 @@ export class SourceAwareSurface {
     this.options.quality = quality;
   }
 
+  setLivingEffects(effects: LivingEffect[]): void {
+    this.options.livingEffects = effects;
+  }
+
   getMetrics(): SourceMetrics {
     return { ...this.metrics };
   }
@@ -127,6 +154,8 @@ export class SourceAwareSurface {
     const { width: w, height: h } = this.options;
     this.g.clearRect(0, 0, w, h);
     this.cleanG.clearRect(0, 0, w, h);
+    this.g.imageSmoothingEnabled = !this.options.pixelated;
+    this.cleanG.imageSmoothingEnabled = !this.options.pixelated;
     if (this.options.demoSourceId) {
       paintDemoSource(this.options.demoSourceId, this.cleanG, w, h, t);
     } else if (this.options.source) {
@@ -179,6 +208,8 @@ export class SourceAwareSurface {
     this.g.drawImage(this.clean, 0, 0);
     this.g.restore();
 
+    this.drawLivingEffects(t);
+
     for (const recipe of active) {
       if (!recipe.enabled) continue;
       const trail = this.trails.get(recipe.id) ?? new Float32Array(this.previous.length);
@@ -194,6 +225,53 @@ export class SourceAwareSurface {
     this.current = oldPrevious;
     this.initialized = true;
     return true;
+  }
+
+  private drawLivingEffects(t: number): void {
+    const { width: w, height: h } = this.options;
+    for (const effect of this.options.livingEffects ?? []) {
+      if (!effect.enabled) continue;
+      const r = effect.region;
+      const x = r.x * w; const y = r.y * h; const rw = r.width * w; const rh = r.height * h;
+      this.g.save();
+      this.g.beginPath();
+      if (effect.mask && effect.mask.length >= 3) {
+        effect.mask.forEach((point, index) => index ? this.g.lineTo(point.x * w, point.y * h) : this.g.moveTo(point.x * w, point.y * h));
+        this.g.closePath();
+      } else this.g.rect(x, y, rw, rh);
+      this.g.clip();
+      if (effect.kind === 'rain') {
+        this.g.strokeStyle = effect.color ?? '#a9c9e8';
+        this.g.globalAlpha = 0.12 + effect.intensity * 0.3;
+        this.g.lineWidth = Math.max(1, w / 1200);
+        const count = Math.round(18 + effect.intensity * 75);
+        for (let i = 0; i < count; i++) {
+          const seed = (i * 0.61803398875) % 1;
+          const px = x + ((seed + t * effect.speed * 0.035) % 1) * rw;
+          const py = y + ((i * 0.371 + t * effect.speed * 0.42) % 1) * rh;
+          this.g.beginPath(); this.g.moveTo(px, py); this.g.lineTo(px - rw * 0.008, py + rh * 0.055); this.g.stroke();
+        }
+      } else if (effect.kind === 'fire') {
+        // Move the authored flame pixels themselves. Adding generated blobs on
+        // top destroys good art and makes even a correctly located mask look fake.
+        const bands = 9;
+        this.g.globalAlpha = 0.72 + effect.intensity * 0.2;
+        for (let band = 0; band < bands; band++) {
+          const sy = y + (rh / bands) * band;
+          const bh = rh / bands + 1;
+          const taper = 1 - band / bands;
+          const shift = Math.sin(t * effect.speed * 7 + band * 1.7) * rw * 0.025 * effect.intensity * taper;
+          this.g.drawImage(this.clean, x, sy, rw, bh, x + shift, sy, rw, bh);
+        }
+      } else if (effect.kind === 'light-flicker') {
+        const pulse = 0.8 + Math.sin(t * effect.speed * 8) * 0.08 + Math.sin(t * effect.speed * 13.7) * 0.04;
+        const gradient = this.g.createRadialGradient(x + rw * 0.5, y + rh * 0.65, 0, x + rw * 0.5, y + rh * 0.65, Math.max(rw, rh) * 1.5);
+        gradient.addColorStop(0, effect.color ?? '#ff9b38'); gradient.addColorStop(1, 'rgba(255,130,30,0)');
+        this.g.globalCompositeOperation = 'screen'; this.g.globalAlpha = effect.intensity * 0.16 * pulse;
+        this.g.fillStyle = gradient; this.g.fillRect(x - rw, y - rh, rw * 3, rh * 3);
+      }
+      this.g.restore();
+    }
   }
 
   private drawRecipe(recipe: SourceEffectRecipe, current: Float32Array, trail: Float32Array): void {

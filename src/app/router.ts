@@ -22,11 +22,13 @@ export function parseRoute(hash: string): Route {
   if (head === 'marketplace') return { name: 'marketplace' };
   if (head === 'player') return { name: 'player' };
   const params = new URLSearchParams(query);
+  const folder = params.get('folder') ?? undefined;
+  const type = params.get('type') ?? undefined;
   return {
     name: 'explore',
-    view: params.get('view') === 'market' ? 'market' : 'projects',
-    folder: params.get('folder') ?? undefined,
-    type: params.get('type') ?? undefined,
+    view: params.get('view') === 'projects' || folder || type ? 'projects' : 'market',
+    folder,
+    type,
     collection: params.get('collection') ?? undefined,
   };
 }
@@ -42,7 +44,7 @@ export function toHash(route: Route): string {
     default:
       {
         const params = new URLSearchParams();
-        if (route.view === 'market') params.set('view', 'market');
+        if (route.view) params.set('view', route.view);
         if (route.folder) params.set('folder', route.folder);
         if (route.type) params.set('type', route.type);
         if (route.collection) params.set('collection', route.collection);

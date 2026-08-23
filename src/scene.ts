@@ -13,6 +13,7 @@ import type { EffectFilter } from './effects/filter';
 import type { Filter } from 'pixi.js';
 import { SourceAwareSurface, type SourceMetrics } from './source-aware/processor';
 import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from './source-aware/types';
+import type { LivingEffect } from './living-still/types';
 
 /**
  * Pixel art scaled by a non-integer factor is mush — source pixels land across
@@ -106,6 +107,8 @@ export class Scene {
       preference: 'webgl',
     });
     console.info('[vibe] renderer ready:', this.app.renderer.type);
+    // Apply whatever view mode the router asked for while init() was pending.
+    this.setViewMode(this.viewMode);
     host.appendChild(this.app.canvas);
     this.app.stage.addChild(this.root);
 
@@ -254,6 +257,7 @@ export class Scene {
     fallback: VibeSpec,
     recipes: SourceEffectRecipe[] = [],
     motion?: SourceMotion,
+    livingEffects: LivingEffect[] = [],
   ): Promise<void> {
     const token = ++this.buildToken;
     this.stopMedia();
@@ -267,7 +271,7 @@ export class Scene {
     this.depthBlur = undefined;
     this.root.filters = [];
 
-    const [w, h] = fallback.internal;
+    let [w, h] = fallback.internal;
     this.app.renderer.resize(w, h);
     this.app.renderer.background.color = hexToNum(fallback.palette.base);
     this.app.canvas.classList.remove('pixelated');
@@ -304,16 +308,28 @@ export class Scene {
       if (token !== this.buildToken) return;
       const maxDimension = 4096;
       const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      // Static authored scenes should retain their master resolution. Previously
+      // they were immediately squeezed through the base vibe's 480p/540p
+      // working buffer, which made even a sharp source look soft on Retina and
+      // 4K displays. Effects still analyze a small proxy internally.
+      w = Math.max(1, Math.round(image.naturalWidth * scale));
+      h = Math.max(1, Math.round(image.naturalHeight * scale));
+      fallback = { ...fallback, internal: [w, h] };
+      this.vibe = fallback;
+      this.app.renderer.resize(w, h);
       const raster = document.createElement('canvas');
-      raster.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      raster.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      raster.width = w;
+      raster.height = h;
       const context = raster.getContext('2d');
       if (!context) throw new Error('The browser could not prepare this image.');
+      context.imageSmoothingEnabled = fallback.render_style !== 'pixel_art';
       context.drawImage(image, 0, 0, raster.width, raster.height);
       media = raster;
     }
 
-    this.installSourceSurface({ source: media, recipes, motion });
+    this.app.canvas.classList.toggle('pixelated', fallback.render_style === 'pixel_art');
+
+    this.installSourceSurface({ source: media, recipes, motion, livingEffects });
 
     for (const target of this.effects.keys()) this.syncFilters(target);
     this.fit();
@@ -352,9 +368,16 @@ export class Scene {
     demoSourceId?: DemoSourceId;
     recipes: SourceEffectRecipe[];
     motion?: SourceMotion;
+    livingEffects?: LivingEffect[];
   }): void {
     const [w, h] = this.vibe.internal;
-    this.sourceSurface = new SourceAwareSurface({ width: w, height: h, quality: this.performanceTier, ...options });
+    this.sourceSurface = new SourceAwareSurface({
+      width: w,
+      height: h,
+      quality: this.performanceTier,
+      pixelated: this.vibe.render_style === 'pixel_art',
+      ...options,
+    });
     // Seed previous-frame analysis before the texture is uploaded.
     this.sourceSurface.update(0, 1 / 60);
     const texture = Texture.from(this.sourceSurface.canvas);
@@ -375,6 +398,10 @@ export class Scene {
     this.sourceSurface?.setMotion(motion);
   }
 
+  setLivingEffects(effects: LivingEffect[]): void {
+    this.sourceSurface?.setLivingEffects(effects);
+  }
+
   setPerformanceTier(tier: 'light' | 'balanced' | 'full'): void {
     this.performanceTier = tier;
     this.sourceSurface?.setQuality(tier);
@@ -383,9 +410,18 @@ export class Scene {
   /** Match render work to what is actually visible without changing Player quality. */
   setViewMode(mode: 'explore' | 'labs' | 'player'): void {
     this.viewMode = mode;
+    // A route can render before mount() has finished — deep links and the
+    // initial navigate() both fire a hashchange while init() is still awaiting.
+    // Pixi's Application has no ticker until then, so store the mode and let
+    // mount() apply it rather than throwing on a half-built renderer.
+    if (!this.app?.ticker) return;
     // Explore only shows the scene under dense UI at 18% opacity. Labs needs
     // responsive controls; Player remains native display-rate quality.
     this.app.ticker.maxFPS = mode === 'player' ? 60 : mode === 'labs' ? 30 : 15;
+    // Contained editing views and cover-mode Player use different scale rules.
+    // Refit immediately on navigation; waiting for a resize leaves Player with
+    // the editor's letterboxed dimensions and visible side margins.
+    this.fit();
   }
 
   getViewMode(): 'explore' | 'labs' | 'player' {
@@ -587,7 +623,9 @@ export class Scene {
   private fit(): void {
     const [w, h] = this.vibe?.internal ?? [1, 1];
     const box = this.host.getBoundingClientRect();
-    const scale = Math.min(box.width / w, box.height / h);
+    const scale = this.viewMode === 'player'
+      ? Math.max(box.width / w, box.height / h)
+      : Math.min(box.width / w, box.height / h);
     const canvas = this.app.canvas;
     canvas.style.width = `${Math.round(w * scale)}px`;
     canvas.style.height = `${Math.round(h * scale)}px`;

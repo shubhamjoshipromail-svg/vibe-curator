@@ -12,6 +12,7 @@ import {
 import builtinEffects from '../effects/builtin.json';
 import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
 import { migrateAssets } from '../media/assets';
+import { orchestrateLivingStill } from '../living-still/orchestrator';
 
 /**
  * The Library: what Explore browses and what Save writes to.
@@ -116,6 +117,30 @@ const NOCTURNE = palette('#0a0510', '#1d1030', '#3a1d52', '#c46ba8', '#f6e4f2', 
   '#0a0510', '#12081f', '#1d1030', '#2b1642', '#3a1d52', '#7a3a7d', '#c46ba8', '#f6e4f2',
 ]);
 
+const AURORA = palette('#061026', '#102c4c', '#18a7a0', '#b989ef', '#edfaff', [
+  '#061026', '#0b1d3e', '#102c4c', '#13617b', '#18a7a0', '#68d6d0', '#b989ef', '#edfaff',
+]);
+
+const JAPANDI = palette('#16130f', '#3a3026', '#806d58', '#bca27d', '#eee7dc', [
+  '#16130f', '#26211b', '#3a3026', '#55493b', '#806d58', '#a68d70', '#bca27d', '#eee7dc',
+]);
+
+const WESTERN = palette('#0d0d0e', '#30241c', '#78472a', '#d4a45f', '#f0dfbd', [
+  '#0d0d0e', '#1d1916', '#30241c', '#543321', '#78472a', '#a86a38', '#d4a45f', '#f0dfbd',
+]);
+
+const DECO = palette('#050908', '#092a25', '#145b50', '#c9a04d', '#f4e9ca', [
+  '#050908', '#071814', '#092a25', '#0e4038', '#145b50', '#42877b', '#c9a04d', '#f4e9ca',
+]);
+
+const SKETCH = palette('#181713', '#e8e1d2', '#30302a', '#70906f', '#10100e', [
+  '#10100e', '#30302a', '#666157', '#969083', '#bdb5a6', '#d8d0c1', '#70906f', '#f2ebdc',
+]);
+
+const SYNTHWAVE = palette('#08051d', '#23104b', '#6d1e82', '#ff4f9a', '#dff8ff', [
+  '#08051d', '#160b38', '#23104b', '#4b176b', '#6d1e82', '#ff4f9a', '#32d6ef', '#dff8ff',
+]);
+
 // --- seed presets ------------------------------------------------------------
 
 function seed(
@@ -206,51 +231,79 @@ function seedPresets(): Preset[] {
       [sourceEffect('edge-echo', 'Bloom contour echo', '#ff82ad', { cellSize: 9, trail: 1.25, glow: 0.92, density: 0.82, response: 1.2 })]),
   );
 
-  const market = (preset: Preset): Preset => ({ ...preset, marketplaceOnly: true });
+  const market = (preset: Preset): Preset => ({ ...preset, marketplaceOnly: true, tags: [...preset.tags, 'curated', 'static-scene', 'simple-music'] });
+  const marketImage = (path: string, label: string, style: string): SceneLayer => ({
+    kind: 'image', url: path, label, style, mimeType: 'image/jpeg', motion: { kind: 'drift', amount: 0.12, speed: 0.08 },
+    provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-13T21:44:00.000Z' },
+  });
   rooms.push(
-    market(seed('market-artist-color-orbit', 'Color Orbit Garden', 'A psychedelic flower world folded into an audio-reactive color tunnel.', 'signal-drift', NOCTURNE,
-      { mood: 0.82, motion: 0.84, depth: 0.88, glow: 0.96, atmosphere: 0.35, intensity: 0.9 },
-      ['builtin_psychedelic-fractal'],
-      { kind: 'procedural', label: 'Blooming color-orbit source', style: 'artist DNA', sourceId: 'blooming-flower' },
-      [sourceEffect('edge-echo', 'Prismatic contour echo', '#ff63ca', { cellSize: 8, trail: 1.1, glow: 0.94, density: 0.8, response: 1.25 })])),
-    market(seed('market-vibes-midnight-haze', 'Midnight Haze', 'A slow violet field where rain refraction and aurora light breathe together.', 'signal-drift', NOCTURNE,
-      { mood: 0.48, motion: 0.42, depth: 0.9, glow: 0.82, atmosphere: 0.8, intensity: 0.58 },
-      ['builtin_aurora-veil', 'builtin_rain-on-glass'])),
-    market(seed('market-nature-moon-bloom', 'Moon Bloom', 'A quiet flower opening with a luminous contour that follows every new petal.', 'signal-drift', PAPER,
-      { mood: 0.7, motion: 0.56, depth: 0.76, glow: 0.86, atmosphere: 0.5, intensity: 0.48 },
-      ['builtin_underwater-light'],
-      { kind: 'procedural', label: 'Moonlit blooming source', style: 'living nature', sourceId: 'blooming-flower' },
-      [sourceEffect('edge-echo', 'Moonlit petal echo', '#d8f4dd', { cellSize: 9, trail: 1.35, glow: 0.82, density: 0.78, response: 1.15 })])),
-    market(seed('market-electro-neon-koi', 'Neon Koi Circuit', 'Living koi reconstructed as a bright moving signal field.', 'signal-drift', SIGNAL,
-      { mood: 0.5, motion: 0.78, depth: 0.84, glow: 0.95, atmosphere: 0.25, intensity: 0.7 },
-      ['builtin_underwater-light'],
-      { kind: 'procedural', label: 'Electro koi source', style: 'electro nature', sourceId: 'living-koi' },
-      [sourceEffect('tracked-grid', 'Neon anatomy grid', '#78fff0', { cellSize: 7, trail: 0.9, glow: 0.86, density: 0.82, response: 1.45, sourceVisibility: 0.75 })])),
-    market(seed('market-dark-ember-throne', 'Ember Throne', 'A firelit dark-fantasy chamber with drifting sparks and a high broken light shaft.', 'ashen-keep', ASHEN,
-      { mood: 0.92, motion: 0.58, depth: 0.66, glow: 0.82, atmosphere: 0.52, intensity: 0.62 },
-      ['builtin_drifting-motes', 'builtin_volumetric-shaft'])),
+    market(seed('market-pixel-last-broadcast', 'The Last Broadcast', 'An authored pixel-art headland with a quiet signal, moonlit sea and minimal coastal score.', 'pixel-broadcast', SIGNAL,
+      { mood: 0.42, motion: 0, depth: 0.5, glow: 0.38, atmosphere: 0.28, intensity: 0.12 }, [],
+      { kind: 'image', url: '/market/styles/pixel-last-broadcast.png', label: 'The Last Broadcast master', style: 'Pixel Art', mimeType: 'image/png', motion: { kind: 'none' }, provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-13T22:08:00.000Z' } })),
+    market(seed('market-pixel-midnight-shrine', 'Midnight Shrine', 'A true 16-bit lakeside scene with hard pixels, still water and one warm lantern.', 'ashen-keep', SIGNAL,
+      { mood: 0.3, motion: 0.08, depth: 0.52, glow: 0.44, atmosphere: 0.28, intensity: 0.16 }, [], marketImage('/market/styles/pixel-art.jpg', 'Pixel shrine at midnight', 'Pixel Art'))),
+    market(seed('market-pixel-lantern-save', 'Lantern Save Point', 'The same pixel world with warmer color and a soft analog-game glow.', 'ashen-keep', ASHEN,
+      { mood: 0.72, motion: 0.1, depth: 0.48, glow: 0.62, atmosphere: 0.32, intensity: 0.24 }, ['builtin_crt-phosphor'], marketImage('/market/styles/pixel-art.jpg', 'Pixel lantern save point', 'Pixel Art'))),
+    (() => {
+      const preset = market(seed('market-cozy-gatehouse-rest', 'Gatehouse Rest', 'A rainbound ranger finds one warm, quiet night beneath an abandoned mountain gatehouse.', 'ashen-keep', ASHEN,
+        { mood: 0.78, motion: 0.46, depth: 0.72, glow: 0.58, atmosphere: 0.55, intensity: 0.32 }, [],
+        { kind: 'image', url: '/market/styles/cozy-dark-fantasy.png', label: 'Gatehouse Rest master', style: 'Cozy Dark Fantasy', mimeType: 'image/png', motion: { kind: 'none' }, provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-14T20:24:00.000Z' } }));
+      preset.livingStill = orchestrateLivingStill(
+        'Quiet subtle fire in the brazier, gentle rain outside the archway, occasional distant owl; preserve the sleeping ranger and architecture.',
+        { fire: { x: 0.43, y: 0.50, width: 0.14, height: 0.30 }, exterior: { x: 0.57, y: 0.08, width: 0.43, height: 0.78 } },
+      );
+      preset.tags = preset.tags.filter((tag) => tag !== 'static-scene');
+      preset.tags.push('living-still');
+      return preset;
+    })(),
+    market(seed('market-sketch-rain-table', 'Rain Table', 'Loose black ink, paper grain and two quiet cups beside a rain-dark window.', 'paper-valley', SKETCH,
+      { mood: 0.52, motion: 0.08, depth: 0.38, glow: 0.12, atmosphere: 0.42, intensity: 0.12 }, [], marketImage('/market/styles/conceptual-sketch.jpg', 'Rainy café conceptual sketch', 'Conceptual Sketch'))),
+    market(seed('market-sketch-green-note', 'Green Note', 'A raw editorial drawing with one restrained green accent and softer paper tone.', 'paper-valley', MOSSGLASS,
+      { mood: 0.62, motion: 0.1, depth: 0.42, glow: 0.18, atmosphere: 0.35, intensity: 0.16 }, [], marketImage('/market/styles/conceptual-sketch.jpg', 'Green-note conceptual sketch', 'Conceptual Sketch'))),
+    market(seed('market-aurora-stillwater', 'Aurora Stillwater', 'Wide iridescent light over a glass-dark horizon, paired with a slow ambient bed.', 'signal-drift', AURORA,
+      { mood: 0.42, motion: 0.22, depth: 0.82, glow: 0.84, atmosphere: 0.55, intensity: 0.28 }, ['builtin_aurora-veil'], marketImage('/market/styles/aurora.jpg', 'Aurora over still water', 'Aurora'))),
+    market(seed('market-aurora-night-current', 'Night Current', 'The same luminous world with cooler color, deeper haze and rain-softened edges.', 'signal-drift', SIGNAL,
+      { mood: 0.22, motion: 0.34, depth: 0.9, glow: 0.72, atmosphere: 0.76, intensity: 0.36 }, ['builtin_rain-on-glass'], marketImage('/market/styles/aurora.jpg', 'Aurora night current', 'Aurora'))),
+    market(seed('market-japandi-blue-hour', 'Blue Hour Room', 'A spare room at dusk with low light, natural wood and an unobtrusive focus loop.', 'paper-valley', JAPANDI,
+      { mood: 0.46, motion: 0.08, depth: 0.42, glow: 0.18, atmosphere: 0.3, intensity: 0.12 }, [], marketImage('/market/styles/japandi-editorial.jpg', 'Japandi editorial garden', 'Japandi'))),
+    market(seed('market-japandi-warm-stillness', 'Warm Stillness', 'A warmer, softer mix of the room for reading, thinking and quiet work.', 'paper-valley', SALTFLAT,
+      { mood: 0.82, motion: 0.08, depth: 0.38, glow: 0.24, atmosphere: 0.34, intensity: 0.14 }, [], marketImage('/market/styles/japandi-editorial.jpg', 'Warm Japandi print', 'Japandi'))),
+    market(seed('market-western-moon-ritual', 'Moon Ritual', 'A moonlit mesa, distant celestial geometry and a low desert drone.', 'ashen-keep', WESTERN,
+      { mood: 0.68, motion: 0.2, depth: 0.78, glow: 0.58, atmosphere: 0.5, intensity: 0.3 }, ['builtin_drifting-motes'], marketImage('/market/styles/mystical-western.jpg', 'Moonlit mystical western', 'Mystical Western'))),
+    market(seed('market-western-dust-signal', 'Dust Signal', 'The desert retuned as a darker analog broadcast with slow-moving grain.', 'ashen-keep', ASHEN,
+      { mood: 0.76, motion: 0.28, depth: 0.68, glow: 0.46, atmosphere: 0.62, intensity: 0.38 }, ['builtin_crt-phosphor'], marketImage('/market/styles/mystical-western.jpg', 'Mystical western dust signal', 'Mystical Western'))),
+    market(seed('market-deco-emerald-midnight', 'Emerald Midnight', 'Lacquer, brass and a distant city paired with a restrained after-hours pulse.', 'signal-drift', DECO,
+      { mood: 0.62, motion: 0.18, depth: 0.86, glow: 0.56, atmosphere: 0.36, intensity: 0.24 }, [], marketImage('/market/styles/art-deco.jpg', 'Emerald Art Deco lounge', 'Art Deco'))),
+    market(seed('market-deco-golden-hour', 'Golden Afterglow', 'A warmer lounge variation with soft bloom and slow drifting light.', 'signal-drift', WESTERN,
+      { mood: 0.9, motion: 0.24, depth: 0.8, glow: 0.74, atmosphere: 0.44, intensity: 0.32 }, ['builtin_volumetric-shaft'], marketImage('/market/styles/art-deco.jpg', 'Golden Art Deco afterglow', 'Art Deco'))),
+    market(seed('market-synthwave-observatory', 'Night Observatory', 'An airbrushed neon coast with a wireframe horizon and slow retro pulse.', 'signal-drift', SYNTHWAVE,
+      { mood: 0.64, motion: 0.22, depth: 0.74, glow: 0.82, atmosphere: 0.3, intensity: 0.28 }, ['builtin_crt-phosphor'], marketImage('/market/styles/synthwave.jpg', 'Synthwave coastal observatory', 'Synthwave'))),
+    market(seed('market-synthwave-coastal-drive', 'Coastal Drive', 'A brighter magenta-cyan variation with deeper bloom and VHS texture.', 'signal-drift', NOCTURNE,
+      { mood: 0.76, motion: 0.3, depth: 0.78, glow: 0.94, atmosphere: 0.36, intensity: 0.4 }, ['builtin_crt-phosphor', 'builtin_aurora-veil'], marketImage('/market/styles/synthwave.jpg', 'Synthwave coastal drive', 'Synthwave'))),
 
-    market(seed('community-cloud-radio', 'Cloud Radio', 'Soft cloud banks become a flickering broadcast of moving cells.', 'paper-valley', PAPER,
-      { mood: 0.58, motion: 0.62, depth: 0.72, glow: 0.6, atmosphere: 0.68, intensity: 0.5 },
-      ['builtin_crt-phosphor'],
-      { kind: 'procedural', label: 'Broadcast cloud source', style: 'electro nature', sourceId: 'drifting-cloud' },
-      [sourceEffect('motion-cells', 'Broadcast cloud cells', '#ffcfad', { cellSize: 13, trail: 1.4, density: 0.66, response: 1.75 })])),
-    market(seed('community-rose-tunnel', 'Rose Tunnel', 'A blooming flower pulled through a saturated kaleidoscopic tunnel.', 'signal-drift', NOCTURNE,
-      { mood: 0.8, motion: 0.88, depth: 0.9, glow: 0.95, atmosphere: 0.3, intensity: 0.92 },
-      ['builtin_psychedelic-fractal'],
-      { kind: 'procedural', label: 'Rose tunnel source', style: 'artist DNA', sourceId: 'blooming-flower' },
-      [sourceEffect('edge-echo', 'Rose contour trail', '#ff77a9', { cellSize: 8, trail: 1.2, glow: 0.9, density: 0.82, response: 1.25 })])),
-    market(seed('community-tidal-signal', 'Tidal Signal', 'A calm school of koi with long luminous motion wakes.', 'signal-drift', SIGNAL,
-      { mood: 0.38, motion: 0.7, depth: 0.88, glow: 0.86, atmosphere: 0.38, intensity: 0.58 },
-      ['builtin_underwater-light'],
-      { kind: 'procedural', label: 'Tidal koi source', style: 'nature signal', sourceId: 'living-koi' },
-      [sourceEffect('motion-cells', 'Tidal wake', '#61f0e6', { cellSize: 10, trail: 1.65, density: 0.7, response: 1.4 })])),
-    market(seed('community-green-ruin', 'Green Ruin', 'An abandoned fire hall overtaken by wet moss and refracted rain.', 'ashen-keep', MOSSGLASS,
-      { mood: 0.28, motion: 0.38, depth: 0.72, glow: 0.48, atmosphere: 0.78, intensity: 0.5 },
-      ['builtin_rain-on-glass', 'builtin_volumetric-shaft'])),
-    market(seed('community-ember-sentinel', 'Ember Sentinel', 'A lone armored watcher beside restless flame and analog phosphor bloom.', 'ashen-keep', ASHEN,
-      { mood: 0.9, motion: 0.64, depth: 0.62, glow: 0.86, atmosphere: 0.46, intensity: 0.66 },
-      ['builtin_drifting-motes', 'builtin_crt-phosphor'])),
+    market(seed('market-bauhaus-pavilion', 'Primary Pavilion', 'A disciplined seaside pavilion composed from primary geometry and open space.', 'paper-valley', PAPER, { mood: 0.65, motion: 0, depth: 0.42, glow: 0.2, atmosphere: 0.2, intensity: 0.18 }, [], marketImage('/market/styles/bauhaus.png', 'Bauhaus primary pavilion', 'Bauhaus'))),
+    market(seed('market-art-nouveau-conservatory', 'Moon Conservatory', 'A botanical moon garden drawn with flowing ornamental linework.', 'paper-valley', MOSSGLASS, { mood: 0.62, motion: 0, depth: 0.66, glow: 0.52, atmosphere: 0.48, intensity: 0.24 }, [], marketImage('/market/styles/art-nouveau.png', 'Art Nouveau moon conservatory', 'Art Nouveau'))),
+    market(seed('market-wabi-sabi-rain-bowl', 'Rain Bowl', 'A weathered handmade bowl, rainy window and an almost silent room.', 'paper-valley', JAPANDI, { mood: 0.48, motion: 0, depth: 0.5, glow: 0.12, atmosphere: 0.55, intensity: 0.1 }, [], marketImage('/market/styles/wabi-sabi.png', 'Wabi-sabi rain bowl', 'Wabi-Sabi'))),
+    market(seed('market-neo-brutalist-playground', 'Raw Playground', 'Hard outlines and acid blocks turn an urban playground into a graphic system.', 'signal-drift', SIGNAL, { mood: 0.78, motion: 0, depth: 0.38, glow: 0.18, atmosphere: 0.12, intensity: 0.32 }, [], marketImage('/market/styles/neo-brutalism.png', 'Neo-brutalist playground', 'Neo-Brutalism'))),
+    market(seed('market-risograph-hill-ride', 'Hill Ride', 'Two inks, imperfect registration and cyclists moving through a printed hillside.', 'paper-valley', SALTFLAT, { mood: 0.75, motion: 0, depth: 0.42, glow: 0.14, atmosphere: 0.22, intensity: 0.22 }, [], marketImage('/market/styles/risograph.png', 'Risograph hill ride', 'Risograph'))),
+    market(seed('market-paper-cut-fox-valley', 'Fox Valley', 'A moonlit forest built from layered cardstock, shadow and storybook silhouettes.', 'ashen-keep', MOSSGLASS, { mood: 0.58, motion: 0, depth: 0.76, glow: 0.4, atmosphere: 0.36, intensity: 0.18 }, [], marketImage('/market/styles/paper-cut.png', 'Paper-cut fox valley', 'Paper Cut'))),
+    market(seed('market-cyanotype-coast', 'Botanical Coast', 'Ferns, shells and a distant sail rendered as a handmade blue photogram.', 'paper-valley', SIGNAL, { mood: 0.38, motion: 0, depth: 0.38, glow: 0.12, atmosphere: 0.4, intensity: 0.12 }, [], marketImage('/market/styles/cyanotype.png', 'Cyanotype botanical coast', 'Cyanotype'))),
+    market(seed('market-stained-glass-heron', 'Heron Sunrise', 'A jewel-toned mountain lake assembled from luminous glass and lead.', 'signal-drift', DECO, { mood: 0.84, motion: 0, depth: 0.6, glow: 0.72, atmosphere: 0.2, intensity: 0.28 }, [], marketImage('/market/styles/stained-glass.png', 'Stained-glass heron sunrise', 'Stained Glass'))),
+    market(seed('market-surreal-collage-door', 'Ocean Door', 'A torn-paper desert where one impossible doorway opens into the sea.', 'paper-valley', WESTERN, { mood: 0.58, motion: 0, depth: 0.58, glow: 0.18, atmosphere: 0.32, intensity: 0.18 }, [], marketImage('/market/styles/surreal-collage.png', 'Surreal collage ocean door', 'Surreal Collage'))),
+    market(seed('market-mid-century-lake-house', 'Lake House', 'An optimistic hillside retreat illustrated in warm atomic-age color.', 'paper-valley', MOSSGLASS, { mood: 0.86, motion: 0, depth: 0.6, glow: 0.44, atmosphere: 0.25, intensity: 0.2 }, [], marketImage('/market/styles/mid-century.png', 'Mid-century lake house', 'Mid-Century Modern'))),
+
+    market(seed('market-living-color-orbit', 'Color Orbit Garden', 'A procedural flower world folded into an audio-reactive color tunnel.', 'signal-drift', NOCTURNE,
+      { mood: 0.82, motion: 0.84, depth: 0.88, glow: 0.96, atmosphere: 0.35, intensity: 0.9 }, ['builtin_psychedelic-fractal'],
+      { kind: 'procedural', label: 'Blooming color-orbit source', style: 'living scene', sourceId: 'blooming-flower' },
+      [sourceEffect('edge-echo', 'Prismatic contour echo', '#ff63ca', { cellSize: 8, trail: 1.1, glow: 0.94, density: 0.8, response: 1.25 })])),
+    market(seed('market-living-midnight-haze', 'Midnight Haze', 'A coded violet field where rain refraction and aurora light breathe together.', 'signal-drift', NOCTURNE,
+      { mood: 0.48, motion: 0.42, depth: 0.9, glow: 0.82, atmosphere: 0.8, intensity: 0.58 }, ['builtin_aurora-veil', 'builtin_rain-on-glass'])),
+    market(seed('market-living-neon-koi', 'Neon Koi Circuit', 'Living koi reconstructed in real time as a bright moving signal field.', 'signal-drift', SIGNAL,
+      { mood: 0.5, motion: 0.78, depth: 0.84, glow: 0.95, atmosphere: 0.25, intensity: 0.7 }, ['builtin_underwater-light'],
+      { kind: 'procedural', label: 'Electro koi source', style: 'living scene', sourceId: 'living-koi' },
+      [sourceEffect('tracked-grid', 'Neon anatomy grid', '#78fff0', { cellSize: 7, trail: 0.9, glow: 0.86, density: 0.82, response: 1.45, sourceVisibility: 0.75 })])),
+    market(seed('market-living-ember-throne', 'Ember Throne', 'The original code-painted dark-fantasy hall with live fire, sparks and light.', 'ashen-keep', ASHEN,
+      { mood: 0.92, motion: 0.58, depth: 0.66, glow: 0.82, atmosphere: 0.52, intensity: 0.62 }, ['builtin_drifting-motes', 'builtin_volumetric-shaft'])),
   );
 
   return rooms;
@@ -431,20 +484,106 @@ export function listSaved(): Preset[] {
   return consolidateSaved(loadSaved());
 }
 
-/** Older builds created a new remix on every open. Keep that data recoverable,
- * but present only the newest revision for each starting point in the Library. */
+/**
+ * A stable signature of everything that makes a preset *different* to look at
+ * or listen to. Identity, timestamps and names are excluded on purpose: two
+ * remixes with the same settings are the same room, whatever they are called.
+ */
+export function presetFingerprint(preset: Preset): string {
+  const scene = preset.scene;
+  return JSON.stringify({
+    // SceneLayer is a union; the 'renderer' variant carries no media fields.
+    scene: {
+      kind: scene?.kind ?? null,
+      source: scene && 'assetId' in scene ? scene.assetId : scene && 'url' in scene ? scene.url : null,
+      motion: scene && 'motion' in scene ? scene.motion : null,
+    },
+    palette: preset.palette?.ramp ?? null,
+    controls: preset.controls ?? null,
+    effects: (preset.effects ?? []).map((e) => [e.name, e.enabled, e.params?.map((p) => p.value)]),
+    sourceEffects: (preset.sourceEffects ?? []).map((e) => [e.kind, e.enabled, e.params]),
+    living: (preset.livingStill?.effects ?? []).map((e) => [e.kind, e.enabled, e.intensity]),
+    music: preset.music?.assetId ?? null,
+    audio: preset.audio ?? null,
+  });
+}
+
+/**
+ * Older builds minted a brand-new remix every time you opened a starting point,
+ * so a library can contain five "Neon Koi remix" records with identical
+ * settings. This used to be handled by showing only the newest per parent,
+ * which hid genuinely different variants along with the noise.
+ *
+ * Now: distinct variants are all shown, disambiguated by age. Exact copies are
+ * still collapsed here, and `pruneRedundantPresets` removes them for good.
+ */
 function consolidateSaved(saved: Preset[]): Preset[] {
-  const newestByParent = new Map<string, Preset>();
+  const byParent = new Map<string, Preset[]>();
   const independent: Preset[] = [];
+
   for (const preset of saved) {
     if (!preset.parentId) {
       independent.push(preset);
       continue;
     }
-    const current = newestByParent.get(preset.parentId);
-    if (!current || preset.updatedAt > current.updatedAt) newestByParent.set(preset.parentId, preset);
+    (byParent.get(preset.parentId) ?? byParent.set(preset.parentId, []).get(preset.parentId)!).push(preset);
   }
-  return [...independent, ...newestByParent.values()];
+
+  const variants: Preset[] = [];
+  for (const group of byParent.values()) {
+    const newestFirst = [...group].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+    const seen = new Set<string>();
+    let index = 0;
+    for (const preset of newestFirst) {
+      const key = presetFingerprint(preset);
+      if (seen.has(key)) continue; // an exact copy of one we are already showing
+      seen.add(key);
+      index += 1;
+      // Distinct variants stay visible; the older ones just get a suffix so the
+      // Library does not show four cards with the same name.
+      variants.push(index === 1 ? preset : { ...preset, name: `${preset.name} ${index}` });
+    }
+  }
+
+  return [...independent, ...variants];
+}
+
+/**
+ * One-time cleanup for libraries built by older versions.
+ *
+ * Only removes records whose settings are byte-identical to a newer sibling, so
+ * nothing a user actually made differently is lost. Returns how many went.
+ */
+export function pruneRedundantPresets(): number {
+  const saved = loadSaved();
+  const keep: Preset[] = [];
+  const drop: Preset[] = [];
+  const seenByParent = new Map<string, Set<string>>();
+
+  const newestFirst = [...saved].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+  for (const preset of newestFirst) {
+    if (!preset.parentId) {
+      keep.push(preset);
+      continue;
+    }
+    const seen = seenByParent.get(preset.parentId) ?? new Set<string>();
+    seenByParent.set(preset.parentId, seen);
+    const key = presetFingerprint(preset);
+    if (seen.has(key)) drop.push(preset);
+    else {
+      seen.add(key);
+      keep.push(preset);
+    }
+  }
+
+  if (!drop.length) return 0;
+
+  writeSaved(keep);
+  for (const preset of drop) {
+    void fetch(`/api/library/projects/${encodeURIComponent(preset.id)}`, { method: 'DELETE' })
+      .catch((error) => console.warn('[vibe] shared project delete failed', error));
+  }
+  return drop.length;
 }
 
 export function getPreset(id: string): Preset | undefined {
@@ -509,7 +648,12 @@ export function createMediaPreset(input: {
     style: input.style,
     assetId: input.assetId,
     mimeType: input.mimeType,
-    motion: { kind: 'flow', amount: 0.028, speed: 0.75 },
+    // Drift, not flow. Drift is a single translated draw — a slow Ken Burns
+    // that cannot tear. Flow re-slices the frame, and on the photoreal images
+    // this generator produces that is the one setting that makes a beautiful
+    // source look worse than the file on disk. Flow stays one click away in
+    // Labs for anyone who wants it; it just is not what you land on.
+    motion: { kind: 'drift', amount: 0.06, speed: 0.05 },
     provenance: {
       prompt: input.prompt,
       provider: input.provider,

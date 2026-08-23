@@ -1,6 +1,7 @@
 import type { Palette } from '../types';
 import type { EffectManifest } from '../effects/manifest';
 import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from '../source-aware/types';
+import type { LivingStillManifest } from '../living-still/types';
 
 /**
  * A Preset is the composed document the whole product revolves around:
@@ -156,6 +157,8 @@ export interface Preset {
   effects: EffectManifest[];
   /** Reusable treatments driven by the source's motion and edges. */
   sourceEffects: SourceEffectRecipe[];
+  /** Orchestrator-selected semantic motion and sound for authored stills. */
+  livingStill?: LivingStillManifest;
   /** Ambience + music levels. */
   audio: AudioLayers;
   /** Optional persisted AI-authored music, played instead of the procedural bed. */

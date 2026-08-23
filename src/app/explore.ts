@@ -15,7 +15,7 @@ import { cachedGeneration, generationFingerprint, rememberGeneration, storeAsset
 import { generateSceneImage, mediaCapabilities } from '../media/api';
 import { navigate } from './router';
 import type { Preset } from '../preset/types';
-import { MARKET_COLLECTIONS, MARKET_POSTS, marketPresets, renderMarketPost, type MarketCollectionId } from './marketplace';
+import { buildStylePrompt, MARKET_COLLECTIONS, MARKET_POSTS, marketPresets, renderMarketPost, type MarketCollectionId } from './marketplace';
 
 const STYLES = [
   { value: 'cinematic, realistic lighting and detailed subject', label: 'Cinematic image', help: 'A detailed, film-like source image. Best general starting point.' },
@@ -38,7 +38,7 @@ const PROJECT_TYPES: Array<{ id: ProjectType; name: string; description: string 
 /** Creation stays fixed while the Library switches in place between owned work and discovery. */
 export function renderExplore(
   host: HTMLElement,
-  initialView: LibraryView = 'projects',
+  initialView: LibraryView = 'market',
   initialSelection: { folder?: string; type?: string; collection?: string } = {},
 ): void {
   host.innerHTML = `
@@ -126,7 +126,7 @@ export function renderExplore(
       const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All folders';
       back.addEventListener('click', () => {
         if (history.length > 1) history.back();
-        else navigate({ name: 'explore' });
+        else navigate({ name: 'explore', view: 'projects' });
       }); breadcrumbs.appendChild(back);
       if (projectFolder) {
         const remove = document.createElement('button'); remove.className = 'ghost danger-quiet'; remove.textContent = 'Delete folder';
@@ -171,11 +171,11 @@ export function renderExplore(
   function drawMarket(): void {
     eyebrow.textContent = 'DISCOVER & REMIX';
     title.textContent = marketFolder ? MARKET_COLLECTIONS.find((item) => item.id === marketFolder)?.name ?? 'Market' : 'Market collections';
-    copy.textContent = marketFolder ? 'Open a card in Labs. It only joins Projects when you explicitly save it.' : 'Company-made cards and community posts, grouped into browsable collections.';
+    copy.textContent = marketFolder ? 'Choose a variation, open it in Labs, and save only if you want it in Projects.' : 'Curated visual styles plus the original coded, animated Living Scenes.';
     if (!marketFolder) {
       for (const collection of MARKET_COLLECTIONS) {
         const posts = MARKET_POSTS.filter((post) => post.collection === collection.id);
-        folderGrid.appendChild(marketCollectionCard(collection.name, collection.description, posts.map((post) => post.presetId), () => navigate({ name: 'explore', view: 'market', collection: collection.id })));
+        folderGrid.appendChild(marketCollectionCard(collection.name, collection.description, collection.mood, posts.map((post) => post.presetId), () => navigate({ name: 'explore', view: 'market', collection: collection.id })));
       }
       return;
     }
@@ -185,6 +185,8 @@ export function renderExplore(
       else navigate({ name: 'explore', view: 'market' });
     }); breadcrumbs.appendChild(back);
     const presets = marketPresets();
+    const collection = MARKET_COLLECTIONS.find((item) => item.id === marketFolder);
+    if (collection?.stylePrompt) ownedGrid.appendChild(styleRecipe(collection, host));
     for (const post of MARKET_POSTS.filter((item) => item.collection === marketFolder)) {
       const preset = presets.get(post.presetId); if (preset) ownedGrid.appendChild(renderMarketPost(preset, post));
     }
@@ -194,6 +196,21 @@ export function renderExplore(
   const folders = listProjectFolders();
   for (const preset of listPresets().filter((item) => item.builtIn && !item.marketplaceOnly)) starterGrid.appendChild(projectCard(preset, folders, draw));
   draw();
+}
+
+function styleRecipe(collection: (typeof MARKET_COLLECTIONS)[number], host: HTMLElement): HTMLElement {
+  const section = document.createElement('section'); section.className = 'style-recipe';
+  section.innerHTML = `<div class="style-recipe-head"><div><span>REUSABLE STYLE</span><h3>Make your own ${collection.name}</h3><p>Change the content. The visual construction stays fixed.</p></div><button class="ghost" data-copy>Copy full prompt</button></div><div class="style-recipe-fields"><label>Subject<input data-field="subject" value="an original scene" /></label><label>Setting<input data-field="setting" placeholder="forest, city, interior…" /></label><label>Time<select data-field="time"><option>artist choice</option><option>sunrise</option><option>day</option><option>golden hour</option><option>night</option></select></label><label>Weather<input data-field="weather" placeholder="clear, rain, fog…" /></label><label>Mood<input data-field="mood" value="${collection.mood}" /></label></div><textarea data-output readonly></textarea><button class="primary" data-use>Use in Create</button>`;
+  const values = () => Object.fromEntries([...section.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-field]')].map((el) => [el.dataset.field!, el.value])) as { subject: string; setting: string; time: string; weather: string; mood: string };
+  const output = section.querySelector<HTMLTextAreaElement>('[data-output]')!;
+  const refresh = () => { output.value = buildStylePrompt(collection, values()); };
+  section.querySelectorAll('[data-field]').forEach((el) => el.addEventListener('input', refresh)); refresh();
+  section.querySelector('[data-copy]')?.addEventListener('click', () => { void navigator.clipboard.writeText(output.value); });
+  section.querySelector('[data-use]')?.addEventListener('click', () => {
+    const prompt = host.querySelector<HTMLTextAreaElement>('#visual-prompt'); if (!prompt) return;
+    prompt.value = output.value; prompt.focus(); prompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  return section;
 }
 
 function wireCreation(host: HTMLElement): void {
@@ -272,9 +289,10 @@ function typeFolderCard(name: string, description: string, presets: Preset[], op
   return card;
 }
 
-function marketCollectionCard(name: string, description: string, presetIds: string[], open: () => void): HTMLElement {
-  const presets = marketPresets(); const card = document.createElement('button'); card.className = 'folder-card market-folder'; card.appendChild(thumbnailStack(presetIds.map((id) => presets.get(id)).filter((item): item is Preset => Boolean(item))));
-  const copy = document.createElement('span'); copy.className = 'folder-card-copy'; copy.innerHTML = `<strong>${name}</strong><small>${description}</small><em>${presetIds.length} cards →</em>`; card.appendChild(copy); card.addEventListener('click', open); return card;
+function marketCollectionCard(name: string, description: string, mood: string, presetIds: string[], open: () => void): HTMLElement {
+  const presets = marketPresets(); const card = document.createElement('button'); card.className = 'folder-card market-collection-card';
+  const hero = presets.get(presetIds[0]); if (hero) { const thumb = renderThumbnail(hero, 560, 315); thumb.className = 'collection-hero'; card.appendChild(thumb); }
+  const copy = document.createElement('span'); copy.className = 'folder-card-copy'; copy.innerHTML = `<span class="collection-kicker">${mood}</span><strong>${name}</strong><small>${description}</small><em>${presetIds.length} variations →</em>`; card.appendChild(copy); card.addEventListener('click', open); return card;
 }
 
 function projectCard(preset: Preset, folders: ProjectFolder[], refresh: () => void): HTMLElement {

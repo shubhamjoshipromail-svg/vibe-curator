@@ -1,6 +1,7 @@
 import type * as Tone from 'tone';
 import type { AudioSpec } from '../types';
 import { loadAudioPack, refineLoopPoints, type AudioPack, type AudioTexture } from './pack';
+import type { AmbientEvent } from '../living-still/types';
 
 /**
  * Generative ambient audio.
@@ -77,6 +78,7 @@ export class AudioEngine {
   private analyser?: Tone.Analyser;
   private bands = new Float32Array(8);
   private visual = { brightness: 0, motion: 0, centroidX: 0.5 };
+  private ambientEvents: AmbientEvent[] = [];
 
   /**
    * Eight spectrum bands, 0..1, low to high.
@@ -130,6 +132,10 @@ export class AudioEngine {
     await this.build(spec);
   }
 
+  setAmbientEvents(events: AmbientEvent[]): void {
+    this.ambientEvents = events.filter((event) => event.enabled);
+  }
+
   /** Set one layer's level. Takes effect immediately, and survives rebuilds. */
   setLayer(layer: 'ambience' | 'music' | 'master', gain: number, muted: boolean): void {
     this.layerState[layer] = { gain, muted };
@@ -161,6 +167,34 @@ export class AudioEngine {
     const player = this.track(new (tone().Player)({ loop: true })).connect(this.buses.music);
     this.generatedMusic = player;
     await player.load(url);
+    const buffer = player.buffer;
+    const channel = buffer.getChannelData(0);
+    const sampleRate = buffer.sampleRate;
+    if (channel.length && sampleRate) {
+      const block = Math.max(1, Math.floor(sampleRate * 0.1));
+      let peak = 0;
+      for (let i = 0; i < channel.length; i += block) {
+        let sum = 0;
+        for (let j = i; j < Math.min(channel.length, i + block); j++) sum += channel[j] * channel[j];
+        peak = Math.max(peak, Math.sqrt(sum / Math.min(block, channel.length - i)));
+      }
+      const threshold = Math.max(0.0025, peak * 0.035);
+      let first = 0; let last = channel.length - 1;
+      const rmsAt = (start: number) => {
+        let sum = 0; const end = Math.min(channel.length, start + block);
+        for (let i = start; i < end; i++) sum += channel[i] * channel[i];
+        return Math.sqrt(sum / Math.max(1, end - start));
+      };
+      while (first + block < channel.length && rmsAt(first) < threshold) first += block;
+      while (last - block > first && rmsAt(last - block) < threshold) last -= block;
+      first = Math.max(0, first - Math.floor(sampleRate * 0.08));
+      last = Math.min(channel.length - 1, last + Math.floor(sampleRate * 0.08));
+      if (last - first > sampleRate * 8) {
+        const points = refineLoopPoints(channel.subarray(first, last), sampleRate, 0.08);
+        player.loopStart = first / sampleRate + points.start;
+        player.loopEnd = first / sampleRate + points.end;
+      }
+    }
     player.start();
   }
 
@@ -329,12 +363,41 @@ export class AudioEngine {
     }
 
     this.buildMotif(spec, pack, base);
+    this.buildAmbientEvents();
 
     // One wait for every buffer this build requested.
     if (this.sampled.length) await tone().loaded();
     this.startSampledSources();
 
     this.setEnergy(this.energy);
+  }
+
+  /** Sparse semantic sounds selected by the orchestrator. Samples can replace these voices later. */
+  private buildAmbientEvents(): void {
+    for (const event of this.ambientEvents) {
+      if (event.kind !== 'owl') continue;
+      const pan = this.track(new (tone().Panner)(event.pan ?? 0)).connect(this.buses.ambience!);
+      const gain = this.track(new (tone().Gain)(Math.max(0, Math.min(1, event.gain)) * 0.18)).connect(pan);
+      const voice = this.track(new (tone().FMSynth)({
+        harmonicity: 1.45,
+        modulationIndex: 4,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.08, decay: 0.45, sustain: 0.08, release: 0.9 },
+        modulationEnvelope: { attack: 0.12, decay: 0.3, sustain: 0, release: 0.4 },
+      })).connect(gain) as Tone.FMSynth;
+      const scheduleNext = (after: number) => {
+        const min = Math.max(10, event.minIntervalSeconds);
+        const max = Math.max(min, event.maxIntervalSeconds);
+        const delay = min + Math.random() * (max - min);
+        const id = tone().getTransport().scheduleOnce((time) => {
+          voice.triggerAttackRelease('G4', 0.55, time, 0.7);
+          voice.triggerAttackRelease('D4', 0.7, time + 0.62, 0.55);
+          scheduleNext(tone().getTransport().seconds + 1.4);
+        }, after + delay);
+        this.scheduled.push(id);
+      };
+      scheduleNext(tone().getTransport().seconds);
+    }
   }
 
   /** Sustained drone: root, fifth, octave, with slow independent drift. */

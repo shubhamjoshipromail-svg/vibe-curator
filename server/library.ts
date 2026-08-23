@@ -1,11 +1,12 @@
 import type { Plugin } from 'vite';
 import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { database, ensureProductSchema } from './database';
+import { viewerFor } from './auth';
 
-const DATA_DIR = join(process.cwd(), '.vibe-data');
+/** Railway mounts persistent volumes at runtime, never during build. */
+const DATA_DIR = process.env.VIBE_DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || join(process.cwd(), '.vibe-data');
 const ASSET_DIR = join(DATA_DIR, 'assets');
-const PROJECTS_FILE = join(DATA_DIR, 'projects.json');
-const FOLDERS_FILE = join(DATA_DIR, 'folders.json');
 const MAX_ASSET_BYTES = 100 * 1024 * 1024;
 
 type ResponseLike = {
@@ -26,13 +27,23 @@ function safeId(value: string): string | undefined {
   return /^[a-zA-Z0-9_-]{3,160}$/.test(decoded) ? decoded : undefined;
 }
 
-async function ensureStorage(): Promise<void> {
-  await mkdir(ASSET_DIR, { recursive: true });
+function ownerDir(ownerId: string): string {
+  return join(DATA_DIR, 'users', ownerId.replace(/[^a-zA-Z0-9_-]/g, '_'));
 }
 
-async function readProjects(): Promise<Array<Record<string, unknown>>> {
+async function ensureStorage(ownerId?: string): Promise<void> {
+  await mkdir(ownerId ? join(ownerDir(ownerId), 'assets') : ASSET_DIR, { recursive: true });
+}
+
+async function readDocuments(kind: 'projects' | 'folders', ownerId: string): Promise<Array<Record<string, unknown>>> {
+  const db = database();
+  if (db) {
+    await ensureProductSchema();
+    const result = await db.query(`SELECT document FROM vibe_${kind} WHERE owner_id = $1 ORDER BY updated_at`, [ownerId]);
+    return result.rows.map((row) => row.document as Record<string, unknown>);
+  }
   try {
-    const parsed = JSON.parse(await readFile(PROJECTS_FILE, 'utf8'));
+    const parsed = JSON.parse(await readFile(join(ownerDir(ownerId), `${kind}.json`), 'utf8'));
     return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
@@ -40,28 +51,34 @@ async function readProjects(): Promise<Array<Record<string, unknown>>> {
   }
 }
 
-async function writeProjects(projects: Array<Record<string, unknown>>): Promise<void> {
-  await ensureStorage();
-  const temporary = `${PROJECTS_FILE}.tmp`;
-  await writeFile(temporary, JSON.stringify(projects, null, 2), 'utf8');
-  await rename(temporary, PROJECTS_FILE);
-}
-
-async function readFolders(): Promise<Array<Record<string, unknown>>> {
-  try {
-    const parsed = JSON.parse(await readFile(FOLDERS_FILE, 'utf8'));
-    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.id === 'string') : [];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw error;
+async function writeDocuments(kind: 'projects' | 'folders', ownerId: string, documents: Array<Record<string, unknown>>): Promise<void> {
+  const db = database();
+  if (db) {
+    await ensureProductSchema();
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM vibe_${kind} WHERE owner_id = $1`, [ownerId]);
+      for (const document of documents) {
+        await client.query(
+          `INSERT INTO vibe_${kind} (owner_id, id, document, updated_at) VALUES ($1, $2, $3, $4)`,
+          [ownerId, document.id, JSON.stringify(document), document.updatedAt || new Date().toISOString()],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
   }
-}
-
-async function writeFolders(folders: Array<Record<string, unknown>>): Promise<void> {
-  await ensureStorage();
-  const temporary = `${FOLDERS_FILE}.tmp`;
-  await writeFile(temporary, JSON.stringify(folders, null, 2), 'utf8');
-  await rename(temporary, FOLDERS_FILE);
+  await ensureStorage(ownerId);
+  const file = join(ownerDir(ownerId), `${kind}.json`);
+  const temporary = `${file}.tmp`;
+  await writeFile(temporary, JSON.stringify(documents, null, 2), 'utf8');
+  await rename(temporary, file);
 }
 
 function readRequest(req: NodeJS.ReadableStream, limit: number): Promise<Buffer> {
@@ -98,15 +115,20 @@ export function libraryPlugin(): Plugin {
   return {
     name: 'vibe-library',
     configureServer(server) {
-      void ensureStorage();
       server.middlewares.use('/api/library', async (req, res) => {
         const response = res as ResponseLike;
         const path = (req.url ?? '/').split('?')[0];
         const parts = path.split('/').filter(Boolean);
         try {
+          const viewer = await viewerFor(req, res);
+          if (!viewer) {
+            json(response, 401, { message: 'A session is required.' });
+            return;
+          }
+          const ownerId = viewer.id;
           if (parts[0] === 'folders' && parts.length === 1 && req.method === 'GET') {
             await folderMutations;
-            json(response, 200, await readFolders());
+            json(response, 200, await readDocuments('folders', ownerId));
             return;
           }
 
@@ -124,16 +146,16 @@ export function libraryPlugin(): Plugin {
                 return;
               }
               await mutateFolders(async () => {
-                const folders = (await readFolders()).filter((item) => item.id !== id);
+                const folders = (await readDocuments('folders', ownerId)).filter((item) => item.id !== id);
                 folders.push(folder);
-                await writeFolders(folders);
+                await writeDocuments('folders', ownerId, folders);
               });
               json(response, 200, { ok: true });
               return;
             }
             if (req.method === 'DELETE') {
               await mutateFolders(async () => {
-                await writeFolders((await readFolders()).filter((item) => item.id !== id));
+                await writeDocuments('folders', ownerId, (await readDocuments('folders', ownerId)).filter((item) => item.id !== id));
               });
               json(response, 200, { ok: true });
               return;
@@ -142,7 +164,7 @@ export function libraryPlugin(): Plugin {
 
           if (parts[0] === 'projects' && parts.length === 1 && req.method === 'GET') {
             await projectMutations;
-            json(response, 200, await readProjects());
+            json(response, 200, await readDocuments('projects', ownerId));
             return;
           }
 
@@ -160,16 +182,16 @@ export function libraryPlugin(): Plugin {
                 return;
               }
               await mutateProjects(async () => {
-                const projects = (await readProjects()).filter((item) => item.id !== id);
+                const projects = (await readDocuments('projects', ownerId)).filter((item) => item.id !== id);
                 projects.push(project);
-                await writeProjects(projects);
+                await writeDocuments('projects', ownerId, projects);
               });
               json(response, 200, { ok: true });
               return;
             }
             if (req.method === 'DELETE') {
               await mutateProjects(async () => {
-                await writeProjects((await readProjects()).filter((item) => item.id !== id));
+                await writeDocuments('projects', ownerId, (await readDocuments('projects', ownerId)).filter((item) => item.id !== id));
               });
               json(response, 200, { ok: true });
               return;
@@ -182,13 +204,20 @@ export function libraryPlugin(): Plugin {
               json(response, 400, { message: 'Invalid asset id.' });
               return;
             }
-            const assetPath = join(ASSET_DIR, id);
-            const metadataPath = join(ASSET_DIR, `${id}.json`);
+            const userAssetDir = join(ownerDir(ownerId), 'assets');
+            const assetPath = join(userAssetDir, id);
+            const metadataPath = join(userAssetDir, `${id}.json`);
             if (req.method === 'PUT') {
               const bytes = await readRequest(req, MAX_ASSET_BYTES);
-              await ensureStorage();
+              await ensureStorage(ownerId);
               await writeFile(assetPath, bytes);
               await writeFile(metadataPath, JSON.stringify({ mimeType: req.headers['content-type'] || 'application/octet-stream' }), 'utf8');
+              const db = database();
+              if (db) await db.query(
+                `INSERT INTO vibe_assets (owner_id, id, mime_type, byte_size) VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (owner_id, id) DO UPDATE SET mime_type = EXCLUDED.mime_type, byte_size = EXCLUDED.byte_size`,
+                [ownerId, id, req.headers['content-type'] || 'application/octet-stream', bytes.length],
+              );
               json(response, 200, { ok: true, bytes: bytes.length });
               return;
             }
@@ -211,6 +240,8 @@ export function libraryPlugin(): Plugin {
             }
             if (req.method === 'DELETE') {
               await Promise.all([unlink(assetPath).catch(() => undefined), unlink(metadataPath).catch(() => undefined)]);
+              const db = database();
+              if (db) await db.query('DELETE FROM vibe_assets WHERE owner_id = $1 AND id = $2', [ownerId, id]);
               json(response, 200, { ok: true });
               return;
             }
