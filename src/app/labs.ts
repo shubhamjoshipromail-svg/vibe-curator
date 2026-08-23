@@ -742,8 +742,17 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     }
     const row = document.createElement('div');
     row.className = 'music-asset';
-    row.innerHTML = `<div><strong>${draft.music.name}</strong><span>saved track · ${draft.music.durationSeconds ?? 30}s</span></div><button class="ghost tiny">Remove</button>`;
-    row.querySelector('button')!.addEventListener('click', async () => {
+    const description = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = draft.music.name;
+    const duration = document.createElement('span');
+    duration.textContent = `saved track · ${draft.music.durationSeconds ?? 30}s`;
+    description.append(name, duration);
+    const remove = document.createElement('button');
+    remove.className = 'ghost tiny';
+    remove.textContent = 'Remove';
+    row.append(description, remove);
+    remove.addEventListener('click', async () => {
       draft.music = undefined;
       await state.audio.setGeneratedMusic();
       drawMusic();

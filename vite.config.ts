@@ -4,6 +4,9 @@ import { mediaPlugin } from './server/media';
 import { libraryPlugin } from './server/library';
 import { livingDirectorPlugin } from './server/living-director';
 import { authPlugin } from './server/auth';
+import { billingPlugin } from './server/billing';
+import { stripePlugin } from './server/stripe';
+import { securityPlugin } from './server/security';
 
 function previewApiBridge(apiPlugins: Plugin[]): Plugin {
   return {
@@ -23,10 +26,25 @@ function previewApiBridge(apiPlugins: Plugin[]): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const apiPlugins = [authPlugin(), genShaderPlugin(mode), mediaPlugin(mode), livingDirectorPlugin(mode), libraryPlugin()];
+  const publicHost = (() => {
+    const value = process.env.APP_URL || process.env.BETTER_AUTH_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : undefined);
+    return value ? new URL(value).hostname : undefined;
+  })();
+  const allowedHosts = [...new Set(['localhost', '127.0.0.1', ...(publicHost ? [publicHost] : [])])];
+  const apiPlugins = [
+    securityPlugin(),
+    authPlugin(),
+    billingPlugin(),
+    stripePlugin(),
+    genShaderPlugin(mode),
+    mediaPlugin(mode),
+    livingDirectorPlugin(mode),
+    libraryPlugin(),
+  ];
   return {
   plugins: [...apiPlugins, previewApiBridge(apiPlugins)],
-  server: { port: 5178, open: false },
-  preview: { host: '0.0.0.0', allowedHosts: true },
+  server: { port: 5178, open: false, allowedHosts },
+  preview: { host: '0.0.0.0', allowedHosts },
 };
 });

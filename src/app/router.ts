@@ -1,9 +1,9 @@
 /**
- * Hash routing, hand-rolled.
+ * History routing, hand-rolled.
  *
- * Three routes do not justify a router dependency, and the hash keeps the
- * whole thing a static file — which matters because this eventually gets
- * loaded by a wallpaper host (Plash, Lively) that just points at a URL.
+ * Public paths remain linkable and readable while Vite/Railway serve the same
+ * application shell for deep links. The standalone wallpaper entrypoint does
+ * not use this router.
  */
 export type Route =
   | { name: 'explore'; view?: 'projects' | 'market'; folder?: string; type?: string; collection?: string }
@@ -11,8 +11,9 @@ export type Route =
   | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace' }
   | { name: 'player' };
 
-export function parseRoute(hash: string): Route {
-  const path = hash.replace(/^#\/?/, '');
+export function parseRoute(locationPath: string): Route {
+  const legacyHash = locationPath.includes('#/') ? locationPath.slice(locationPath.indexOf('#/') + 1) : locationPath;
+  const path = legacyHash.replace(/^#?\/?/, '');
   const [pathname, query = ''] = path.split('?');
   const [head, arg] = pathname.split('/');
   if (head === 'labs' && arg) {
@@ -33,14 +34,14 @@ export function parseRoute(hash: string): Route {
   };
 }
 
-export function toHash(route: Route): string {
+export function toPath(route: Route): string {
   switch (route.name) {
     case 'labs':
-      return `#/labs/${encodeURIComponent(route.presetId)}${route.returnTo === 'marketplace' ? '?from=marketplace' : ''}`;
+      return `/labs/${encodeURIComponent(route.presetId)}${route.returnTo === 'marketplace' ? '?from=marketplace' : ''}`;
     case 'marketplace':
-      return '#/marketplace';
+      return '/marketplace';
     case 'player':
-      return '#/player';
+      return '/player';
     default:
       {
         const params = new URLSearchParams();
@@ -49,17 +50,17 @@ export function toHash(route: Route): string {
         if (route.type) params.set('type', route.type);
         if (route.collection) params.set('collection', route.collection);
         const query = params.toString();
-        return `#/explore${query ? `?${query}` : ''}`;
+        return `/explore${query ? `?${query}` : ''}`;
       }
   }
 }
 
 export function navigate(route: Route): void {
-  const next = toHash(route);
-  if (location.hash === next) window.dispatchEvent(new HashChangeEvent('hashchange'));
-  else location.hash = next;
+  const next = toPath(route);
+  if (`${location.pathname}${location.search}` !== next) history.pushState({}, '', next);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 export function onRouteChange(handler: (route: Route) => void): void {
-  window.addEventListener('hashchange', () => handler(parseRoute(location.hash)));
+  window.addEventListener('popstate', () => handler(parseRoute(`${location.pathname}${location.search}`)));
 }

@@ -75,7 +75,7 @@ function decodeMedia(body: {
 export async function generateSceneImage(prompt: string, style: string): Promise<GeneratedVisual> {
   const res = await fetch('/api/media/image', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ prompt, style }),
   });
   if (!res.ok) throw new Error(await safeMessage(res));
@@ -94,7 +94,7 @@ export async function generateSceneMotion(
   });
   const res = await fetch('/api/media/motion', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ prompt, imageData: data, mimeType: image.type || 'image/png' }),
   });
   if (!res.ok) throw new Error(await safeMessage(res));
@@ -105,7 +105,7 @@ export async function generateSceneMotion(
 export async function generateMusic(prompt: string, vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto'): Promise<GeneratedMusic> {
   const res = await fetch('/api/media/music', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ prompt, vocalMode }),
   });
   if (!res.ok) throw new Error(await safeMessage(res));

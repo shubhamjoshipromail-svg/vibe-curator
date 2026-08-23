@@ -6,6 +6,15 @@ import { readFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
+import { viewerFor } from './auth';
+import {
+  completeReservation,
+  failReservation,
+  reserveCredits,
+  type CreditOperation,
+  type CreditReservation,
+} from './credits';
 
 const MUSIC_MODEL = 'music_v2';
 const MUSIC_PROVIDER = 'elevenlabs';
@@ -16,16 +25,30 @@ const IMAGE_PROVIDER = 'openai';
 const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
 // Conservative draft estimate. OpenAI bills GPT Image 2 output by image tokens.
 const IMAGE_COST_USD = 0.01;
-const VIDEO_COST_USD = 0.20;
+const VIDEO_COST_USD = 1.20;
 const MUSIC_COST_USD = 0.225;
 const MUSIC_PROMPT_COST_USD = 0.001;
 const DEFAULT_SESSION_CAP_USD = 3;
 
-async function readBody(req: { on: (e: string, cb: (c?: unknown) => void) => void }): Promise<string> {
+async function readBody(req: IncomingMessage, limit = 32 * 1024 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
+    const declared = Number(req.headers['content-length'] ?? 0);
+    if (declared > limit) return reject(new Error('Request is too large.'));
     let data = '';
-    req.on('data', (chunk) => (data += String(chunk)));
-    req.on('end', () => resolve(data));
+    let size = 0;
+    let settled = false;
+    req.on('data', (chunk) => {
+      if (settled) return;
+      const value = String(chunk);
+      size += Buffer.byteLength(value);
+      if (size > limit) {
+        settled = true;
+        reject(new Error('Request is too large.'));
+        return;
+      }
+      data += value;
+    });
+    req.on('end', () => { if (!settled) resolve(data); });
     req.on('error', reject);
   });
 }
@@ -166,6 +189,25 @@ export function mediaPlugin(mode: string): Plugin {
         estimatedSpendUsd = Math.max(0, estimatedSpendUsd - estimatedCost);
       };
 
+      const authorize = async (
+        ownerId: string,
+        operation: CreditOperation,
+        estimatedCostUsd: number,
+        provider: string,
+        idempotencyKey?: string,
+      ): Promise<CreditReservation | undefined> => {
+        const reservation = await reserveCredits(ownerId, operation, { idempotencyKey, provider, estimatedCostUsd });
+        if (!reservation) return undefined;
+        if (!reservation.persistent && !reserve(estimatedCostUsd)) return undefined;
+        return reservation;
+      };
+
+      const fail = async (reservation: CreditReservation | undefined, estimatedCostUsd: number, code: string) => {
+        if (!reservation) return;
+        if (!reservation.persistent) release(estimatedCostUsd);
+        await failReservation(reservation, code);
+      };
+
       server.middlewares.use('/api/media', async (req, res) => {
         const path = (req.url ?? '').split('?')[0];
         if (req.method === 'GET' && (path === '/status' || path === 'status')) {
@@ -194,21 +236,31 @@ export function mediaPlugin(mode: string): Plugin {
           return;
         }
 
+        const viewer = await viewerFor(req, res);
+        if (!viewer) {
+          sendJson(res, 401, { message: 'A session is required.' });
+          return;
+        }
+        const idempotencyKeyHeader = req.headers['x-idempotency-key'];
+        const idempotencyKey = typeof idempotencyKeyHeader === 'string' && idempotencyKeyHeader.length <= 200
+          ? idempotencyKeyHeader : undefined;
+
         if (path === '/image' || path === 'image') {
           if (!openAiKey) {
             sendJson(res, 503, { message: 'Image generation needs OPENAI_API_KEY on the local server.' });
             return;
           }
-          if (!reserve(IMAGE_COST_USD)) {
-            sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
-            return;
-          }
+          let reservation: CreditReservation | undefined;
           try {
             const body = JSON.parse(await readBody(req)) as { prompt?: string; style?: string };
             const prompt = body.prompt?.trim();
             if (!prompt) {
-              release(IMAGE_COST_USD);
               sendJson(res, 400, { message: 'Describe the visual first.' });
+              return;
+            }
+            reservation = await authorize(viewer.id, 'image', IMAGE_COST_USD, IMAGE_PROVIDER, idempotencyKey);
+            if (!reservation) {
+              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for this image.' });
               return;
             }
             const style = body.style?.trim() || 'cinematic digital art';
@@ -234,7 +286,8 @@ export function mediaPlugin(mode: string): Plugin {
             });
             if (!upstream.ok) {
               const detail = await upstream.text();
-              release(IMAGE_COST_USD);
+              await fail(reservation, IMAGE_COST_USD, `provider_${upstream.status}`);
+              reservation = undefined;
               server.config.logger.error(`[vibe] OpenAI image failed (${upstream.status}): ${detail.slice(0, 1200)}`);
               const failure = openAiImageMessage(upstream.status, detail);
               sendJson(res, failure.status, { message: failure.message });
@@ -243,6 +296,8 @@ export function mediaPlugin(mode: string): Plugin {
             const response = (await upstream.json()) as { data?: Array<{ b64_json?: string }> };
             const imageData = response.data?.[0]?.b64_json;
             if (!imageData) throw new Error('OpenAI returned no image bytes.');
+            await completeReservation(reservation);
+            reservation = undefined;
             sendJson(res, 200, {
               data: imageData,
               mimeType: 'image/png',
@@ -252,9 +307,11 @@ export function mediaPlugin(mode: string): Plugin {
               estimatedCostUsd: IMAGE_COST_USD,
             });
           } catch (err) {
-            release(IMAGE_COST_USD);
+            await fail(reservation, IMAGE_COST_USD, 'image_failed');
             server.config.logger.error(`[vibe] image generation failed: ${String(err)}`);
-            sendJson(res, 502, { message: 'The image service could not complete this request. No result was stored.' });
+            sendJson(res, String(err).includes('too large') ? 413 : 502, {
+              message: String(err).includes('too large') ? 'The image request is too large.' : 'The image service could not complete this request. No result was stored.',
+            });
           }
           return;
         }
@@ -264,10 +321,7 @@ export function mediaPlugin(mode: string): Plugin {
             sendJson(res, 503, { message: 'Motion generation needs GEMINI_API_KEY on the local server.' });
             return;
           }
-          if (!reserve(VIDEO_COST_USD)) {
-            sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
-            return;
-          }
+          let reservation: CreditReservation | undefined;
           let outputPath: string | undefined;
           try {
             const body = JSON.parse(await readBody(req)) as {
@@ -277,23 +331,28 @@ export function mediaPlugin(mode: string): Plugin {
             };
             const prompt = body.prompt?.trim();
             if (!prompt || !body.imageData) {
-              release(VIDEO_COST_USD);
               sendJson(res, 400, { message: 'Motion generation needs a prompt and source image.' });
+              return;
+            }
+            reservation = await authorize(viewer.id, 'motion', VIDEO_COST_USD, 'google', idempotencyKey);
+            if (!reservation) {
+              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for motion generation.' });
               return;
             }
             let operation = await gemini.models.generateVideos({
               model: VIDEO_MODEL,
-              prompt: [
-                `Animate this source as a seamless living visual: ${prompt}.`,
-                'Motion must be clearly visible during the first second. Preserve subject identity and fine detail. Use confident organic subject motion, secondary motion, and restrained camera movement. Avoid cuts, text, morphing anatomy, or new objects.',
-              ].join(' '),
-              image: { imageBytes: body.imageData, mimeType: body.mimeType ?? 'image/png' },
+              source: {
+                prompt: [
+                  `Animate this source as a seamless living visual: ${prompt}.`,
+                  'Motion must be clearly visible during the first second. Preserve subject identity and fine detail. Use confident organic subject motion, secondary motion, and restrained camera movement. Avoid cuts, text, morphing anatomy, or new objects.',
+                ].join(' '),
+                image: { imageBytes: body.imageData, mimeType: body.mimeType ?? 'image/png' },
+              },
               config: {
                 numberOfVideos: 1,
-                durationSeconds: 4,
+                durationSeconds: 8,
                 aspectRatio: '16:9',
                 resolution: '720p',
-                generateAudio: true,
                 negativePrompt: 'text, captions, logos, cuts, duplicate subjects, broken anatomy, melting, jitter, camera whip',
               },
             });
@@ -315,18 +374,24 @@ export function mediaPlugin(mode: string): Plugin {
               bytes = await readFile(outputPath);
             }
             if (!bytes.length) throw new Error('Generated video contained no bytes.');
+            await completeReservation(reservation);
+            reservation = undefined;
             sendJson(res, 200, {
               data: bytes.toString('base64'),
               mimeType: video.mimeType ?? 'video/mp4',
               provider: 'google',
               model: VIDEO_MODEL,
               prompt,
-              durationSeconds: 4,
+              durationSeconds: 8,
               estimatedCostUsd: VIDEO_COST_USD,
             });
           } catch (err) {
-            release(VIDEO_COST_USD);
+            await fail(reservation, VIDEO_COST_USD, 'motion_failed');
             server.config.logger.error(`[vibe] motion generation failed: ${String(err)}`);
+            if (String(err).includes('too large')) {
+              sendJson(res, 413, { message: 'The motion request is too large.' });
+              return;
+            }
             const failure = geminiMessage(err);
             sendJson(res, failure.status, { message: failure.message });
           } finally {
@@ -340,6 +405,7 @@ export function mediaPlugin(mode: string): Plugin {
             sendJson(res, 503, { message: 'Artist-reference adaptation needs ANTHROPIC_API_KEY on the local server.' });
             return;
           }
+          let reservation: CreditReservation | undefined;
           try {
             const body = JSON.parse(await readBody(req)) as { prompt?: string; vocalMode?: VocalMode };
             const request = body.prompt?.trim();
@@ -347,20 +413,25 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 400, { message: 'Describe the music first.' });
               return;
             }
-            if (!reserve(MUSIC_PROMPT_COST_USD)) {
-              sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
+            reservation = await authorize(viewer.id, 'direction', MUSIC_PROMPT_COST_USD, MUSIC_PROMPT_PROVIDER, idempotencyKey);
+            if (!reservation) {
+              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for music direction.' });
               return;
             }
             const adapted = await adaptMusicPrompt(anthropic, request, body.vocalMode ?? 'auto');
+            await completeReservation(reservation);
+            reservation = undefined;
             sendJson(res, 200, {
               ...adapted,
               provider: MUSIC_PROMPT_PROVIDER,
               model: MUSIC_PROMPT_MODEL,
             });
           } catch (err) {
-            release(MUSIC_PROMPT_COST_USD);
+            await fail(reservation, MUSIC_PROMPT_COST_USD, 'music_direction_failed');
             server.config.logger.error(`[vibe] music prompt adaptation failed: ${String(err)}`);
-            sendJson(res, 502, { message: 'The music direction could not be translated right now.' });
+            sendJson(res, String(err).includes('too large') ? 413 : 502, {
+              message: String(err).includes('too large') ? 'The music request is too large.' : 'The music direction could not be translated right now.',
+            });
           }
           return;
         }
@@ -382,23 +453,22 @@ export function mediaPlugin(mode: string): Plugin {
           return;
         }
         const totalMusicCostUsd = MUSIC_COST_USD + MUSIC_PROMPT_COST_USD;
-        if (!reserve(totalMusicCostUsd)) {
-          sendJson(res, 402, { message: `The $${spendCapUsd.toFixed(2)} media-generation cap has been reached.` });
-          return;
-        }
-
-        let promptAdapted = false;
+        let reservation: CreditReservation | undefined;
         try {
           const body = JSON.parse(await readBody(req)) as { prompt?: string; vocalMode?: VocalMode };
           const prompt = body.prompt?.trim();
           if (!prompt) {
-            release(totalMusicCostUsd);
             sendJson(res, 400, { message: 'Describe the music first.' });
             return;
           }
 
+          reservation = await authorize(viewer.id, 'music', totalMusicCostUsd, MUSIC_PROVIDER, idempotencyKey);
+          if (!reservation) {
+            sendJson(res, 402, { message: 'You do not have enough Vibe Credits for music generation.' });
+            return;
+          }
+
           const adapted = await adaptMusicPrompt(anthropic, prompt, body.vocalMode ?? 'auto');
-          promptAdapted = true;
 
           const upstream = await fetch(
             'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
@@ -416,7 +486,8 @@ export function mediaPlugin(mode: string): Plugin {
             },
           );
           if (!upstream.ok) {
-            release(MUSIC_COST_USD);
+            await fail(reservation, totalMusicCostUsd, `provider_${upstream.status}`);
+            reservation = undefined;
             const detail = await upstream.text();
             server.config.logger.error(`[vibe] Eleven Music failed (${upstream.status}): ${detail.slice(0, 1200)}`);
             sendJson(res, upstream.status === 429 ? 429 : 502, {
@@ -429,11 +500,11 @@ export function mediaPlugin(mode: string): Plugin {
 
           const audio = Buffer.from(await upstream.arrayBuffer());
           if (!audio.length) {
-            server.config.logger.error('[vibe] Eleven Music response contained no audio bytes');
-            sendJson(res, 502, { message: 'The music service returned no playable track.' });
-            return;
+            throw new Error('Eleven Music response contained no audio bytes.');
           }
 
+          await completeReservation(reservation, upstream.headers.get('song-id') ?? undefined);
+          reservation = undefined;
           sendJson(res, 200, {
             data: audio.toString('base64'),
             mimeType: upstream.headers.get('content-type') ?? 'audio/mpeg',
@@ -448,9 +519,11 @@ export function mediaPlugin(mode: string): Plugin {
             estimatedCostUsd: totalMusicCostUsd,
           });
         } catch (err) {
-          release(promptAdapted ? MUSIC_COST_USD : totalMusicCostUsd);
+          await fail(reservation, totalMusicCostUsd, 'music_failed');
           server.config.logger.error(`[vibe] music generation failed: ${String(err)}`);
-          sendJson(res, 500, { message: 'The music could not be generated right now.' });
+          sendJson(res, String(err).includes('too large') ? 413 : 500, {
+            message: String(err).includes('too large') ? 'The music request is too large.' : 'The music could not be generated right now.',
+          });
         }
       });
     },

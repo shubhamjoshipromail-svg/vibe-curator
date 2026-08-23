@@ -102,7 +102,7 @@ async function requestShader(
 ): Promise<ShaderResponse> {
   const res = await fetch('/api/gen/shader', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({
       prompt,
       paletteRamp: opts.paletteRamp,

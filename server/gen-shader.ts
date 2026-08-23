@@ -1,6 +1,9 @@
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
 import Anthropic from '@anthropic-ai/sdk';
+import type { IncomingMessage } from 'node:http';
+import { viewerFor } from './auth';
+import { completeReservation, failReservation, reserveCredits, type CreditReservation } from './credits';
 // @ts-expect-error — plain .mjs shared with the built-in library generator, so
 // the shipped examples and the runtime path can never drift apart.
 import { SYSTEM_PROMPT, SHADER_SCHEMA, buildUserMessage, MODEL } from './shader-prompt.mjs';
@@ -25,15 +28,25 @@ interface RequestBody {
   previous?: { glsl: string; error: string };
 }
 
-async function readBody(req: {
-  on: (e: string, cb: (c?: unknown) => void) => void;
-}): Promise<string> {
+async function readBody(req: IncomingMessage, limit = 512 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
+    const declared = Number(req.headers['content-length'] ?? 0);
+    if (declared > limit) return reject(new Error('Request is too large.'));
     let data = '';
+    let size = 0;
+    let settled = false;
     req.on('data', (chunk) => {
-      data += String(chunk);
+      if (settled) return;
+      const value = String(chunk);
+      size += Buffer.byteLength(value);
+      if (size > limit) {
+        settled = true;
+        reject(new Error('Request is too large.'));
+        return;
+      }
+      data += value;
     });
-    req.on('end', () => resolve(data));
+    req.on('end', () => { if (!settled) resolve(data); });
     req.on('error', reject);
   });
 }
@@ -65,11 +78,28 @@ export function genShaderPlugin(mode: string): Plugin {
           return;
         }
 
+        let reservation: CreditReservation | undefined;
         try {
+          const viewer = await viewerFor(req, res);
+          if (!viewer) {
+            res.statusCode = 401;
+            res.end('A session is required.');
+            return;
+          }
           const body = JSON.parse(await readBody(req)) as RequestBody;
           if (!body.prompt?.trim()) {
             res.statusCode = 400;
             res.end('prompt is required');
+            return;
+          }
+          const header = req.headers['x-idempotency-key'];
+          reservation = await reserveCredits(viewer.id, 'shader', {
+            idempotencyKey: typeof header === 'string' && header.length <= 200 ? header : undefined,
+            provider: 'anthropic',
+          });
+          if (!reservation) {
+            res.statusCode = 402;
+            res.end('Not enough Vibe Credits.');
             return;
           }
 
@@ -86,6 +116,8 @@ export function genShaderPlugin(mode: string): Plugin {
           });
 
           if (message.stop_reason === 'refusal') {
+            await failReservation(reservation, 'provider_refusal');
+            reservation = undefined;
             res.statusCode = 422;
             res.end('The model declined this request.');
             return;
@@ -93,12 +125,12 @@ export function genShaderPlugin(mode: string): Plugin {
 
           const text = message.content.find((b) => b.type === 'text');
           if (!text || text.type !== 'text') {
-            res.statusCode = 502;
-            res.end('No text content in model response.');
-            return;
+            throw new Error('No text content in model response.');
           }
 
           const parsed = JSON.parse(text.text) as Record<string, unknown>;
+          await completeReservation(reservation);
+          reservation = undefined;
           res.setHeader('content-type', 'application/json');
           res.end(JSON.stringify({
             ...parsed,
@@ -110,12 +142,15 @@ export function genShaderPlugin(mode: string): Plugin {
             },
           }));
         } catch (err) {
+          if (reservation) await failReservation(reservation, 'shader_failed');
           server.config.logger.error(`[vibe] shader generation failed: ${String(err)}`);
           const status = typeof err === 'object' && err && 'status' in err
             ? Number((err as { status?: number }).status) : 500;
-          res.statusCode = Number.isFinite(status) ? status : 500;
+          res.statusCode = String(err).includes('too large') ? 413 : Number.isFinite(status) ? status : 500;
           res.setHeader('content-type', 'application/json');
-          const message = res.statusCode === 429
+          const message = res.statusCode === 413
+            ? 'The effect request is too large.'
+            : res.statusCode === 429
             ? 'Effect generation is busy. Wait a moment and try again.'
             : res.statusCode === 402 || res.statusCode === 403
               ? 'Effect generation is not available for this account.'

@@ -1,4 +1,13 @@
-import { authStatus, continueWithGoogle, signOut, type AuthStatus } from './client';
+import {
+  authStatus,
+  billingStatus,
+  continueWithGoogle,
+  openBillingPortal,
+  signOut,
+  startCheckout,
+  type AuthStatus,
+  type BillingStatus,
+} from './client';
 
 export async function mountAccountControl(host: HTMLElement): Promise<void> {
   const root = document.createElement('div');
@@ -7,8 +16,9 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
   host.appendChild(root);
   const trigger = root.querySelector<HTMLButtonElement>('.account-trigger')!;
   let status: AuthStatus;
+  let billing: BillingStatus | undefined;
   try {
-    status = await authStatus();
+    [status, billing] = await Promise.all([authStatus(), billingStatus().catch(() => undefined)]);
   } catch {
     trigger.textContent = 'Offline';
     trigger.disabled = true;
@@ -23,13 +33,40 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
     const panel = document.createElement('div');
     panel.className = 'account-popover';
     const viewer = status.viewer;
-    panel.innerHTML = `<p class="account-kicker">${viewer?.isAnonymous ? 'GUEST SESSION' : 'SIGNED IN'}</p><strong>${viewer?.isAnonymous ? 'Your work is private on this account' : viewer?.name || 'Vibe Curator'}</strong><p>${viewer?.isAnonymous ? (status.persistent ? 'Sign in to keep it across devices.' : 'Local development storage is active.') : viewer?.email || 'Synced across devices'}</p>`;
+    const kicker = document.createElement('p');
+    kicker.className = 'account-kicker';
+    kicker.textContent = viewer?.isAnonymous ? 'GUEST SESSION' : 'SIGNED IN';
+    const name = document.createElement('strong');
+    name.textContent = viewer?.isAnonymous ? 'Your work is private on this account' : viewer?.name || 'Vibe Curator';
+    const detail = document.createElement('p');
+    detail.textContent = viewer?.isAnonymous
+      ? (status.persistent ? 'Sign in to keep it across devices.' : 'Local development storage is active.')
+      : viewer?.email || 'Synced across devices';
+    panel.append(kicker, name, detail);
+    if (billing) {
+      const creditLine = document.createElement('p');
+      creditLine.className = 'account-credits';
+      creditLine.textContent = `${billing.credits.available} Vibe Credits available · ${billing.credits.plan}`;
+      panel.appendChild(creditLine);
+    }
     const action = document.createElement('button');
     action.className = viewer?.isAnonymous ? 'primary wide' : 'ghost wide';
     action.textContent = viewer?.isAnonymous ? (status.googleConfigured ? 'Continue with Google' : 'Google setup pending') : 'Sign out';
     action.disabled = Boolean(viewer?.isAnonymous && !status.googleConfigured);
     action.addEventListener('click', () => void (viewer?.isAnonymous ? continueWithGoogle() : signOut()));
     panel.appendChild(action);
+    if (!viewer?.isAnonymous && billing?.checkoutConfigured) {
+      const upgrade = document.createElement('button');
+      upgrade.className = 'primary wide';
+      upgrade.textContent = billing.credits.plan === 'beta' ? 'Choose Plus' : 'Buy 100 credits';
+      upgrade.addEventListener('click', () => void startCheckout(billing?.credits.plan === 'beta' ? 'plus' : 'credits_100'));
+      const manage = document.createElement('button');
+      manage.className = 'ghost wide';
+      manage.textContent = 'Manage billing';
+      manage.addEventListener('click', () => void openBillingPortal());
+      panel.insertBefore(upgrade, action);
+      panel.insertBefore(manage, action);
+    }
     root.appendChild(panel);
   });
 }

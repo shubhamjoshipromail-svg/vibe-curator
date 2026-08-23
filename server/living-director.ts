@@ -1,5 +1,8 @@
 import type { Plugin } from 'vite';
 import { loadEnv } from 'vite';
+import type { IncomingMessage } from 'node:http';
+import { viewerFor } from './auth';
+import { completeReservation, failReservation, reserveCredits, type CreditReservation } from './credits';
 
 const MODEL = 'gpt-5-mini';
 
@@ -36,8 +39,20 @@ const SCHEMA = {
   }, required: ['motion', 'confidence', 'rationale', 'effects', 'audio'],
 } as const;
 
-async function readBody(req: { on(e: string, cb: (chunk?: unknown) => void): void }): Promise<string> {
-  return new Promise((resolve, reject) => { let data = ''; req.on('data', (c) => { data += String(c); }); req.on('end', () => resolve(data)); req.on('error', reject); });
+async function readBody(req: IncomingMessage, limit = 20 * 1024 * 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const declared = Number(req.headers['content-length'] ?? 0);
+    if (declared > limit) return reject(new Error('Request is too large.'));
+    let data = ''; let size = 0; let settled = false;
+    req.on('data', (chunk) => {
+      if (settled) return;
+      const value = String(chunk); size += Buffer.byteLength(value);
+      if (size > limit) { settled = true; reject(new Error('Request is too large.')); return; }
+      data += value;
+    });
+    req.on('end', () => { if (!settled) resolve(data); });
+    req.on('error', reject);
+  });
 }
 
 function json(res: { statusCode: number; setHeader(k: string, v: string): void; end(s: string): void }, status: number, value: unknown): void {
@@ -51,9 +66,18 @@ export function livingDirectorPlugin(mode: string): Plugin {
     server.middlewares.use('/api/living-director', async (req, res) => {
       if (req.method !== 'POST') return json(res, 405, { message: 'POST only' });
       if (!key) return json(res, 503, { message: 'Automatic visual direction needs OPENAI_API_KEY on the server.' });
+      let reservation: CreditReservation | undefined;
       try {
+        const viewer = await viewerFor(req, res);
+        if (!viewer) return json(res, 401, { message: 'A session is required.' });
         const body = JSON.parse(await readBody(req)) as { intent?: string; imageDataUrl?: string };
         if (!body.intent?.trim() || !body.imageDataUrl?.startsWith('data:image/')) return json(res, 400, { message: 'An intention and source image are required.' });
+        const header = req.headers['x-idempotency-key'];
+        reservation = await reserveCredits(viewer.id, 'direction', {
+          idempotencyKey: typeof header === 'string' && header.length <= 200 ? header : undefined,
+          provider: 'openai',
+        });
+        if (!reservation) return json(res, 402, { message: 'Not enough Vibe Credits for automatic direction.' });
         const upstream = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -78,16 +102,23 @@ export function livingDirectorPlugin(mode: string): Plugin {
         });
         const payload = await upstream.json() as { output?: Array<{ content?: Array<{ type?: string; text?: string }> }>; error?: { message?: string } };
         if (!upstream.ok) {
+          await failReservation(reservation, `provider_${upstream.status}`);
+          reservation = undefined;
           server.config.logger.error(`[vibe] living director failed (${upstream.status}): ${payload.error?.message ?? 'unknown'}`);
           return json(res, upstream.status === 429 ? 429 : 502, { message: upstream.status === 429 ? 'The scene director is busy. Try again shortly.' : 'The scene director could not analyze this image.' });
         }
         const text = payload.output?.flatMap((item) => item.content ?? []).find((item) => item.type === 'output_text')?.text;
-        if (!text) return json(res, 502, { message: 'The scene director returned no plan.' });
+        if (!text) throw new Error('The scene director returned no plan.');
         const plan = JSON.parse(text) as Record<string, unknown>;
+        await completeReservation(reservation);
+        reservation = undefined;
         return json(res, 200, { ...plan, provider: 'openai', model: MODEL });
       } catch (error) {
+        if (reservation) await failReservation(reservation, 'direction_failed');
         server.config.logger.error(`[vibe] living director error: ${String(error)}`);
-        return json(res, 500, { message: 'The scene director could not complete this request.' });
+        return json(res, String(error).includes('too large') ? 413 : 500, {
+          message: String(error).includes('too large') ? 'The scene direction request is too large.' : 'The scene director could not complete this request.',
+        });
       }
     });
   } };

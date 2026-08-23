@@ -45,6 +45,58 @@ export function ensureProductSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (owner_id, id)
     );
+
+    CREATE TABLE IF NOT EXISTS vibe_billing_accounts (
+      owner_id TEXT PRIMARY KEY,
+      plan TEXT NOT NULL DEFAULT 'beta',
+      stripe_customer_id TEXT UNIQUE,
+      stripe_subscription_id TEXT UNIQUE,
+      subscription_status TEXT,
+      current_period_end TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vibe_credit_ledger (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      delta INTEGER NOT NULL CHECK (delta <> 0),
+      reason TEXT NOT NULL,
+      reference TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (owner_id, reference)
+    );
+    CREATE INDEX IF NOT EXISTS vibe_credit_ledger_owner_created_idx
+      ON vibe_credit_ledger (owner_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS vibe_generation_jobs (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      credits INTEGER NOT NULL CHECK (credits > 0),
+      status TEXT NOT NULL CHECK (status IN ('reserved', 'completed', 'failed')),
+      idempotency_key TEXT,
+      provider TEXT,
+      provider_request_id TEXT,
+      estimated_cost_usd NUMERIC(12, 6),
+      actual_cost_usd NUMERIC(12, 6),
+      error_code TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      completed_at TIMESTAMPTZ,
+      UNIQUE (owner_id, idempotency_key)
+    );
+    CREATE INDEX IF NOT EXISTS vibe_generation_jobs_owner_status_idx
+      ON vibe_generation_jobs (owner_id, status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS vibe_webhook_events (
+      provider TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (provider, event_id)
+    );
   `).then(() => undefined);
   return initialized;
 }
@@ -63,6 +115,37 @@ export async function transferOwnership(fromUserId: string, toUserId: string): P
       );
       await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [fromUserId]);
     }
+    await client.query(
+      `INSERT INTO vibe_billing_accounts (
+         owner_id, plan, stripe_customer_id, stripe_subscription_id,
+         subscription_status, current_period_end, created_at, updated_at
+       )
+       SELECT $2, plan, stripe_customer_id, stripe_subscription_id,
+         subscription_status, current_period_end, created_at, updated_at
+       FROM vibe_billing_accounts WHERE owner_id = $1
+       ON CONFLICT (owner_id) DO NOTHING`,
+      [fromUserId, toUserId],
+    );
+    await client.query('DELETE FROM vibe_billing_accounts WHERE owner_id = $1', [fromUserId]);
+    await client.query(
+      `INSERT INTO vibe_credit_ledger (id, owner_id, delta, reason, reference, metadata, created_at)
+       SELECT id, $2, delta, reason, reference, metadata, created_at
+       FROM vibe_credit_ledger WHERE owner_id = $1
+       ON CONFLICT DO NOTHING`,
+      [fromUserId, toUserId],
+    );
+    await client.query('DELETE FROM vibe_credit_ledger WHERE owner_id = $1', [fromUserId]);
+    await client.query(
+      `UPDATE vibe_generation_jobs SET owner_id = $2
+       WHERE owner_id = $1 AND NOT EXISTS (
+         SELECT 1 FROM vibe_generation_jobs existing
+         WHERE existing.owner_id = $2
+           AND existing.idempotency_key = vibe_generation_jobs.idempotency_key
+           AND vibe_generation_jobs.idempotency_key IS NOT NULL
+       )`,
+      [fromUserId, toUserId],
+    );
+    await client.query('DELETE FROM vibe_generation_jobs WHERE owner_id = $1', [fromUserId]);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

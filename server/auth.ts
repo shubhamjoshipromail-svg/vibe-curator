@@ -5,15 +5,47 @@ import { betterAuth } from 'better-auth';
 import { anonymous } from 'better-auth/plugins';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
 import { database, ensureProductSchema, transferOwnership } from './database';
+import { transferOwnerStorage } from './storage';
 
 const db = database();
-const productionUrl = process.env.BETTER_AUTH_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : undefined);
+
+function configuredOrigin(): string | undefined {
+  const configured = process.env.BETTER_AUTH_URL || process.env.APP_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : undefined);
+  if (!configured) return undefined;
+  try {
+    const url = new URL(configured);
+    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1';
+    if (process.env.NODE_ENV === 'production' && !local && url.protocol !== 'https:') {
+      throw new Error('Production APP_URL/BETTER_AUTH_URL must use HTTPS.');
+    }
+    return url.origin;
+  } catch (error) {
+    throw new Error(`Invalid APP_URL/BETTER_AUTH_URL: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+const productionUrl = configuredOrigin();
 const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const hostedDeployment = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PUBLIC_DOMAIN);
+const authSecret = process.env.BETTER_AUTH_SECRET
+  || (process.env.NODE_ENV === 'production' ? undefined : 'vibe-curator-development-secret-change-me');
+
+if (hostedDeployment && !db) throw new Error('DATABASE_URL is required for hosted deployments.');
+
+if (db && (process.env.NODE_ENV === 'production' || hostedDeployment)) {
+  if (!productionUrl) throw new Error('APP_URL or BETTER_AUTH_URL is required when DATABASE_URL is configured in production.');
+  if (!authSecret || authSecret.length < 32) throw new Error('BETTER_AUTH_SECRET must be at least 32 characters in production.');
+}
 
 export const auth = db ? betterAuth({
   database: db,
-  secret: process.env.BETTER_AUTH_SECRET || (process.env.NODE_ENV === 'production' ? undefined : 'vibe-curator-development-secret-change-me'),
+  secret: authSecret,
   baseURL: productionUrl,
+  basePath: '/api/auth',
+  advanced: {
+    ipAddress: { ipAddressHeaders: ['x-real-ip', 'x-forwarded-for'] },
+  },
   trustedOrigins: [
     'http://localhost:5178',
     'http://127.0.0.1:5178',
@@ -29,6 +61,7 @@ export const auth = db ? betterAuth({
     emailDomainName: 'guest.vibecurator.local',
     onLinkAccount: async ({ anonymousUser, newUser }) => {
       await transferOwnership(anonymousUser.user.id, newUser.user.id);
+      await transferOwnerStorage(anonymousUser.user.id, newUser.user.id);
     },
   })],
 }) : undefined;

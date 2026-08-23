@@ -1,7 +1,7 @@
 import { Scene } from './scene';
 import { AudioEngine } from './audio/engine';
 import { createState, loadPreset } from './app/state';
-import { parseRoute, navigate, onRouteChange, type Route } from './app/router';
+import { parseRoute, navigate, onRouteChange, toPath, type Route } from './app/router';
 import { renderExplore } from './app/explore';
 import { renderLabs } from './app/labs';
 import { renderPlayer } from './app/player';
@@ -70,7 +70,9 @@ async function boot(): Promise<void> {
     console.error('[vibe] failed to start', err);
     stage.innerHTML = `<pre class="fatal">Could not start the renderer.\n${String(err)}</pre>`;
   }
-  render(parseRoute(location.hash));
+  const initialRoute = parseRoute(`${location.pathname}${location.search}${location.hash}`);
+  if (location.hash.startsWith('#/')) history.replaceState({}, '', toPath(initialRoute));
+  render(initialRoute);
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
 }
 
@@ -122,7 +124,7 @@ document.addEventListener('visibilitychange', () => {
 });
 audioPump = requestAnimationFrame(pumpAudio);
 
-if (!location.hash) navigate({ name: 'explore', view: 'market' });
+if (location.pathname === '/' && !location.hash) navigate({ name: 'explore', view: 'market' });
 void boot();
 
 if (import.meta.env.DEV) {

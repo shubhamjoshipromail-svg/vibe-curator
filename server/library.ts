@@ -1,13 +1,15 @@
 import type { Plugin } from 'vite';
-import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { database, ensureProductSchema } from './database';
 import { viewerFor } from './auth';
-
-/** Railway mounts persistent volumes at runtime, never during build. */
-const DATA_DIR = process.env.VIBE_DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || join(process.cwd(), '.vibe-data');
-const ASSET_DIR = join(DATA_DIR, 'assets');
+import { ensureOwnerStorage, ownerAssetDir, ownerDir } from './storage';
 const MAX_ASSET_BYTES = 100 * 1024 * 1024;
+const ALLOWED_ASSET_MIME_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif',
+  'video/mp4', 'video/webm', 'video/quicktime',
+  'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/webm',
+]);
 
 type ResponseLike = {
   statusCode: number;
@@ -27,12 +29,9 @@ function safeId(value: string): string | undefined {
   return /^[a-zA-Z0-9_-]{3,160}$/.test(decoded) ? decoded : undefined;
 }
 
-function ownerDir(ownerId: string): string {
-  return join(DATA_DIR, 'users', ownerId.replace(/[^a-zA-Z0-9_-]/g, '_'));
-}
-
-async function ensureStorage(ownerId?: string): Promise<void> {
-  await mkdir(ownerId ? join(ownerDir(ownerId), 'assets') : ASSET_DIR, { recursive: true });
+function assetMime(value: string | string[] | undefined): string | undefined {
+  const normalized = (Array.isArray(value) ? value[0] : value)?.split(';')[0].trim().toLowerCase();
+  return normalized && ALLOWED_ASSET_MIME_TYPES.has(normalized) ? normalized : undefined;
 }
 
 async function readDocuments(kind: 'projects' | 'folders', ownerId: string): Promise<Array<Record<string, unknown>>> {
@@ -74,7 +73,7 @@ async function writeDocuments(kind: 'projects' | 'folders', ownerId: string, doc
     }
     return;
   }
-  await ensureStorage(ownerId);
+  await ensureOwnerStorage(ownerId);
   const file = join(ownerDir(ownerId), `${kind}.json`);
   const temporary = `${file}.tmp`;
   await writeFile(temporary, JSON.stringify(documents, null, 2), 'utf8');
@@ -85,16 +84,19 @@ function readRequest(req: NodeJS.ReadableStream, limit: number): Promise<Buffer>
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
+    let settled = false;
     req.on('data', (chunk: Buffer | string) => {
+      if (settled) return;
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
       if (size > limit) {
+        settled = true;
         reject(new Error('Request is too large.'));
         return;
       }
       chunks.push(buffer);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('end', () => { if (!settled) resolve(Buffer.concat(chunks)); });
     req.on('error', reject);
   });
 }
@@ -204,19 +206,24 @@ export function libraryPlugin(): Plugin {
               json(response, 400, { message: 'Invalid asset id.' });
               return;
             }
-            const userAssetDir = join(ownerDir(ownerId), 'assets');
+            const userAssetDir = ownerAssetDir(ownerId);
             const assetPath = join(userAssetDir, id);
             const metadataPath = join(userAssetDir, `${id}.json`);
             if (req.method === 'PUT') {
+              const mimeType = assetMime(req.headers['content-type']);
+              if (!mimeType) {
+                json(response, 415, { message: 'Only supported image, video, and audio files can be stored.' });
+                return;
+              }
               const bytes = await readRequest(req, MAX_ASSET_BYTES);
-              await ensureStorage(ownerId);
+              await ensureOwnerStorage(ownerId);
               await writeFile(assetPath, bytes);
-              await writeFile(metadataPath, JSON.stringify({ mimeType: req.headers['content-type'] || 'application/octet-stream' }), 'utf8');
+              await writeFile(metadataPath, JSON.stringify({ mimeType }), 'utf8');
               const db = database();
               if (db) await db.query(
                 `INSERT INTO vibe_assets (owner_id, id, mime_type, byte_size) VALUES ($1, $2, $3, $4)
                  ON CONFLICT (owner_id, id) DO UPDATE SET mime_type = EXCLUDED.mime_type, byte_size = EXCLUDED.byte_size`,
-                [ownerId, id, req.headers['content-type'] || 'application/octet-stream', bytes.length],
+                [ownerId, id, mimeType, bytes.length],
               );
               json(response, 200, { ok: true, bytes: bytes.length });
               return;
@@ -228,7 +235,9 @@ export function libraryPlugin(): Plugin {
                   readFile(metadataPath, 'utf8').then((value) => JSON.parse(value) as { mimeType?: string }).catch(() => ({})),
                 ]);
                 response.statusCode = 200;
-                response.setHeader('content-type', metadata.mimeType || 'application/octet-stream');
+                const mimeType = assetMime(metadata.mimeType) || 'application/octet-stream';
+                response.setHeader('content-type', mimeType);
+                if (mimeType === 'application/octet-stream') response.setHeader('content-disposition', 'attachment');
                 response.setHeader('content-length', String(assetStat.size));
                 response.setHeader('cache-control', 'no-cache');
                 response.end(req.method === 'HEAD' ? undefined : await readFile(assetPath));

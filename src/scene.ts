@@ -411,7 +411,7 @@ export class Scene {
   setViewMode(mode: 'explore' | 'labs' | 'player'): void {
     this.viewMode = mode;
     // A route can render before mount() has finished — deep links and the
-    // initial navigate() both fire a hashchange while init() is still awaiting.
+    // initial navigate() can fire a route change while init() is still awaiting.
     // Pixi's Application has no ticker until then, so store the mode and let
     // mount() apply it rather than throwing on a half-built renderer.
     if (!this.app?.ticker) return;

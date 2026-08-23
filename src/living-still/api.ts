@@ -11,7 +11,7 @@ async function imageDataUrl(source: string): Promise<string> {
 
 export async function directLivingStill(intent: string, source: string): Promise<LivingStillManifest> {
   const response = await fetch('/api/living-director', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
     body: JSON.stringify({ intent, imageDataUrl: await imageDataUrl(source) }),
   });
   const body = await response.json() as Partial<LivingStillManifest> & { message?: string };

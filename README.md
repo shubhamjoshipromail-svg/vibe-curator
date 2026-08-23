@@ -23,7 +23,7 @@ The current local library contains real outputs created through the product pipe
 - **3 source-aware treatment families**: tracked color grids, motion cells, and edge echoes;
 - **19 seeded starting/Market cards** across living nature, electro-nature, psychedelic, atmospheric, and dark-fantasy directions.
 
-The video-generation path is implemented end to end: a source image can be sent to Gemini Veo for a four-second 720p motion draft, persisted as a video scene, looped, tracked, treated, and saved in Labs. The configured account has not yet produced a stored Veo asset because its video quota was unavailable; that is a provider-account limitation, not a missing product pipeline.
+The video-generation path is implemented end to end: a source image can be sent to Gemini Veo for an eight-second 720p motion draft, persisted as a video scene, looped, tracked, treated, and saved in Labs. The configured account has not yet produced a stored Veo asset because its video quota was unavailable; that is a provider-account limitation, not a missing product pipeline.
 
 Generated binaries stay in the gitignored local `.vibe-data` store because they include large media and private iteration history. The public repository contains the complete generation, persistence, editing, and playback code plus safe public fixtures and benchmark assets.
 
@@ -73,7 +73,7 @@ The non-destructive editor.
 - Stack built-in or AI-generated atmospheric shaders.
 - Tune the scene through human controls—Mood, Motion, Depth, Glow, Atmosphere, and Intensity—instead of exposing rendering jargon.
 - Select Light, Automatic, or Full runtime budgets without changing the saved creative intent.
-- Generate and persist a 30-second ElevenLabs Music v2 track.
+- Generate and persist a 90-second ElevenLabs Music v2 track.
 - Choose Auto, Vocals, or Instrumental. Vocal directions such as fast rap, singing style, language, cadence, and original lyrics survive prompt adaptation.
 - Save explicitly; opening a built-in or Market card never silently adds another project.
 
@@ -94,7 +94,7 @@ The finished environment.
 | Prompt → source image | Working | OpenAI `gpt-image-2`, low-cost 1536×1024 draft |
 | Image upload | Working | Browser upload → IndexedDB/local server asset persistence |
 | Video upload and looping playback | Working | Native browser decode feeding the source-aware compositor |
-| Still image → generated video | Implemented; awaiting usable account quota | Gemini Veo, 4 seconds, 720p, persisted back as an editable video scene |
+| Still image → generated video | Implemented; awaiting usable account quota | Gemini Veo, 8 seconds, 720p, persisted back as an editable video scene |
 | Source-aware visual tracking | Working | 128×72 clean-frame analysis, motion/edge signals, temporal trails |
 | Reusable visual treatments | Working | Deterministic recipe manifests with editable parameters |
 | Prompt → generated visual effect | Working | Anthropic → guarded GLSL → compiler → parameterized live Pixi filter |
@@ -233,8 +233,8 @@ Provider details live behind same-origin server modules. API keys never enter cl
 ## Cost and safety boundaries
 
 - Image generation: approximately `$0.01` per new low-quality draft.
-- Motion generation: approximately `$0.20` per four-second draft.
-- Music: approximately `$0.076` for prompt adaptation plus one 30-second track.
+- Motion generation: reserve approximately `$1.20` per eight-second fast draft; reconcile against the provider response/account.
+- Music: reserve approximately `$0.23` for prompt adaptation plus one 90-second track.
 - Repeated image requests can reuse a local fingerprint cache.
 - Built-in treatments, procedural sources, tracking, editing, playback, and thumbnails are local and free.
 - Generated music is stored once; replay never invokes a model.

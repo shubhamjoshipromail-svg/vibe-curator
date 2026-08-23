@@ -14,6 +14,19 @@ export interface AuthStatus {
   persistent: boolean;
 }
 
+export interface BillingStatus {
+  credits: {
+    balance: number;
+    reserved: number;
+    available: number;
+    plan: string;
+    persistent: boolean;
+  };
+  costs: Record<'image' | 'music' | 'motion' | 'shader' | 'direction', number>;
+  betaWelcomeCredits: number;
+  checkoutConfigured: boolean;
+}
+
 export const authClient = createAuthClient({ plugins: [anonymousClient()] });
 
 export async function authStatus(): Promise<AuthStatus> {
@@ -40,4 +53,29 @@ export async function continueWithGoogle(): Promise<void> {
 export async function signOut(): Promise<void> {
   await authClient.signOut();
   location.reload();
+}
+
+export async function billingStatus(): Promise<BillingStatus> {
+  const response = await fetch('/api/billing/status', { cache: 'no-store', credentials: 'same-origin' });
+  if (!response.ok) throw new Error('Credit status is unavailable.');
+  return response.json() as Promise<BillingStatus>;
+}
+
+export async function startCheckout(kind: 'plus' | 'creator' | 'credits_100'): Promise<void> {
+  const response = await fetch('/api/stripe/checkout', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
+    body: JSON.stringify({ kind }),
+  });
+  const body = await response.json() as { url?: string; message?: string };
+  if (!response.ok || !body.url) throw new Error(body.message || 'Checkout could not start.');
+  location.assign(body.url);
+}
+
+export async function openBillingPortal(): Promise<void> {
+  const response = await fetch('/api/stripe/portal', { method: 'POST', credentials: 'same-origin' });
+  const body = await response.json() as { url?: string; message?: string };
+  if (!response.ok || !body.url) throw new Error(body.message || 'Billing portal could not open.');
+  location.assign(body.url);
 }
