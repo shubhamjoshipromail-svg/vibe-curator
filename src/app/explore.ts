@@ -43,7 +43,7 @@ export function renderExplore(
 ): void {
   host.innerHTML = `
     <header class="page-head explore-head">
-      <div><p class="eyebrow">VISUAL → ATMOSPHERE → SOUND</p><h1>Build a world worth staying in.</h1><p class="sub">Create a visual or start from your own image. Shape its mood with sound, effects and optional motion.</p><a class="desktop-download" href="/desktop"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13.25"/><path d="M16 8.5v13M10.75 16.5 16 21.75l5.25-5.25"/></svg><span>Install App</span></a></div>
+      <div><p class="eyebrow">VISUAL → ATMOSPHERE → SOUND</p><h1>Build a world worth staying in.</h1><p class="sub">Create a visual or start from your own image. Shape its mood with sound, effects and optional motion.</p></div>
     </header>
     <section class="create-studio" aria-labelledby="create-title">
       <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
