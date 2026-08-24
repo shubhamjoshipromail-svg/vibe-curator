@@ -3,6 +3,7 @@ use tauri::{
     tray::TrayIconBuilder,
     AppHandle, Manager, Url, WebviewWindow,
 };
+use std::process::Command;
 
 const DEFAULT_APP_URL: &str = "https://vibe-curator-production.up.railway.app";
 
@@ -78,6 +79,62 @@ fn window_for_command(window: WebviewWindow) -> WebviewWindow {
     window
 }
 
+fn activation_token_from_args(args: &[String]) -> Option<String> {
+    args.iter().find_map(|value| {
+        let url = Url::parse(value).ok()?;
+        if url.scheme() != "vibecurator" || url.host_str() != Some("open") {
+            return None;
+        }
+        let token = url
+            .query_pairs()
+            .find(|(key, _)| key == "activation")?
+            .1
+            .into_owned();
+        (token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
+            .then_some(token.to_ascii_lowercase())
+    })
+}
+
+fn prepare_wallpaper_activation(window: &WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    macos::set_desktop_level(window, false)?;
+    window.set_decorations(false).map_err(|error| error.to_string())?;
+    window.set_focusable(true).map_err(|error| error.to_string())?;
+    window.set_simple_fullscreen(true).map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn activate_transfer_for_app(app: &AppHandle, token: &str) -> Result<(), String> {
+    if token.len() != 64 || !token.chars().all(|character| character.is_ascii_hexdigit()) {
+        return Err("Invalid native activation".into());
+    }
+    let window = app
+        .get_webview_window("wallpaper")
+        .ok_or_else(|| "Wallpaper window is unavailable".to_string())?;
+    prepare_wallpaper_activation(&window)?;
+    let url = hosted_url("/wallpaper.html", Some(&format!("activation={}", token.to_ascii_lowercase())))?;
+    window.navigate(url).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn open_web_editor() -> Result<(), String> {
+    let url = hosted_url("/explore", None)?.to_string();
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut value = Command::new("cmd");
+        value.args(["/C", "start", ""]);
+        value
+    };
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    let mut command = Command::new("xdg-open");
+    command.arg(url).spawn().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn enter_wallpaper_mode(window: WebviewWindow) -> Result<(), String> {
     let window = window_for_command(window);
@@ -139,10 +196,16 @@ fn activate_preset(app: AppHandle, preset_id: String) -> Result<(), String> {
     let window = app
         .get_webview_window("wallpaper")
         .ok_or_else(|| "Wallpaper window is unavailable".to_string())?;
+    prepare_wallpaper_activation(&window)?;
     let url = hosted_url("/wallpaper.html", Some(&format!("preset={preset_id}")))?;
     window.navigate(url).map_err(|error| error.to_string())?;
     window.show().map_err(|error| error.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn activate_transfer(app: AppHandle, token: String) -> Result<(), String> {
+    activate_transfer_for_app(&app, &token)
 }
 
 #[tauri::command]
@@ -162,10 +225,11 @@ fn enable_wallpaper_controls(app: AppHandle) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window) = app.get_webview_window("editor") {
-                let _ = window.show();
-                let _ = window.set_focus();
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(token) = activation_token_from_args(&args) {
+                let _ = activate_transfer_for_app(app, &token);
+            } else {
+                let _ = open_web_editor();
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -175,23 +239,13 @@ pub fn run() {
         ))
         .invoke_handler(tauri::generate_handler![
             activate_preset,
+            activate_transfer,
             enable_wallpaper_controls,
             enter_wallpaper_mode,
             leave_wallpaper_mode
         ])
         .setup(|app| {
-            // Release builds use the deployed app as the editor. This keeps
-            // auth, billing and cloud library requests same-origin instead of
-            // weakening cookie policy or duplicating secrets in the bundle.
-            // The wallpaper itself starts from the bundled offline scene and
-            // moves to the hosted surface only after a preset is activated.
-            #[cfg(not(debug_assertions))]
-            if let Some(window) = app.get_webview_window("editor") {
-                let url = hosted_url("/explore", None).map_err(std::io::Error::other)?;
-                window.navigate(url)?;
-            }
-
-            let editor = MenuItem::with_id(app, "editor", "Open editor", true, None::<&str>)?;
+            let editor = MenuItem::with_id(app, "editor", "Open website editor", true, None::<&str>)?;
             let controls = MenuItem::with_id(
                 app,
                 "controls",
@@ -210,10 +264,7 @@ pub fn run() {
             }
             tray.on_menu_event(|app, event| match event.id.as_ref() {
                 "editor" => {
-                    if let Some(window) = app.get_webview_window("editor") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+                    let _ = open_web_editor();
                 }
                 "controls" => {
                     let _ = enable_wallpaper_controls(app.clone());
@@ -232,6 +283,10 @@ pub fn run() {
                 _ => {}
             })
             .build(app)?;
+
+            if let Some(token) = activation_token_from_args(&std::env::args().collect::<Vec<_>>()) {
+                activate_transfer_for_app(app.handle(), &token).map_err(std::io::Error::other)?;
+            }
 
             Ok(())
         })

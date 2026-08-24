@@ -10,6 +10,7 @@ import { generateMusic, generateSceneMotion, mediaCapabilities } from '../media/
 import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '../source-aware/types';
 import { orchestrateLivingStill } from '../living-still/orchestrator';
 import { directLivingStill } from '../living-still/api';
+import { runtimeHost } from '../runtime/host';
 
 /**
  * While a slider is being dragged, fade the panels so the change can be judged
@@ -83,6 +84,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         <div class="labs-actions">
           <button class="ghost" id="back">← Back</button>
           <button class="ghost" id="save">Save</button>
+          <button class="ghost" id="display-mac">${runtimeHost.kind === 'tauri' ? 'Set desktop' : 'Display on Mac'}</button>
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
       </header>
@@ -838,6 +840,21 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     const btn = host.querySelector<HTMLButtonElement>('#save')!;
     btn.textContent = 'Saved';
     setTimeout(() => (btn.textContent = 'Save'), 1400);
+  });
+  host.querySelector<HTMLButtonElement>('#display-mac')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    const preset = commit();
+    try {
+      if (runtimeHost.kind === 'tauri') await runtimeHost.activatePreset(preset.id);
+      else await runtimeHost.openNativeApp(preset);
+      button.textContent = runtimeHost.kind === 'tauri' ? 'Desktop updated' : 'Sent to Mac';
+    } catch (error) {
+      console.error('[vibe] could not display on Mac', error);
+      button.textContent = 'Could not reach Mac';
+    } finally {
+      button.disabled = false;
+    }
   });
   host.querySelector('#apply')?.addEventListener('click', () => {
     commit();

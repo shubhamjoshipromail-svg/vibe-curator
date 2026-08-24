@@ -4,6 +4,8 @@
  * allowed to invoke native commands.
  */
 
+import type { Preset } from '../preset/types';
+
 export type RuntimeKind = 'browser' | 'tauri';
 
 export interface RuntimeHost {
@@ -11,7 +13,8 @@ export interface RuntimeHost {
   activatePreset(presetId: string): Promise<void>;
   enterWallpaperMode(): Promise<void>;
   leaveWallpaperMode(): Promise<void>;
-  openNativeApp(presetId: string): Promise<void>;
+  openNativeApp(preset: Preset): Promise<void>;
+  activateTransfer(token: string): Promise<void>;
 }
 
 function isTauriRuntime(): boolean {
@@ -36,10 +39,18 @@ const browserHost: RuntimeHost = {
   async leaveWallpaperMode() {
     window.close();
   },
-  async openNativeApp(presetId) {
-    if (!/^[a-zA-Z0-9_-]{1,160}$/.test(presetId)) throw new Error('Invalid preset id.');
-    location.href = `vibecurator://open?preset=${encodeURIComponent(presetId)}`;
+  async openNativeApp(preset) {
+    const response = await fetch('/api/native/activations', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ preset }),
+    });
+    const body = await response.json().catch(() => ({})) as { deepLink?: string; message?: string };
+    if (!response.ok || !body.deepLink) throw new Error(body.message || 'Could not prepare the Mac handoff.');
+    location.href = body.deepLink;
   },
+  async activateTransfer() {},
 };
 
 const tauriHost: RuntimeHost = {
@@ -51,8 +62,13 @@ const tauriHost: RuntimeHost = {
   },
   enterWallpaperMode: () => invokeNative('enter_wallpaper_mode'),
   leaveWallpaperMode: () => invokeNative('leave_wallpaper_mode'),
-  openNativeApp: async (presetId) => {
-    await tauriHost.activatePreset(presetId);
+  openNativeApp: async (preset) => {
+    await tauriHost.activatePreset(preset.id);
+  },
+  async activateTransfer(token) {
+    if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('Invalid native activation.');
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('activate_transfer', { token });
   },
 };
 

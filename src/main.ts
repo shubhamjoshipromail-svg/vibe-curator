@@ -86,7 +86,12 @@ async function boot(): Promise<void> {
   render(initialRoute);
   if (initialRoute.name === 'legal') gate.classList.add('hidden');
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
-  await registerDeepLinks(async (presetId) => {
+  await registerDeepLinks(async (activation) => {
+    if ('token' in activation) {
+      await runtimeHost.activateTransfer(activation.token);
+      return;
+    }
+    const presetId = activation.presetId;
     const preset = listPresets().find((candidate) => candidate.id === presetId);
     if (!preset) return;
     await loadPreset(state, preset);
