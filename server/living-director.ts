@@ -6,6 +6,8 @@ import { completeReservation, failReservation, reserveCredits, type CreditReserv
 import { generationAllowed, generationDisabledMessage } from './beta';
 
 const MODEL = 'gpt-5-mini';
+// Includes a conservative allowance for image input plus structured output.
+const DIRECTION_ESTIMATED_COST_USD = 0.05;
 
 const SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -78,6 +80,7 @@ export function livingDirectorPlugin(mode: string): Plugin {
         reservation = await reserveCredits(viewer.id, 'direction', {
           idempotencyKey: typeof header === 'string' && header.length <= 200 ? header : undefined,
           provider: 'openai',
+          estimatedCostUsd: DIRECTION_ESTIMATED_COST_USD,
         });
         if (!reservation) return json(res, 402, { message: 'Not enough Vibe Credits for automatic direction.' });
         const upstream = await fetch('https://api.openai.com/v1/responses', {
