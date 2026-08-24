@@ -1,12 +1,14 @@
 {
   "name": "vibe-curator",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:native": "tauri dev",
     "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173} --strictPort",
     "build": "npm run check:licenses && tsc --noEmit && vite build",
+    "build:native": "tauri build",
     "preview": "vite preview",
     "check:licenses": "node scripts/check-licenses.mjs",
     "gen:fixtures": "node scripts/make-dev-fixtures.mjs",
@@ -25,8 +27,12 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
     "@types/pg": "^8.23.1",
-    "auth": "^1.6.30",
+    "auth": "1.6.30",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"
+  },
+  "overrides": {
+    "lodash": "4.18.1",
+    "nanoid": "3.3.18"
   }
 }

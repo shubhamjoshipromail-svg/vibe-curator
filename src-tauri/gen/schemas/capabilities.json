@@ -1,0 +1,1 @@
+{"wallpaper":{"identifier":"wallpaper","description":"Minimal permissions for the bundled wallpaper player","remote":{"urls":["https://vibe-curator-production.up.railway.app/*"]},"local":true,"windows":["wallpaper","editor"],"permissions":["core:default"]}}

@@ -46,5 +46,13 @@ export default defineConfig(({ mode }) => {
   plugins: [...apiPlugins, previewApiBridge(apiPlugins)],
   server: { port: 5178, open: false, allowedHosts },
   preview: { host: '0.0.0.0', allowedHosts },
+  build: {
+    rollupOptions: {
+      input: {
+        app: 'index.html',
+        wallpaper: 'wallpaper.html',
+      },
+    },
+  },
 };
 });

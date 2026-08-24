@@ -477,3 +477,35 @@ input[type='range'] {
 .gate-inner p { margin: 10px 0 22px; color: var(--dim); font-size: 14px; line-height: 1.6; }
 
 .fatal { max-width: 40rem; padding: 1.5rem; color: #e8b0a0; font-size: 12px; white-space: pre-wrap; text-align: left; }
+
+/* --- standalone wallpaper host -------------------------------------------- */
+
+.wallpaper-body, #wallpaper-app { width: 100%; height: 100%; overflow: hidden; }
+#wallpaper-app #stage { opacity: 1; filter: none; }
+#wallpaper-app #stage canvas { max-width: none; max-height: none; }
+#wallpaper-status {
+  position: fixed;
+  left: 18px;
+  bottom: 16px;
+  z-index: 2;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(5, 5, 8, .4);
+  color: rgba(255, 255, 255, .68);
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+  opacity: 1;
+  transition: opacity .8s ease 1.2s;
+}
+#wallpaper-app[data-ready='true'] #wallpaper-status { opacity: 0; pointer-events: none; }
+#wallpaper-status[data-error='true'] { opacity: 1; color: #f2b2a2; }
+#wallpaper-sound {
+  position: fixed;
+  right: 18px;
+  bottom: 16px;
+  z-index: 2;
+  background: rgba(5, 5, 8, .42);
+  color: rgba(255, 255, 255, .72);
+  border-color: rgba(255, 255, 255, .16);
+  backdrop-filter: blur(8px);
+}
