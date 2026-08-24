@@ -317,7 +317,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     const kind = draft.scene.kind === 'renderer'
       ? 'Living renderer'
       : draft.scene.kind === 'procedural'
-        ? 'Moving source'
+        ? 'Procedural source'
         : draft.scene.kind === 'video'
           ? 'Looping video'
           : 'Image';

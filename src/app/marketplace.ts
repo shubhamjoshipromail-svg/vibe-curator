@@ -77,7 +77,7 @@ export const MARKET_COLLECTIONS: MarketCollection[] = [
   { id: 'stained-glass', name: 'Stained Glass', description: 'Jewel-toned glass shaped by strong lead linework.', mood: 'Luminous · Sacred', stylePrompt: 'Authored stained-glass artwork: bold lead-came outlines, individually shaped translucent glass pieces, jewel-tone cobalt amber ruby and emerald, luminous backlighting, controlled geometric segmentation, handcrafted bubbles and texture. Avoid cathedral architecture unless requested, smooth digital gradients and photorealism.' },
   { id: 'surreal-collage', name: 'Surreal Collage', description: 'Poetic scale shifts assembled from tactile found fragments.', mood: 'Analog · Uncanny', stylePrompt: 'Analog surrealist collage: cut vintage photographic fragments, torn paper edges, mismatched scale, aged magazine grain, restrained palette and poetic negative space. Avoid smooth digital painting, seamless compositing, 3D rendering, crowded symbolism and fake text.' },
   { id: 'mid-century', name: 'Mid-Century Modern', description: 'Flat gouache shapes and optimistic atomic-age composition.', mood: 'Warm · Graphic', stylePrompt: 'Mid-century modern editorial illustration: flat gouache shapes, simplified forms, boomerang and atomic-age geometry, textured paper, mustard avocado teal burnt orange and charcoal, elegant 1950s travel-poster composition. Avoid photorealism, glossy 3D, modern gradients and text.' },
-  { id: 'living-scenes', name: 'Living Scenes', description: 'The original coded worlds: procedural motion, shaders and reactive reconstruction.', mood: 'Animated · Generative' },
+  { id: 'living-scenes', name: 'Living Scenes', description: 'Original coded worlds that start still and become generative only when you add motion.', mood: 'Still first · Generative' },
 ];
 
 export function buildStylePrompt(collection: MarketCollection, values: { subject: string; setting: string; time: string; weather: string; mood: string }): string {
@@ -103,8 +103,8 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
   const title = document.createElement('h2'); title.textContent = preset.name;
   const copy = document.createElement('p'); copy.textContent = preset.description;
   const meta = document.createElement('div'); meta.className = 'card-meta';
-  const living = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural';
-  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${living ? 'live coded scene' : 'static scene'}</span><span class="chip">${living ? 'reactive audio' : 'simple music'}</span>`;
+  const coded = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural';
+  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${coded ? 'still coded scene' : 'static scene'}</span><span class="chip">${coded ? 'motion-ready' : 'simple music'}</span>`;
   body.append(author, title, copy, meta); card.appendChild(body);
   const actions = document.createElement('div'); actions.className = 'card-actions';
   const remix = document.createElement('button'); remix.className = 'primary'; remix.textContent = 'Open & remix';

@@ -43,7 +43,7 @@ export function renderExplore(
 ): void {
   host.innerHTML = `
     <header class="page-head explore-head">
-      <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p></div>
+      <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p><a class="button-like ghost desktop-download" href="/desktop">Download Mac beta ↓</a></div>
     </header>
     <section class="create-studio" aria-labelledby="create-title">
       <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
@@ -171,7 +171,7 @@ export function renderExplore(
   function drawMarket(): void {
     eyebrow.textContent = 'DISCOVER & REMIX';
     title.textContent = marketFolder ? MARKET_COLLECTIONS.find((item) => item.id === marketFolder)?.name ?? 'Market' : 'Market collections';
-    copy.textContent = marketFolder ? 'Choose a variation, open it in Labs, and save only if you want it in Projects.' : 'Curated visual styles plus the original coded, animated Living Scenes.';
+    copy.textContent = marketFolder ? 'Every item opens still. Add only the motion you want in Labs, then save it to Projects.' : 'Curated visual styles that start completely still. Motion is always your choice in Labs.';
     if (!marketFolder) {
       for (const collection of MARKET_COLLECTIONS) {
         const posts = MARKET_POSTS.filter((post) => post.collection === collection.id);

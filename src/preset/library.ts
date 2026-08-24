@@ -231,9 +231,17 @@ function seedPresets(): Preset[] {
       [sourceEffect('edge-echo', 'Bloom contour echo', '#ff82ad', { cellSize: 9, trail: 1.25, glow: 0.92, density: 0.82, response: 1.2 })]),
   );
 
-  const market = (preset: Preset): Preset => ({ ...preset, marketplaceOnly: true, tags: [...preset.tags, 'curated', 'static-scene', 'simple-music'] });
+  const market = (preset: Preset): Preset => ({
+    ...preset,
+    marketplaceOnly: true,
+    controls: { ...preset.controls, motion: 0 },
+    scene: preset.scene.kind === 'image' || preset.scene.kind === 'video'
+      ? { ...preset.scene, motion: { kind: 'none' } }
+      : preset.scene,
+    tags: [...preset.tags, 'curated', 'static-scene', 'simple-music'],
+  });
   const marketImage = (path: string, label: string, style: string): SceneLayer => ({
-    kind: 'image', url: path, label, style, mimeType: 'image/jpeg', motion: { kind: 'drift', amount: 0.12, speed: 0.08 },
+    kind: 'image', url: path, label, style, mimeType: 'image/jpeg', motion: { kind: 'none' },
     provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-13T21:44:00.000Z' },
   });
   rooms.push(

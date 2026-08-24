@@ -25,11 +25,25 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
     return;
   }
   trigger.textContent = status.viewer?.isAnonymous ? 'Guest' : (status.viewer?.name.split(' ')[0] || 'Account');
-  trigger.addEventListener('click', () => {
-    const open = root.classList.toggle('open');
-    trigger.setAttribute('aria-expanded', String(open));
+  const close = (): void => {
+    root.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
     root.querySelector('.account-popover')?.remove();
-    if (!open) return;
+  };
+  document.addEventListener('pointerdown', (event) => {
+    if (!root.contains(event.target as Node)) close();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !root.classList.contains('open')) return;
+    close();
+    trigger.focus();
+  });
+  trigger.addEventListener('click', () => {
+    const shouldOpen = !root.classList.contains('open');
+    close();
+    if (!shouldOpen) return;
+    root.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
     const panel = document.createElement('div');
     panel.className = 'account-popover';
     const viewer = status.viewer;
@@ -71,7 +85,11 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
     privacy.className = 'account-link';
     privacy.href = '/data';
     privacy.textContent = 'Privacy & your data';
-    panel.appendChild(privacy);
+    const desktop = document.createElement('a');
+    desktop.className = 'account-link';
+    desktop.href = '/desktop';
+    desktop.textContent = 'Download the Mac app';
+    panel.append(desktop, privacy);
     root.appendChild(panel);
   });
 }
