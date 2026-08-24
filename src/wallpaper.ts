@@ -98,7 +98,7 @@ async function boot(): Promise<void> {
 
   status.textContent = preset.name;
   app.dataset.ready = 'true';
-  sound.textContent = 'Start sound & set wallpaper';
+  sound.textContent = 'Start sound';
   sound.hidden = false;
 }
 
