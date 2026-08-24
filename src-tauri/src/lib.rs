@@ -290,6 +290,18 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running the Vibe Curator native player");
+        .build(tauri::generate_context!())
+        .expect("error while building the Vibe Curator native player")
+        .run(|app, event| {
+            // macOS delivers custom-protocol URLs to the already-running app
+            // as RunEvent::Opened. Handle them natively so Display on Mac does
+            // not depend on whichever webview page is currently loaded.
+            if let tauri::RunEvent::Opened { urls } = event {
+                for url in urls {
+                    if let Some(token) = activation_token_from_args(&[url.to_string()]) {
+                        let _ = activate_transfer_for_app(app, &token);
+                    }
+                }
+            }
+        });
 }

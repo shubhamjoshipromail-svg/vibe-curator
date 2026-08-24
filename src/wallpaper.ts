@@ -11,6 +11,7 @@ import { ensureViewer } from './auth/client';
 import { getPreset, hydrateLibrary, listPresets } from './preset/library';
 import { VIBES } from './vibes';
 import { runtimeHost } from './runtime/host';
+import { registerDeepLinks } from './runtime/deep-link';
 import { isBundledSurface } from './runtime/config';
 import { cacheTransferredAsset } from './media/assets';
 import type { Preset } from './preset/types';
@@ -120,6 +121,18 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) audioPump = requestAnimationFrame(pumpAudio);
 });
 audioPump = requestAnimationFrame(pumpAudio);
+
+// The packaged app loads this wallpaper entry point directly. Register the
+// custom-protocol listener here (not only in the website shell) so an already
+// running companion receives Display on Mac activations instead of staying on
+// the bundled Koi starter.
+void registerDeepLinks(async (activation) => {
+  if ('token' in activation) {
+    await runtimeHost.activateTransfer(activation.token);
+  } else {
+    await runtimeHost.activatePreset(activation.presetId);
+  }
+});
 
 void boot().catch((error) => {
   console.error('[vibe] wallpaper failed to start', error);
