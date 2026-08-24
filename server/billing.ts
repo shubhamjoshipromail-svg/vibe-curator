@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { viewerFor } from './auth';
 import { BETA_WELCOME_CREDITS, CREDIT_COSTS, creditStatus } from './credits';
+import { billingEnabled } from './beta';
 
 function json(
   res: { statusCode: number; setHeader(name: string, value: string): void; end(body?: string): void },
@@ -24,7 +25,7 @@ export function billingPlugin(): Plugin {
           if (!viewer) return json(res, 401, { message: 'A session is required.' });
           if (req.method === 'GET' && (path === '/status' || path === 'status')) {
             const credits = await creditStatus(viewer.id);
-            const checkoutConfigured = Boolean(
+            const checkoutConfigured = billingEnabled() && Boolean(
               process.env.STRIPE_SECRET_KEY
               && process.env.STRIPE_WEBHOOK_SECRET
               && process.env.STRIPE_PRICE_PLUS_MONTHLY

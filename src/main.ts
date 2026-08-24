@@ -10,6 +10,10 @@ import { runEffectSelfTest } from './effects/selftest';
 import { VIBES } from './vibes';
 import { ensureViewer } from './auth/client';
 import { mountAccountControl } from './auth/account';
+import { acknowledgeBetaTerms, betaTermsStatus } from './auth/client';
+import { renderLegal } from './app/legal';
+import { registerDeepLinks } from './runtime/deep-link';
+import { runtimeHost } from './runtime/host';
 
 /**
  * App shell.
@@ -29,7 +33,9 @@ app.innerHTML = `
     <div class="gate-inner">
       <h1>Vibe Curator</h1>
       <p>Browse a room, make it yours, and stay a while. Sound stays off until you start it in Player.</p>
-      <button class="primary" id="begin">Enter</button>
+      <label class="gate-accept"><input type="checkbox" id="accept-beta" /> <span>I agree to the <a href="/terms" target="_blank">Beta Terms</a> and acknowledge the <a href="/privacy" target="_blank">Privacy Notice</a>.</span></label>
+      <button class="primary" id="begin" disabled>Enter free beta</button>
+      <p class="gate-error" id="gate-error" role="status"></p>
     </div>
   </div>
 `;
@@ -41,6 +47,7 @@ const gate = app.querySelector<HTMLDivElement>('#gate')!;
 const scene = new Scene();
 const audio = new AudioEngine();
 const state = createState(scene, audio);
+let policyAcknowledged = false;
 
 /**
  * Collapse exact-duplicate remixes left by older builds. Runs once per browser;
@@ -59,7 +66,11 @@ function cleanUpLegacyDuplicates(): void {
 }
 
 async function boot(): Promise<void> {
-  await ensureViewer();
+  const viewerStatus = await ensureViewer();
+  const policyStatus = await betaTermsStatus();
+  policyAcknowledged = viewerStatus.persistent
+    ? policyStatus.acknowledged
+    : Boolean(localStorage.getItem('vibe.policy.2026-08-23-beta'));
   await hydrateLibrary();
   cleanUpLegacyDuplicates();
   const first = listPresets()[0];
@@ -73,15 +84,27 @@ async function boot(): Promise<void> {
   const initialRoute = parseRoute(`${location.pathname}${location.search}${location.hash}`);
   if (location.hash.startsWith('#/')) history.replaceState({}, '', toPath(initialRoute));
   render(initialRoute);
+  if (initialRoute.name === 'legal') gate.classList.add('hidden');
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
+  await registerDeepLinks(async (presetId) => {
+    const preset = listPresets().find((candidate) => candidate.id === presetId);
+    if (!preset) return;
+    await loadPreset(state, preset);
+    await runtimeHost.activatePreset(presetId);
+    navigate({ name: 'player' });
+  });
 }
 
 async function render(route: Route): Promise<void> {
   app.dataset.mode = route.name;
+  gate.classList.toggle('hidden', route.name === 'legal' || policyAcknowledged);
   scene.setViewMode(route.name === 'player' ? 'player' : route.name === 'labs' ? 'labs' : 'explore');
   view.scrollTop = 0;
 
   switch (route.name) {
+    case 'legal':
+      await renderLegal(view, route);
+      break;
     case 'labs':
       await renderLabs(view, state, route.presetId, route.returnTo);
       break;
@@ -104,9 +127,23 @@ async function render(route: Route): Promise<void> {
 
 onRouteChange((route) => void render(route));
 
-app.querySelector<HTMLButtonElement>('#begin')!.addEventListener('click', async () => {
-  gate.classList.add('hidden');
-  scene.resetSession();
+const accept = app.querySelector<HTMLInputElement>('#accept-beta')!;
+const begin = app.querySelector<HTMLButtonElement>('#begin')!;
+const gateError = app.querySelector<HTMLElement>('#gate-error')!;
+accept.addEventListener('change', () => { begin.disabled = !accept.checked; });
+begin.addEventListener('click', async () => {
+  begin.disabled = true;
+  gateError.textContent = '';
+  try {
+    await acknowledgeBetaTerms();
+    policyAcknowledged = true;
+    localStorage.setItem('vibe.policy.2026-08-23-beta', new Date().toISOString());
+    gate.classList.add('hidden');
+    scene.resetSession();
+  } catch (error) {
+    gateError.textContent = error instanceof Error ? error.message : 'Could not enter the beta.';
+    begin.disabled = false;
+  }
 });
 
 // Feed the live spectrum to generated effects every frame.

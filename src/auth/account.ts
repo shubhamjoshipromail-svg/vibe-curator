@@ -67,6 +67,11 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
       panel.insertBefore(upgrade, action);
       panel.insertBefore(manage, action);
     }
+    const privacy = document.createElement('a');
+    privacy.className = 'account-link';
+    privacy.href = '/data';
+    privacy.textContent = 'Privacy & your data';
+    panel.appendChild(privacy);
     root.appendChild(panel);
   });
 }

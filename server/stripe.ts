@@ -4,6 +4,7 @@ import type { Plugin } from 'vite';
 import { viewerFor } from './auth';
 import { grantCredits } from './credits';
 import { database, ensureProductSchema } from './database';
+import { billingEnabled } from './beta';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 const CREDIT_PACK_SIZE = 100;
@@ -203,6 +204,9 @@ export function stripePlugin(): Plugin {
       server.middlewares.use('/api/stripe', async (req, res) => {
         const path = (req.url ?? '/').split('?')[0];
         try {
+          if (!billingEnabled()) {
+            return json(res, 503, { message: 'Payments are not enabled during the free beta.' });
+          }
           if (req.method === 'POST' && (path === '/webhook' || path === 'webhook')) {
             const payload = await readBody(req);
             const signature = req.headers['stripe-signature'];

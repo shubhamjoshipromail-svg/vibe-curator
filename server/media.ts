@@ -15,6 +15,7 @@ import {
   type CreditOperation,
   type CreditReservation,
 } from './credits';
+import { generationAllowed, generationDisabledMessage, generationMode } from './beta';
 
 const MUSIC_MODEL = 'music_v2';
 const MUSIC_PROVIDER = 'elevenlabs';
@@ -212,10 +213,11 @@ export function mediaPlugin(mode: string): Plugin {
         const path = (req.url ?? '').split('?')[0];
         if (req.method === 'GET' && (path === '/status' || path === 'status')) {
           sendJson(res, 200, {
-            sceneGeneration: Boolean(openAiKey),
-            motionGeneration: Boolean(gemini),
-            musicGeneration: Boolean(elevenKey),
-            musicPromptAdaptation: Boolean(anthropic),
+            sceneGeneration: generationAllowed('image') && Boolean(openAiKey),
+            motionGeneration: generationAllowed('motion') && Boolean(gemini),
+            musicGeneration: generationAllowed('music') && Boolean(elevenKey),
+            musicPromptAdaptation: generationAllowed('direction') && Boolean(anthropic),
+            generationMode: generationMode(),
             imageProvider: IMAGE_PROVIDER,
             imageModel: IMAGE_MODEL,
             motionModel: VIDEO_MODEL,
@@ -246,6 +248,10 @@ export function mediaPlugin(mode: string): Plugin {
           ? idempotencyKeyHeader : undefined;
 
         if (path === '/image' || path === 'image') {
+          if (!generationAllowed('image')) {
+            sendJson(res, 503, { message: generationDisabledMessage() });
+            return;
+          }
           if (!openAiKey) {
             sendJson(res, 503, { message: 'Image generation needs OPENAI_API_KEY on the local server.' });
             return;
@@ -317,6 +323,10 @@ export function mediaPlugin(mode: string): Plugin {
         }
 
         if (path === '/motion' || path === 'motion') {
+          if (!generationAllowed('motion')) {
+            sendJson(res, 503, { message: generationDisabledMessage() });
+            return;
+          }
           if (!gemini || !geminiKey) {
             sendJson(res, 503, { message: 'Motion generation needs GEMINI_API_KEY on the local server.' });
             return;
@@ -401,6 +411,10 @@ export function mediaPlugin(mode: string): Plugin {
         }
 
         if (path === '/music-prompt' || path === 'music-prompt') {
+          if (!generationAllowed('direction')) {
+            sendJson(res, 503, { message: generationDisabledMessage() });
+            return;
+          }
           if (!anthropic) {
             sendJson(res, 503, { message: 'Artist-reference adaptation needs ANTHROPIC_API_KEY on the local server.' });
             return;
@@ -438,6 +452,10 @@ export function mediaPlugin(mode: string): Plugin {
 
         if (path !== '/music' && path !== 'music') {
           sendJson(res, 404, { message: 'Media operation not found.' });
+          return;
+        }
+        if (!generationAllowed('music')) {
+          sendJson(res, 503, { message: generationDisabledMessage() });
           return;
         }
         if (!elevenKey) {

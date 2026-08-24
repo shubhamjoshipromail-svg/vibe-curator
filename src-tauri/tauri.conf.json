@@ -46,6 +46,13 @@
       }
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["vibecurator"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -28,7 +28,9 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     <div class="player-control-drawer" id="player-drawer" aria-hidden="true">
       <div class="player-actions">
         <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
-        <button class="ghost" id="desktop">Set as desktop</button>
+        ${runtimeHost.kind === 'tauri'
+          ? '<button class="ghost" id="desktop">Set as desktop</button>'
+          : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="ghost" id="desktop">Open desktop app</button>'}
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
@@ -64,14 +66,18 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;
     try {
-      await runtimeHost.activatePreset(preset.id);
-      button.textContent = runtimeHost.kind === 'tauri' ? 'Desktop updated' : 'Wallpaper opened';
+      if (runtimeHost.kind === 'tauri') await runtimeHost.activatePreset(preset.id);
+      else await runtimeHost.openNativeApp(preset.id);
+      button.textContent = runtimeHost.kind === 'tauri' ? 'Desktop updated' : 'Opening desktop app…';
     } catch (error) {
       console.error('[vibe] could not activate wallpaper', error);
       button.textContent = 'Could not update desktop';
     } finally {
       button.disabled = false;
     }
+  });
+  host.querySelector<HTMLButtonElement>('#desktop-preview')?.addEventListener('click', async () => {
+    await runtimeHost.activatePreset(preset.id);
   });
   host.querySelector('#browse')?.addEventListener('click', () => {
     if (history.length > 1) history.back();

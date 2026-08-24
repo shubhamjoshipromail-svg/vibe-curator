@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { IncomingMessage } from 'node:http';
 import { viewerFor } from './auth';
 import { completeReservation, failReservation, reserveCredits, type CreditReservation } from './credits';
+import { generationAllowed, generationDisabledMessage } from './beta';
 // @ts-expect-error — plain .mjs shared with the built-in library generator, so
 // the shipped examples and the runtime path can never drift apart.
 import { SYSTEM_PROMPT, SHADER_SCHEMA, buildUserMessage, MODEL } from './shader-prompt.mjs';
@@ -70,6 +71,11 @@ export function genShaderPlugin(mode: string): Plugin {
         if (req.method !== 'POST') {
           res.statusCode = 405;
           res.end('POST only');
+          return;
+        }
+        if (!generationAllowed('shader')) {
+          res.statusCode = 503;
+          res.end(generationDisabledMessage());
           return;
         }
         if (!client) {

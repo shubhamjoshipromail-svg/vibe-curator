@@ -24,6 +24,10 @@ export async function ensureOwnerStorage(ownerId: string): Promise<void> {
   await mkdir(ownerAssetDir(ownerId), { recursive: true });
 }
 
+export async function deleteOwnerStorage(ownerId: string): Promise<void> {
+  await rm(ownerDir(ownerId), { recursive: true, force: true });
+}
+
 async function exists(path: string): Promise<boolean> {
   return stat(path).then(() => true, () => false);
 }

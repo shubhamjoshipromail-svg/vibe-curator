@@ -11,6 +11,7 @@ export interface RuntimeHost {
   activatePreset(presetId: string): Promise<void>;
   enterWallpaperMode(): Promise<void>;
   leaveWallpaperMode(): Promise<void>;
+  openNativeApp(presetId: string): Promise<void>;
 }
 
 function isTauriRuntime(): boolean {
@@ -35,6 +36,10 @@ const browserHost: RuntimeHost = {
   async leaveWallpaperMode() {
     window.close();
   },
+  async openNativeApp(presetId) {
+    if (!/^[a-zA-Z0-9_-]{1,160}$/.test(presetId)) throw new Error('Invalid preset id.');
+    location.href = `vibecurator://open?preset=${encodeURIComponent(presetId)}`;
+  },
 };
 
 const tauriHost: RuntimeHost = {
@@ -46,6 +51,9 @@ const tauriHost: RuntimeHost = {
   },
   enterWallpaperMode: () => invokeNative('enter_wallpaper_mode'),
   leaveWallpaperMode: () => invokeNative('leave_wallpaper_mode'),
+  openNativeApp: async (presetId) => {
+    await tauriHost.activatePreset(presetId);
+  },
 };
 
 export const runtimeHost: RuntimeHost = isTauriRuntime() ? tauriHost : browserHost;

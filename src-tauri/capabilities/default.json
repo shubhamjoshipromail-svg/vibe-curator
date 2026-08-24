@@ -9,6 +9,7 @@
     ]
   },
   "permissions": [
-    "core:default"
+    "core:default",
+    "deep-link:default"
   ]
 }

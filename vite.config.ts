@@ -7,6 +7,7 @@ import { authPlugin } from './server/auth';
 import { billingPlugin } from './server/billing';
 import { stripePlugin } from './server/stripe';
 import { securityPlugin } from './server/security';
+import { privacyPlugin } from './server/privacy';
 
 function previewApiBridge(apiPlugins: Plugin[]): Plugin {
   return {
@@ -35,6 +36,7 @@ export default defineConfig(({ mode }) => {
   const apiPlugins = [
     securityPlugin(),
     authPlugin(),
+    privacyPlugin(),
     billingPlugin(),
     stripePlugin(),
     genShaderPlugin(mode),
