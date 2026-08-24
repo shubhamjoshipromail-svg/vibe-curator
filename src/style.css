@@ -568,5 +568,18 @@ code { padding: 2px 6px; border-radius: 5px; background: rgba(255,255,255,.08); 
   border-color: rgba(255, 255, 255, .24);
   box-shadow: 0 12px 38px rgba(0,0,0,.32);
   backdrop-filter: blur(16px);
+  transition: opacity .8s ease, background .2s ease, border-color .2s ease, transform .1s ease;
 }
+#wallpaper-sound[data-sleeping='true'] {
+  opacity: .16;
+  padding-inline: 13px;
+  color: transparent;
+  background: rgba(8, 9, 13, .42);
+  border-color: rgba(255, 255, 255, .12);
+}
+#wallpaper-sound[data-sleeping='true']::after {
+  content: '♪';
+  color: rgba(255, 255, 255, .8);
+}
+#wallpaper-sound[data-sleeping='false'], #wallpaper-sound:hover, #wallpaper-sound:focus-visible { opacity: 1; }
 #wallpaper-sound:active { transform: translateX(-50%) translateY(1px); }

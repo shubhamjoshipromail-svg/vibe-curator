@@ -17,6 +17,8 @@ import { cacheTransferredAsset } from './media/assets';
 import type { Preset } from './preset/types';
 
 const ACTIVE_PRESET_KEY = 'vibe.wallpaper.preset-id';
+const STARTER_PRESET_ID = 'market-pixel-last-broadcast';
+const STARTER_MUSIC_ID = 'builtin_last_broadcast_score';
 const app = document.querySelector<HTMLDivElement>('#wallpaper-app')!;
 const stage = document.querySelector<HTMLDivElement>('#stage')!;
 const status = document.querySelector<HTMLDivElement>('#wallpaper-status')!;
@@ -54,9 +56,36 @@ async function receiveActivation(token: string): Promise<Preset> {
   return body.preset;
 }
 
+async function bundledStarterPreset(): Promise<Preset> {
+  const source = getPreset(STARTER_PRESET_ID);
+  if (!source) throw new Error('The starter room is unavailable.');
+  const preset = structuredClone(source);
+  preset.music = {
+    assetId: STARTER_MUSIC_ID,
+    url: '/audio/curated/last-broadcast.mp3',
+    name: 'The Last Broadcast — instrumental ambient score',
+    mimeType: 'audio/mpeg',
+    durationSeconds: 30,
+    provenance: {
+      provider: 'elevenlabs',
+      model: 'music_v2',
+      vocalMode: 'instrumental',
+      createdAt: '2026-08-13T22:18:47.735Z',
+      parentPresetId: STARTER_PRESET_ID,
+    },
+  };
+  return preset;
+}
+
 async function startSound(): Promise<void> {
   const preset = state.loaded;
-  if (!preset || state.started) return;
+  if (!preset) return;
+  if (state.started) {
+    await runtimeHost.enterWallpaperMode();
+    sound.textContent = 'Sound on';
+    sound.dataset.sleeping = 'true';
+    return;
+  }
   sound.disabled = true;
   try {
     audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
@@ -64,11 +93,12 @@ async function startSound(): Promise<void> {
     state.started = true;
     syncAudioLayers(state, preset);
     await syncGeneratedMusic(state, preset);
-    sound.hidden = true;
+    sound.textContent = 'Sound on';
+    window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 2600);
     await runtimeHost.enterWallpaperMode();
   } catch (error) {
     console.error('[vibe] wallpaper audio failed to start', error);
-    sound.textContent = 'Sound unavailable';
+    sound.textContent = error instanceof Error ? `Sound unavailable · ${error.message}` : 'Sound unavailable';
   } finally {
     sound.disabled = false;
   }
@@ -88,7 +118,9 @@ async function boot(): Promise<void> {
 
   const preset = activationToken
     ? await receiveActivation(activationToken)
-    : (requestedPresetId() ? getPreset(requestedPresetId()!) : undefined) ?? listPresets()[0];
+    : (isBundledSurface() && requestedPresetId() === STARTER_PRESET_ID
+      ? await bundledStarterPreset()
+      : (requestedPresetId() ? getPreset(requestedPresetId()!) : undefined) ?? listPresets()[0]);
   localStorage.setItem(ACTIVE_PRESET_KEY, preset.id);
   document.title = `${preset.name} — Vibe Curator`;
 
@@ -105,6 +137,10 @@ async function boot(): Promise<void> {
 sound.addEventListener('click', () => void startSound());
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'm') void startSound();
+});
+window.addEventListener('focus', () => {
+  sound.dataset.sleeping = 'false';
+  if (state.started) window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 4200);
 });
 
 let audioPump = 0;

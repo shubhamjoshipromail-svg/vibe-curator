@@ -5,7 +5,7 @@
   "identifier": "com.vibecurator.player",
   "build": {
     "beforeDevCommand": "npm run dev -- --host 0.0.0.0",
-    "devUrl": "http://localhost:5178/wallpaper.html?preset=living-koi",
+    "devUrl": "http://localhost:5178/wallpaper.html?preset=market-pixel-last-broadcast",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -14,7 +14,7 @@
       {
         "label": "wallpaper",
         "title": "Vibe Curator",
-        "url": "wallpaper.html?preset=living-koi",
+        "url": "wallpaper.html?preset=market-pixel-last-broadcast",
         "width": 1440,
         "height": 900,
         "decorations": false,

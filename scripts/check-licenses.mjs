@@ -17,7 +17,10 @@ import { join, resolve } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const PACK_DIRS = ['public/packs', 'public/audio'];
 
-const ACCEPTED = [/^CC0/i, /^public[- ]domain$/i, /^Unlicense$/i];
+// ElevenLabs paid-plan output is an explicit reviewed exception: its terms
+// permit commercial use and say users retain rights in their Output. Keep the
+// exact label narrow so generic "royalty free" assets still fail closed.
+const ACCEPTED = [/^CC0/i, /^public[- ]domain$/i, /^Unlicense$/i, /^ElevenLabs Paid Output Terms$/];
 
 const problems = [];
 let checked = 0;
