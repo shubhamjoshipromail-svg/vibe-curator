@@ -12,7 +12,12 @@ import {
 export async function mountAccountControl(host: HTMLElement): Promise<void> {
   const root = document.createElement('div');
   root.className = 'account-control';
-  root.innerHTML = `<button class="account-trigger" aria-haspopup="dialog" aria-expanded="false">Guest</button>`;
+  root.innerHTML = `
+    <a class="install-trigger" href="/desktop" aria-label="Install the Mac app">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5v10M8 12.5l4 4 4-4"/></svg>
+      <span>Install App</span>
+    </a>
+    <button class="account-trigger" aria-haspopup="dialog" aria-expanded="false">Guest</button>`;
   host.appendChild(root);
   const trigger = root.querySelector<HTMLButtonElement>('.account-trigger')!;
   let status: AuthStatus;

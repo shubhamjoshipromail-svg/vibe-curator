@@ -93,8 +93,16 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.primary { background: var(--ink); color: #14110f; border-color: transparent; font-weight: 500; }
 button.primary:hover { background: #fff; }
 button.ghost { background: transparent; }
-.account-control { position: fixed; z-index: 80; top: 22px; right: 24px; }
-.account-trigger { min-width: 74px; padding: 9px 15px; background: rgba(11,10,13,.24); border-color: rgba(255,255,255,.14); backdrop-filter: blur(18px); }
+.account-control { position: fixed; z-index: 80; top: 22px; right: 24px; display: flex; align-items: center; gap: 8px; }
+.account-trigger, .install-trigger {
+  min-height: 38px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+  background: rgba(11,10,13,.38); color: rgba(236,230,221,.88); backdrop-filter: blur(18px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.account-trigger { min-width: 74px; padding: 9px 15px; }
+.install-trigger { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px 8px 10px; font-size: 13px; font-weight: 700; text-decoration: none; }
+.install-trigger svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.account-trigger:hover, .install-trigger:hover { color: #fff; border-color: rgba(255,255,255,.25); background: rgba(236,230,221,.1); }
 .account-popover { position: absolute; top: calc(100% + 10px); right: 0; width: min(300px, calc(100vw - 32px)); padding: 18px; border: 1px solid rgba(255,255,255,.13); border-radius: 18px; background: rgba(14,12,16,.88); box-shadow: 0 18px 60px rgba(0,0,0,.38); backdrop-filter: blur(24px); }
 .account-popover strong { display: block; font-size: 16px; line-height: 1.25; }
 .account-popover p { margin: 7px 0 0; color: rgba(236,230,221,.66); font-size: 13px; line-height: 1.45; }
@@ -135,13 +143,6 @@ select {
 .explore-head { max-width: 900px; margin: 24px auto 28px; }
 .explore-head h1 { font-size: clamp(38px, 6vw, 78px); line-height: .95; letter-spacing: -.055em; max-width: 720px; }
 .explore-head .sub { max-width: 640px; font-size: 16px; line-height: 1.55; }
-.desktop-download {
-  width: fit-content; display: inline-flex; align-items: center; gap: 11px; margin-top: 12px;
-  color: rgba(236, 230, 221, .82); font-size: 16px; font-weight: 750; letter-spacing: -.01em;
-  transition: color .16s ease, opacity .16s ease;
-}
-.desktop-download svg { width: 31px; height: 31px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-.desktop-download:hover { color: #fff; }
 .eyebrow { margin: 0 0 12px; font-size: 10px; color: var(--dim); letter-spacing: .18em; font-weight: 700; }
 .create-studio {
   max-width: 900px;
