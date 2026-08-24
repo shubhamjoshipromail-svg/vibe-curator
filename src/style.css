@@ -287,8 +287,32 @@ select {
 
 /* --- labs ----------------------------------------------------------------- */
 
-.labs-head { align-items: center; }
-.labs-actions { display: flex; gap: 8px; }
+.labs-head { align-items: center; padding-top: 52px; }
+.labs-actions {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  background: rgba(8, 7, 12, .76);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(18px);
+}
+button.display-mac-button {
+  border-color: rgba(255, 255, 255, .62);
+  background: #7ee8ff;
+  color: #071014;
+  font-weight: 750;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .28), 0 5px 18px rgba(0, 0, 0, .3);
+}
+button.display-mac-button:hover { background: #b9f3ff; }
+
+@media (max-width: 760px) {
+  .labs-head { padding-top: 68px; align-items: stretch; }
+  .labs-actions { border-radius: 18px; flex-wrap: wrap; }
+  .labs-actions button { flex: 1 1 auto; }
+  .labs-actions .display-mac-button { flex-basis: 100%; }
+}
 
 .labs-panels {
   display: grid;

@@ -84,7 +84,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         <div class="labs-actions">
           <button class="ghost" id="back">← Back</button>
           <button class="ghost" id="save">Save</button>
-          <button class="ghost" id="display-mac">${runtimeHost.kind === 'tauri' ? 'Set desktop' : 'Display on Mac'}</button>
+          <button class="display-mac-button" id="display-mac">${runtimeHost.kind === 'tauri' ? 'Set as Mac desktop' : 'Send to Mac desktop'}</button>
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
       </header>
