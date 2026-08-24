@@ -43,7 +43,7 @@ export function renderExplore(
 ): void {
   host.innerHTML = `
     <header class="page-head explore-head">
-      <div><p class="eyebrow">VISUAL → MOTION → SOUND</p><h1>Make anything move.</h1><p class="sub">Describe a visual or start from your own image. The result stays editable, reactive and reusable.</p><a class="button-like ghost desktop-download" href="/desktop">Download Mac beta ↓</a></div>
+      <div><p class="eyebrow">VISUAL → ATMOSPHERE → SOUND</p><h1>Build a world worth staying in.</h1><p class="sub">Create a visual or start from your own image. Shape its mood with sound, effects and optional motion.</p><a class="button-like ghost desktop-download" href="/desktop">Download Mac beta ↓</a></div>
     </header>
     <section class="create-studio" aria-labelledby="create-title">
       <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
