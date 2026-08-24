@@ -13,6 +13,16 @@ export function generationMode(): GenerationMode {
 }
 
 export function generationAllowed(operation: CreditOperation): boolean {
+  const overrideName: Record<CreditOperation, string> = {
+    image: 'ENABLE_IMAGE_GENERATION',
+    music: 'ENABLE_MUSIC_GENERATION',
+    motion: 'ENABLE_MOTION_GENERATION',
+    shader: 'ENABLE_SHADER_GENERATION',
+    direction: 'ENABLE_DIRECTION_GENERATION',
+  };
+  const override = process.env[overrideName[operation]]?.toLowerCase();
+  if (override === 'true') return true;
+  if (override === 'false') return false;
   const mode = generationMode();
   if (mode === 'off') return false;
   if (mode === 'full') return true;
