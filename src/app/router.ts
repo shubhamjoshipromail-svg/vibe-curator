@@ -9,7 +9,8 @@ export type Route =
   | { name: 'explore'; view?: 'projects' | 'market'; folder?: string; type?: string; collection?: string }
   | { name: 'marketplace' }
   | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace' }
-  | { name: 'player' };
+  | { name: 'player' }
+  | { name: 'legal'; page: 'privacy' | 'terms' | 'beta' | 'desktop' | 'data' };
 
 export function parseRoute(locationPath: string): Route {
   const legacyHash = locationPath.includes('#/') ? locationPath.slice(locationPath.indexOf('#/') + 1) : locationPath;
@@ -22,6 +23,9 @@ export function parseRoute(locationPath: string): Route {
   }
   if (head === 'marketplace') return { name: 'marketplace' };
   if (head === 'player') return { name: 'player' };
+  if (head === 'privacy' || head === 'terms' || head === 'beta' || head === 'desktop' || head === 'data') {
+    return { name: 'legal', page: head };
+  }
   const params = new URLSearchParams(query);
   const folder = params.get('folder') ?? undefined;
   const type = params.get('type') ?? undefined;
@@ -42,6 +46,8 @@ export function toPath(route: Route): string {
       return '/marketplace';
     case 'player':
       return '/player';
+    case 'legal':
+      return `/${route.page}`;
     default:
       {
         const params = new URLSearchParams();

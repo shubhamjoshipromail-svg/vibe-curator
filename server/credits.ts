@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { database, ensureProductSchema } from './database';
+import { generationBudgets } from './beta';
 
 export const BETA_WELCOME_CREDITS = 100;
 
@@ -102,6 +103,10 @@ export async function reserveCredits(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    // One global lock makes the spend-limit check and reservation atomic across
+    // every app instance. This protects the owner's provider account, not just
+    // an individual user's credit balance.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('vibe:daily-provider-budget'))");
     // Serialize balance decisions for one owner without locking unrelated users.
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [ownerId]);
     const status = await statusWithClient(client, ownerId);
@@ -117,6 +122,24 @@ export async function reserveCredits(
       );
       if (existing.rowCount) {
         await client.query('COMMIT');
+        return undefined;
+      }
+    }
+    if (options.estimatedCostUsd && options.estimatedCostUsd > 0) {
+      const budgets = generationBudgets();
+      const spend = await client.query(
+        `SELECT
+           COALESCE(SUM(estimated_cost_usd) FILTER (WHERE created_at >= (date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')), 0)::float AS global_spend,
+           COALESCE(SUM(estimated_cost_usd) FILTER (WHERE owner_id = $1 AND created_at >= (date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')), 0)::float AS user_spend
+         FROM vibe_generation_jobs
+         WHERE estimated_cost_usd IS NOT NULL`,
+        [ownerId],
+      );
+      const globalSpend = Number(spend.rows[0]?.global_spend ?? 0);
+      const userSpend = Number(spend.rows[0]?.user_spend ?? 0);
+      if (globalSpend + options.estimatedCostUsd > budgets.globalDailyUsd
+        || userSpend + options.estimatedCostUsd > budgets.userDailyUsd) {
+        await client.query('ROLLBACK');
         return undefined;
       }
     }

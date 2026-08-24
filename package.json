@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.116.0",
     "@google/genai": "^2.16.0",
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
     "better-auth": "^1.6.30",
     "pg": "^8.23.0",
     "pixi.js": "^8.6.6",

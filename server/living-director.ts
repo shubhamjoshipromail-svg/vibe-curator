@@ -3,6 +3,7 @@ import { loadEnv } from 'vite';
 import type { IncomingMessage } from 'node:http';
 import { viewerFor } from './auth';
 import { completeReservation, failReservation, reserveCredits, type CreditReservation } from './credits';
+import { generationAllowed, generationDisabledMessage } from './beta';
 
 const MODEL = 'gpt-5-mini';
 
@@ -65,6 +66,7 @@ export function livingDirectorPlugin(mode: string): Plugin {
     const key = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     server.middlewares.use('/api/living-director', async (req, res) => {
       if (req.method !== 'POST') return json(res, 405, { message: 'POST only' });
+      if (!generationAllowed('direction')) return json(res, 503, { message: generationDisabledMessage() });
       if (!key) return json(res, 503, { message: 'Automatic visual direction needs OPENAI_API_KEY on the server.' });
       let reservation: CreditReservation | undefined;
       try {

@@ -97,6 +97,17 @@ export function ensureProductSchema(): Promise<void> {
       processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (provider, event_id)
     );
+
+    CREATE TABLE IF NOT EXISTS vibe_policy_acknowledgements (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      policy_version TEXT NOT NULL,
+      source TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (owner_id, policy_version)
+    );
+    CREATE INDEX IF NOT EXISTS vibe_policy_ack_owner_created_idx
+      ON vibe_policy_acknowledgements (owner_id, created_at DESC);
   `).then(() => undefined);
   return initialized;
 }
@@ -146,6 +157,36 @@ export async function transferOwnership(fromUserId: string, toUserId: string): P
       [fromUserId, toUserId],
     );
     await client.query('DELETE FROM vibe_generation_jobs WHERE owner_id = $1', [fromUserId]);
+    await client.query(
+      `INSERT INTO vibe_policy_acknowledgements (id, owner_id, policy_version, source, created_at)
+       SELECT id, $2, policy_version, source, created_at
+       FROM vibe_policy_acknowledgements WHERE owner_id = $1
+       ON CONFLICT (owner_id, policy_version) DO NOTHING`,
+      [fromUserId, toUserId],
+    );
+    await client.query('DELETE FROM vibe_policy_acknowledgements WHERE owner_id = $1', [fromUserId]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteProductData(ownerId: string): Promise<void> {
+  const db = database();
+  if (!db) return;
+  await ensureProductSchema();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    for (const table of [
+      'vibe_projects', 'vibe_folders', 'vibe_assets', 'vibe_generation_jobs',
+      'vibe_credit_ledger', 'vibe_billing_accounts', 'vibe_policy_acknowledgements',
+    ]) {
+      await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [ownerId]);
+    }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

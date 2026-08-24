@@ -86,3 +86,37 @@ export async function openBillingPortal(): Promise<void> {
   if (!response.ok || !body.url) throw new Error(body.message || 'Billing portal could not open.');
   location.assign(body.url);
 }
+
+export async function acknowledgeBetaTerms(): Promise<void> {
+  const response = await fetch('/api/privacy/acknowledge', { method: 'POST', credentials: 'same-origin' });
+  if (!response.ok) throw new Error('Could not record the beta terms acknowledgment.');
+}
+
+export async function betaTermsStatus(): Promise<{ acknowledged: boolean; policyVersion: string; persistent: boolean }> {
+  const response = await fetch('/api/privacy/status', { credentials: 'same-origin', cache: 'no-store' });
+  if (!response.ok) throw new Error('Could not check the beta terms status.');
+  return response.json() as Promise<{ acknowledged: boolean; policyVersion: string; persistent: boolean }>;
+}
+
+export async function exportMyData(): Promise<void> {
+  const response = await fetch('/api/privacy/export', { credentials: 'same-origin' });
+  if (!response.ok) throw new Error('Your data export could not be prepared.');
+  const blob = await response.blob();
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `vibe-curator-data-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export async function deleteMyAccount(persistent: boolean): Promise<void> {
+  if (persistent) {
+    const result = await authClient.deleteUser();
+    if (result.error) throw new Error(result.error.message || 'Your account could not be deleted.');
+  } else {
+    const response = await fetch('/api/privacy/delete-product-data', { method: 'POST', credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Your local beta data could not be deleted.');
+  }
+  localStorage.clear();
+  location.assign('/');
+}

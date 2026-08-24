@@ -4,8 +4,8 @@ import type { Plugin } from 'vite';
 import { betterAuth } from 'better-auth';
 import { anonymous } from 'better-auth/plugins';
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node';
-import { database, ensureProductSchema, transferOwnership } from './database';
-import { transferOwnerStorage } from './storage';
+import { database, deleteProductData, ensureProductSchema, transferOwnership } from './database';
+import { deleteOwnerStorage, transferOwnerStorage } from './storage';
 
 const db = database();
 
@@ -57,6 +57,15 @@ export const auth = db ? betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
   } : undefined,
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => {
+        await deleteProductData(user.id);
+        await deleteOwnerStorage(user.id);
+      },
+    },
+  },
   plugins: [anonymous({
     emailDomainName: 'guest.vibecurator.local',
     onLinkAccount: async ({ anonymousUser, newUser }) => {
