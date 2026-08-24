@@ -9,6 +9,9 @@ import { generationAllowed, generationDisabledMessage } from './beta';
 // the shipped examples and the runtime path can never drift apart.
 import { SYSTEM_PROMPT, SHADER_SCHEMA, buildUserMessage, MODEL } from './shader-prompt.mjs';
 
+// Conservative reservation used by the company-wide beta spend ceiling.
+const SHADER_ESTIMATED_COST_USD = 0.05;
+
 /**
  * Dev-time generation proxy.
  *
@@ -102,6 +105,7 @@ export function genShaderPlugin(mode: string): Plugin {
           reservation = await reserveCredits(viewer.id, 'shader', {
             idempotencyKey: typeof header === 'string' && header.length <= 200 ? header : undefined,
             provider: 'anthropic',
+            estimatedCostUsd: SHADER_ESTIMATED_COST_USD,
           });
           if (!reservation) {
             res.statusCode = 402;
