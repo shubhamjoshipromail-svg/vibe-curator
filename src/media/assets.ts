@@ -41,6 +41,14 @@ async function putLocalAsset(id: string, blob: Blob): Promise<void> {
   db.close();
 }
 
+/** Cache an exact-id asset received through the short-lived native handoff. */
+export async function cacheTransferredAsset(id: string, blob: Blob): Promise<void> {
+  await putLocalAsset(id, blob);
+  const existing = urls.get(id);
+  if (existing) URL.revokeObjectURL(existing);
+  urls.delete(id);
+}
+
 async function getLocalAsset(id: string): Promise<Blob | undefined> {
   const db = await openDb();
   const result = await new Promise<StoredAsset | undefined>((resolve, reject) => {

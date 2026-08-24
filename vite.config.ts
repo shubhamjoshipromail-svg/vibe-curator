@@ -8,6 +8,7 @@ import { billingPlugin } from './server/billing';
 import { stripePlugin } from './server/stripe';
 import { securityPlugin } from './server/security';
 import { privacyPlugin } from './server/privacy';
+import { nativeActivationPlugin } from './server/native';
 
 function previewApiBridge(apiPlugins: Plugin[]): Plugin {
   return {
@@ -37,6 +38,7 @@ export default defineConfig(({ mode }) => {
     securityPlugin(),
     authPlugin(),
     privacyPlugin(),
+    nativeActivationPlugin(),
     billingPlugin(),
     stripePlugin(),
     genShaderPlugin(mode),

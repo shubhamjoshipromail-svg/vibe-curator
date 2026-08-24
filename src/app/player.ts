@@ -30,7 +30,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
         <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
         ${runtimeHost.kind === 'tauri'
           ? '<button class="ghost" id="desktop">Set as desktop</button>'
-          : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="ghost" id="desktop">Open desktop app</button>'}
+          : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="ghost" id="desktop">Display on Mac</button>'}
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
@@ -67,7 +67,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     button.disabled = true;
     try {
       if (runtimeHost.kind === 'tauri') await runtimeHost.activatePreset(preset.id);
-      else await runtimeHost.openNativeApp(preset.id);
+      else await runtimeHost.openNativeApp(preset);
       button.textContent = runtimeHost.kind === 'tauri' ? 'Desktop updated' : 'Opening desktop app…';
     } catch (error) {
       console.error('[vibe] could not activate wallpaper', error);

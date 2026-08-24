@@ -23,17 +23,6 @@
         "alwaysOnBottom": false,
         "visibleOnAllWorkspaces": true,
         "skipTaskbar": true
-      },
-      {
-        "label": "editor",
-        "title": "Vibe Curator",
-        "url": "index.html",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 900,
-        "minHeight": 650,
-        "visible": false,
-        "center": true
       }
     ],
     "security": {
