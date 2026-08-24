@@ -73,10 +73,39 @@ mod macos {
         }
         Ok(())
     }
+
+    pub fn set_desktop_icons_hidden(window: &WebviewWindow, hidden: bool) -> Result<(), String> {
+        let pointer = window.ns_window().map_err(|error| error.to_string())? as *mut c_void;
+        let native = pointer.cast::<AnyObject>();
+        if native.is_null() {
+            return Err("macOS did not return a native wallpaper window".into());
+        }
+        unsafe {
+            // This only changes our surface's stacking order. Finder and every
+            // file on the Desktop remain untouched.
+            let icon_level = CGWindowLevelForKey(DESKTOP_ICON_WINDOW_LEVEL_KEY);
+            let level = if hidden { icon_level + 1 } else { icon_level - 1 };
+            let _: () = msg_send![native, setLevel: level as isize];
+            let _: () = msg_send![native, orderFrontRegardless];
+        }
+        Ok(())
+    }
 }
 
 fn window_for_command(window: WebviewWindow) -> WebviewWindow {
     window
+}
+
+fn size_to_current_monitor(window: &WebviewWindow) -> Result<(), String> {
+    if let Some(monitor) = window.current_monitor().map_err(|error| error.to_string())? {
+        window
+            .set_position(*monitor.position())
+            .map_err(|error| error.to_string())?;
+        window
+            .set_size(*monitor.size())
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 fn activation_token_from_args(args: &[String]) -> Option<String> {
@@ -96,11 +125,19 @@ fn activation_token_from_args(args: &[String]) -> Option<String> {
 }
 
 fn prepare_wallpaper_activation(window: &WebviewWindow) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    macos::set_desktop_level(window, false)?;
     window.set_decorations(false).map_err(|error| error.to_string())?;
+    window
+        .set_simple_fullscreen(false)
+        .map_err(|error| error.to_string())?;
+    size_to_current_monitor(window)?;
+    #[cfg(target_os = "macos")]
+    {
+        // Attach to the actual desktop immediately, but leave mouse input on
+        // until the user gesture required by Web Audio has been received.
+        macos::set_desktop_level(window, true)?;
+        macos::set_click_through(window, false)?;
+    }
     window.set_focusable(true).map_err(|error| error.to_string())?;
-    window.set_simple_fullscreen(true).map_err(|error| error.to_string())?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
     Ok(())
@@ -148,9 +185,7 @@ fn enter_wallpaper_mode(window: WebviewWindow) -> Result<(), String> {
     window
         .set_focusable(false)
         .map_err(|error| error.to_string())?;
-    window
-        .set_simple_fullscreen(true)
-        .map_err(|error| error.to_string())?;
+    size_to_current_monitor(&window)?;
 
     #[cfg(target_os = "macos")]
     macos::set_desktop_level(&window, true)?;
@@ -255,8 +290,25 @@ pub fn run() {
             )?;
             let show = MenuItem::with_id(app, "show", "Show wallpaper", true, None::<&str>)?;
             let pause = MenuItem::with_id(app, "pause", "Hide wallpaper", true, None::<&str>)?;
+            let clean_desktop = MenuItem::with_id(
+                app,
+                "clean-desktop",
+                "Clean desktop (hide icons)",
+                true,
+                None::<&str>,
+            )?;
+            let show_icons = MenuItem::with_id(
+                app,
+                "show-icons",
+                "Show desktop icons",
+                true,
+                None::<&str>,
+            )?;
             let quit = MenuItem::with_id(app, "quit", "Quit Vibe Curator", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&editor, &controls, &show, &pause, &quit])?;
+            let menu = Menu::with_items(
+                app,
+                &[&editor, &controls, &show, &pause, &clean_desktop, &show_icons, &quit],
+            )?;
 
             let mut tray = TrayIconBuilder::with_id("vibe-curator").menu(&menu);
             if let Some(icon) = app.default_window_icon() {
@@ -277,6 +329,18 @@ pub fn run() {
                 "pause" => {
                     if let Some(window) = app.get_webview_window("wallpaper") {
                         let _ = window.hide();
+                    }
+                }
+                "clean-desktop" => {
+                    if let Some(window) = app.get_webview_window("wallpaper") {
+                        #[cfg(target_os = "macos")]
+                        let _ = macos::set_desktop_icons_hidden(&window, true);
+                    }
+                }
+                "show-icons" => {
+                    if let Some(window) = app.get_webview_window("wallpaper") {
+                        #[cfg(target_os = "macos")]
+                        let _ = macos::set_desktop_icons_hidden(&window, false);
                     }
                 }
                 "quit" => app.exit(0),
