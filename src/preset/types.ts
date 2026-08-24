@@ -114,6 +114,8 @@ export type SceneLayer =
 /** A generated track is an authored asset, not something regenerated at playback. */
 export interface MusicAsset {
   assetId: string;
+  /** Bundled curator tracks may load directly; user tracks remain private asset IDs. */
+  url?: string;
   name: string;
   mimeType: string;
   durationSeconds?: number;
