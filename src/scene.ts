@@ -572,10 +572,12 @@ export class Scene {
   }
 
   private tick(dt: number): void {
-    // Two clocks. Animator motion runs in real time; only the arc is scaled, so
-    // fast-forwarding a session previews the arc without strobing the fire.
-    this.t += dt;
-    this.sessionT += dt * this.timeScale;
+    // Motion is the master clock. At zero, every animator, generated effect,
+    // procedural source and session arc is genuinely frozen rather than left
+    // with a hidden minimum speed.
+    const c = this.controls;
+    this.t += dt * c.motion;
+    this.sessionT += dt * this.timeScale * c.motion;
 
     // --- the session arc ---------------------------------------------------
     // The one thing separating a room from a wallpaper. Everything downstream
@@ -584,10 +586,7 @@ export class Scene {
     this.progress = Math.min(1, this.sessionT / (arc.minutes * 60));
     const state = arcAt(arc, this.progress);
 
-    // Motion scales the arc rather than replacing it: at motion 0 the scene is
-    // nearly still but still breathes; at 1 it runs at full arc energy.
-    const c = this.controls;
-    this.energy = state.energy * (0.25 + 0.75 * c.motion);
+    this.energy = state.energy * c.motion;
     this.warmth = state.warmth * (0.55 + 0.75 * c.mood);
 
     const ctx = this.frameCtx(dt);

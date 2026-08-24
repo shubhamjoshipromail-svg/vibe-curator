@@ -135,6 +135,7 @@ select {
 .explore-head { max-width: 900px; margin: 24px auto 28px; }
 .explore-head h1 { font-size: clamp(38px, 6vw, 78px); line-height: .95; letter-spacing: -.055em; max-width: 720px; }
 .explore-head .sub { max-width: 640px; font-size: 16px; line-height: 1.55; }
+.desktop-download { margin-top: 10px; }
 .eyebrow { margin: 0 0 12px; font-size: 10px; color: var(--dim); letter-spacing: .18em; font-weight: 700; }
 .create-studio {
   max-width: 900px;
@@ -189,8 +190,8 @@ select {
 .folder-card-copy small { color: var(--muted); line-height: 1.42; }
 .folder-card-copy em { margin-top: auto; color: var(--paper); font-size: 12px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .market-collection-card { position: relative; background: #0b0a0f; }
-.collection-hero { width: 100%; aspect-ratio: 16 / 10; display: block; object-fit: cover; transition: transform .35s ease; }
-.market-collection-card:hover .collection-hero { transform: scale(1.025); }
+.market-collection-card:hover { transform: none; }
+.collection-hero { width: 100%; aspect-ratio: 16 / 10; display: block; object-fit: cover; }
 .market-collection-card .folder-card-copy { position: relative; min-height: 142px; background: linear-gradient(180deg, rgba(11,10,15,.93), #0b0a0f); }
 .market-collection-card .folder-card-copy strong { font-size: 22px; letter-spacing: -.02em; }
 .collection-kicker { color: #d5b278; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -240,6 +241,7 @@ select {
   flex-direction: column;
 }
 .card:hover, .card:focus-visible { transform: translateY(-3px); border-color: rgba(236, 230, 221, 0.34); outline: none; }
+.market-card:hover, .market-card:focus-visible { transform: none; }
 
 .card-thumb { width: 100%; aspect-ratio: 16 / 9; display: block; object-fit: cover; }
 .card-body { padding: 14px 16px 6px; flex: 1; }
