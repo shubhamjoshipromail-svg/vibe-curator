@@ -50,7 +50,7 @@ The design follows GDPR principles of lawfulness/transparency, purpose limitatio
 ## User rights and retention
 
 - [x] Self-service JSON product-data export is available at `/data`.
-- [x] Self-service account deletion removes product database records and volume-backed files through the authenticated account deletion hook.
+- [x] Self-service account deletion removes identity-linked product records and volume-backed files through the authenticated account deletion hook; only de-identified cost/security rows remain so deletion cannot reset the global provider ceiling.
 - [x] Guest/local product data can also be deleted.
 - [ ] Test export and deletion on a real Railway guest, Google-linked account, and account with assets; verify backups expire according to the documented schedule.
 - [ ] Add correction/contact workflow and an internal request log. GDPR requests generally require a response without undue delay and in principle within one month: [European Commission—handling requests](https://commission.europa.eu/law/law-topic/data-protection/information-business-and-organisations/dealing-requests-individuals_en).

@@ -20,7 +20,7 @@ const privacy = shell('Privacy Notice', `
   <h2>AI providers</h2>
   <p>When you deliberately choose an AI generation or analysis action, the prompt and relevant source media may be sent to the named provider shown in the feature. Production AI generation is disabled by default during the beta. Do not upload confidential, identifying, or third-party personal information.</p>
   <h2>Why and how long</h2>
-  <p>We process necessary data to provide the service, secure it, prevent abuse, and meet legal obligations. Account content remains until you delete it or your account. Operational and hosting logs are retained only as needed for security and reliability under provider settings. Minimal records may be retained when legally required.</p>
+  <p>We process necessary data to provide the service, secure it, prevent abuse, and meet legal obligations. Account content remains until you delete it or your account. Operational and hosting logs are retained only as needed for security and reliability under provider settings. After deletion, a minimal de-identified generation cost record may remain temporarily to enforce provider budgets, prevent abuse, and meet legal obligations; prompts, source media, account identifiers, provider request IDs, and idempotency links are removed from that record.</p>
   <h2>Processors and transfers</h2>
   <p>Current or optional processors may include Railway and PostgreSQL hosting, Google OAuth, selected AI providers, and Stripe only after payments are enabled. These providers may process data in other countries under their own contractual safeguards.</p>
   <h2>Your choices and rights</h2>
