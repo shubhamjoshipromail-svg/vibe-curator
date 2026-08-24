@@ -135,7 +135,13 @@ select {
 .explore-head { max-width: 900px; margin: 24px auto 28px; }
 .explore-head h1 { font-size: clamp(38px, 6vw, 78px); line-height: .95; letter-spacing: -.055em; max-width: 720px; }
 .explore-head .sub { max-width: 640px; font-size: 16px; line-height: 1.55; }
-.desktop-download { margin-top: 10px; }
+.desktop-download {
+  width: fit-content; display: inline-flex; align-items: center; gap: 11px; margin-top: 12px;
+  color: rgba(236, 230, 221, .82); font-size: 16px; font-weight: 750; letter-spacing: -.01em;
+  transition: color .16s ease, opacity .16s ease;
+}
+.desktop-download svg { width: 31px; height: 31px; fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.desktop-download:hover { color: #fff; }
 .eyebrow { margin: 0 0 12px; font-size: 10px; color: var(--dim); letter-spacing: .18em; font-weight: 700; }
 .create-studio {
   max-width: 900px;
