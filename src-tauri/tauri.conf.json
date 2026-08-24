@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Vibe Curator",
+  "version": "0.1.0",
+  "identifier": "com.vibecurator.player",
+  "build": {
+    "beforeDevCommand": "npm run dev -- --host 0.0.0.0",
+    "devUrl": "http://localhost:5178/wallpaper.html?preset=living-koi",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "wallpaper",
+        "title": "Vibe Curator",
+        "url": "wallpaper.html?preset=living-koi",
+        "width": 1440,
+        "height": 900,
+        "decorations": false,
+        "resizable": true,
+        "fullscreen": false,
+        "alwaysOnBottom": false,
+        "visibleOnAllWorkspaces": true,
+        "skipTaskbar": true
+      },
+      {
+        "label": "editor",
+        "title": "Vibe Curator",
+        "url": "index.html",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 650,
+        "visible": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self' customprotocol: asset:",
+        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5178 ws://localhost:5178 https:",
+        "img-src": "'self' asset: http://asset.localhost blob: data: https:",
+        "media-src": "'self' asset: http://asset.localhost blob: data: https:",
+        "style-src": "'self' 'unsafe-inline'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Entertainment",
+    "shortDescription": "Living audiovisual wallpapers from Vibe Curator"
+  }
+}

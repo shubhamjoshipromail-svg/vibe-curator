@@ -1,5 +1,6 @@
 import { createAuthClient } from 'better-auth/client';
 import { anonymousClient } from 'better-auth/client/plugins';
+import { accountOrigin } from '../runtime/config';
 
 export interface AuthStatus {
   viewer?: {
@@ -27,7 +28,13 @@ export interface BillingStatus {
   checkoutConfigured: boolean;
 }
 
-export const authClient = createAuthClient({ plugins: [anonymousClient()] });
+// Better Auth intentionally accepts only HTTP(S) base URLs. The local Tauri
+// wallpaper uses a custom scheme, so initialize against the public account
+// origin even though its offline boot path does not require a session.
+export const authClient = createAuthClient({
+  baseURL: accountOrigin(),
+  plugins: [anonymousClient()],
+});
 
 export async function authStatus(): Promise<AuthStatus> {
   const response = await fetch('/api/auth/vibe-status', { cache: 'no-store', credentials: 'same-origin' });

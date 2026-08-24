@@ -109,8 +109,8 @@ The finished environment.
 | Curated/community Market model | Working prototype | Collection folders and remixable preset cards |
 | Performance-aware rendering | Working | 15 fps Explore, 30 fps Labs, 60 fps Player; hidden-tab suspension |
 | Railway web deployment | Shipped | Production app at `vibe-curator-production.up.railway.app` |
-| Native application | Planned | Tauri 2 is the recommended first shell |
-| Cloud accounts and sync | Planned | Postgres metadata, object storage for media, and durable background jobs |
+| Native application | Working macOS beta | Tauri 2 wallpaper window, tray controls, hosted editor, autostart foundation |
+| Cloud accounts and credits | Working beta | Better Auth guests, Google-ready account linking, Postgres credit ledger |
 
 ## System architecture
 
@@ -271,18 +271,20 @@ The current performance bottleneck is local GPU/CPU composition. Railway becomes
 
 The interactive renderer should remain local-first so opening and playing a world never waits on the network.
 
-## Native application strategy
+## Native application
 
-The recommended next delivery layer is **Tauri 2** around the existing TypeScript/Pixi application.
+The repository now includes a working **Tauri 2** macOS beta around the TypeScript/Pixi application. It starts with a bundled offline wallpaper, places that window at desktop level, exposes sound/interactivity through the tray, and opens the deployed Railway app as its editor. Keeping the editor on the canonical HTTPS origin preserves normal secure cookies, OAuth callbacks, billing, and cloud-library behavior.
 
-Tauri offers the smallest responsible step toward a native product while preserving the validated interaction model. The native layer should own:
+The remote capability manifest grants only Tauri core access to the exact production origin. It does not expose filesystem or shell plugins. The four custom commands validate preset identifiers and are limited to wallpaper window behavior.
 
-- secure credential storage;
-- filesystem import/export and project packages;
-- background generation jobs and notifications;
+The native layer currently owns:
+
 - window, sleep/wake, wallpaper, and multi-display behavior;
-- system-audio capture permissions where legally and technically appropriate;
-- a separate fixed-quality render/export worker.
+- system tray access to the editor, wallpaper visibility, controls, and quit;
+- the boundary between an offline starter scene and the hosted account surface;
+- an autostart plugin foundation, without silently enabling login launch.
+
+Signing, notarization, automatic updates, multi-display selection, and user-facing launch-at-login controls remain release work. Secure credential storage and filesystem import/export should be added only when a native feature genuinely requires them; provider secrets remain server-side.
 
 The `Scene` interface remains the rendering boundary. A Rust/WGPU rewrite should happen only if measurements show WebView/WebGL is the remaining constraint—not because “native” automatically implies rewriting a working renderer.
 
@@ -332,6 +334,10 @@ Market cards are not flattened videos. They are remixable presets that open in L
 | [`server/media.ts`](server/media.ts) | Secret-holding image, motion, prompt-adaptation, and music proxy |
 | [`server/gen-shader.ts`](server/gen-shader.ts) | Secret-holding shader generation proxy |
 | [`server/library.ts`](server/library.ts) | Shared local project, folder, and binary asset endpoints |
+| [`src/runtime/host.ts`](src/runtime/host.ts) | Browser/Tauri wallpaper capability boundary |
+| [`src/wallpaper.ts`](src/wallpaper.ts) | Standalone offline/hosted wallpaper entrypoint |
+| [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs) | Desktop window levels, tray menu, and validated native commands |
+| [`src-tauri/capabilities/default.json`](src-tauri/capabilities/default.json) | Exact remote-origin native permission boundary |
 | [`scripts/check-licenses.mjs`](scripts/check-licenses.mjs) | Content licensing build gate |
 
 ## Run locally
@@ -384,6 +390,15 @@ Preview the production build:
 npm run preview
 ```
 
+Build the macOS desktop beta (Rust and the Tauri CLI are also required):
+
+```bash
+npm run dev:native
+npm run build:native
+```
+
+Release bundles default to the Railway production origin. To build for a different HTTPS app origin, set `VIBE_APP_URL` at compile time and update the exact matching URL in `src-tauri/capabilities/default.json`; the two values intentionally fail closed when they diverge.
+
 ## Roadmap
 
 ### Product
@@ -404,7 +419,8 @@ npm run preview
 
 ### Platform
 
-- Tauri 2 desktop shell.
+- Sign and notarize the Tauri macOS bundle, then add verified automatic updates.
+- Add explicit launch-at-login controls and multi-display wallpaper selection.
 - Expand the shipped Railway web deployment into a durable generation/job API.
 - Postgres for metadata and object storage for media.
 - Durable job state, cancellation, retries, and background notifications.
@@ -422,6 +438,7 @@ ComfyUI is intentionally deferred. It becomes valuable when a single authored wo
 - Generated media has estimated rather than provider-reconciled per-request billing.
 - The repository has build/type/license validation but does not yet have a full automated browser performance suite.
 - Some visual content remains deliberately procedural or fixture-based while the product loop is validated.
+- The macOS bundle is a developer beta: it is not yet signed, notarized, or distributed through an updater.
 
 ## What this project demonstrates
 

@@ -1,3 +1,7 @@
+// Pixi's strict-CSP adapter replaces its eval-generated synchronizers with
+// static implementations. Despite the package name, this removes the need for
+// `unsafe-eval` and is required by both Railway's CSP and packaged WebViews.
+import 'pixi.js/unsafe-eval';
 import { Application, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { FrameCtx, LayerRuntime, LayerSpec, VibeSpec } from './types';
 import { ARCHETYPES, type SlotDef } from './archetypes';

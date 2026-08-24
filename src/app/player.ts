@@ -2,6 +2,7 @@ import type { AppState } from './state';
 import { audioSpecForPreset, syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
 import { savePreset } from '../preset/library';
+import { runtimeHost } from '../runtime/host';
 
 /**
  * Player — where the environment is actually experienced.
@@ -27,6 +28,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     <div class="player-control-drawer" id="player-drawer" aria-hidden="true">
       <div class="player-actions">
         <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
+        <button class="ghost" id="desktop">Set as desktop</button>
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
@@ -58,6 +60,19 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
   host.querySelector('#edit')?.addEventListener('click', () =>
     navigate({ name: 'labs', presetId: preset.id }),
   );
+  host.querySelector<HTMLButtonElement>('#desktop')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      await runtimeHost.activatePreset(preset.id);
+      button.textContent = runtimeHost.kind === 'tauri' ? 'Desktop updated' : 'Wallpaper opened';
+    } catch (error) {
+      console.error('[vibe] could not activate wallpaper', error);
+      button.textContent = 'Could not update desktop';
+    } finally {
+      button.disabled = false;
+    }
+  });
   host.querySelector('#browse')?.addEventListener('click', () => {
     if (history.length > 1) history.back();
     else navigate({ name: 'explore' });
