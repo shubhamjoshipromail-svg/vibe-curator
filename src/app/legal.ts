@@ -41,9 +41,13 @@ const beta = shell('How this beta works', `
   <h2>No API-key setup</h2><p>Testers do not need to bring provider keys. The company controls the few enabled server-side features and their budget. Curated, pre-generated scenes and sounds provide the main beta experience without an unpredictable bill.</p>`);
 
 const desktop = shell('Desktop app for Mac', `
-  <p>The Mac app does not need the Mac App Store. It can be downloaded from this website once the release is signed with a Developer ID and notarized by Apple. The current engineering build is ad-hoc signed and is not yet appropriate as a public download.</p>
+  <p>The Mac app does not need the Mac App Store. This early Apple-silicon beta is available now, but it is ad-hoc signed rather than notarized by Apple. macOS will warn you before first launch.</p>
   <h2>What the app does</h2><p>It runs a living scene behind desktop icons, adds a menu-bar control, and can be opened from the website with a <code>vibecurator://</code> link after installation. A WebSocket cannot wake a closed app; the registered deep link can.</p>
-  <div class="legal-callout"><strong>Download pending notarization</strong><p>The download button will be enabled only after the signed DMG passes Gatekeeper verification.</p><button disabled>Download for macOS</button></div>`);
+  <div class="legal-callout warning-callout"><strong>Unnotarized tester build</strong><p>Apple has not notarized this build. Download it only from this page. After dragging it to Applications, try opening it once, then use Finder’s right-click → Open flow or System Settings → Privacy &amp; Security → Open Anyway. Do not weaken Gatekeeper globally.</p>
+    <p><strong>Requirements:</strong> Apple-silicon Mac (M1 or newer), macOS 11 or newer.</p>
+    <a class="button-like primary" href="https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/download/v0.1.0-beta.1/Vibe-Curator-0.1.0-beta.1-arm64-unnotarized.dmg">Download unnotarized beta</a>
+    <a class="checksum-link" href="https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/download/v0.1.0-beta.1/Vibe-Curator-0.1.0-beta.1-arm64-unnotarized.dmg.sha256">SHA-256 checksum</a>
+  </div>`);
 
 async function dataPage(): Promise<string> {
   const status = await authStatus();

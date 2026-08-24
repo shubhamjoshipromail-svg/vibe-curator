@@ -493,6 +493,8 @@ input[type='range'] {
 .legal-page article h2 { margin-top: 30px; }
 .legal-page article p { color: rgba(236,230,221,.7); font-size: 14px; line-height: 1.75; }
 .legal-callout, .data-actions { margin-top: 28px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.035); }
+.warning-callout { border-color: rgba(255, 180, 90, .34); background: rgba(145, 82, 20, .12); }
+.checksum-link { display: inline-block; margin-left: 12px; color: var(--dim) !important; font-size: 12px; }
 .data-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .data-actions p { width: 100%; margin: 0; }
 button.danger { color: #ffc2b6; border-color: rgba(255,120,100,.34); background: rgba(140,30,20,.18); }
