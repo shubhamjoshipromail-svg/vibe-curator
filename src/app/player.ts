@@ -30,7 +30,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
         <button class="ghost" id="sound">${state.started ? 'Sound on' : 'Start sound'}</button>
         ${runtimeHost.kind === 'tauri'
           ? '<button class="ghost" id="desktop">Set as desktop</button>'
-          : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="ghost" id="desktop">Display on Mac</button>'}
+          : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="display-mac-button" id="desktop">Send to Mac desktop</button>'}
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
