@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { randomUUID } from 'node:crypto';
 
 let pool: Pool | undefined;
 let initialized: Promise<void> | undefined;
@@ -181,8 +182,17 @@ export async function deleteProductData(ownerId: string): Promise<void> {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    // Preserve only a de-identified operational cost record so account deletion
+    // cannot reset the company-wide provider budget. Prompts and source media
+    // are never stored on these rows; request/idempotency links are removed.
+    await client.query(
+      `UPDATE vibe_generation_jobs
+       SET owner_id = $2, idempotency_key = NULL, provider_request_id = NULL
+       WHERE owner_id = $1`,
+      [ownerId, `deleted_${randomUUID()}`],
+    );
     for (const table of [
-      'vibe_projects', 'vibe_folders', 'vibe_assets', 'vibe_generation_jobs',
+      'vibe_projects', 'vibe_folders', 'vibe_assets',
       'vibe_credit_ledger', 'vibe_billing_accounts', 'vibe_policy_acknowledgements',
     ]) {
       await client.query(`DELETE FROM ${table} WHERE owner_id = $1`, [ownerId]);
