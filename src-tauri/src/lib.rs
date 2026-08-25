@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Manager, Url, WebviewWindow,
+    AppHandle, Emitter, Manager, Url, WebviewWindow,
 };
 use std::process::Command;
 
@@ -284,10 +284,12 @@ pub fn run() {
             let controls = MenuItem::with_id(
                 app,
                 "controls",
-                "Start sound / interact",
+                "Show wallpaper controls",
                 true,
                 None::<&str>,
             )?;
+            let mute_sound = MenuItem::with_id(app, "mute-sound", "Mute sound", true, None::<&str>)?;
+            let resume_sound = MenuItem::with_id(app, "resume-sound", "Resume sound", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show wallpaper", true, None::<&str>)?;
             let pause = MenuItem::with_id(app, "pause", "Hide wallpaper", true, None::<&str>)?;
             let clean_desktop = MenuItem::with_id(
@@ -307,10 +309,14 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit Vibe Curator", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
-                &[&editor, &controls, &show, &pause, &clean_desktop, &show_icons, &quit],
+                &[&editor, &controls, &mute_sound, &resume_sound, &show, &pause, &clean_desktop, &show_icons, &quit],
             )?;
 
-            let mut tray = TrayIconBuilder::with_id("vibe-curator").menu(&menu);
+            let mut tray = TrayIconBuilder::with_id("vibe-curator")
+                .menu(&menu)
+                .title("Vibe")
+                .tooltip("Vibe Curator")
+                .icon_as_template(true);
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());
             }
@@ -319,6 +325,13 @@ pub fn run() {
                     let _ = open_web_editor();
                 }
                 "controls" => {
+                    let _ = enable_wallpaper_controls(app.clone());
+                }
+                "mute-sound" => {
+                    let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", true);
+                }
+                "resume-sound" => {
+                    let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", false);
                     let _ = enable_wallpaper_controls(app.clone());
                 }
                 "show" => {

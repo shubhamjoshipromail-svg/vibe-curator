@@ -104,6 +104,19 @@ async function startSound(): Promise<void> {
   }
 }
 
+function setSoundMuted(muted: boolean): void {
+  if (!state.started) {
+    sound.textContent = 'Start sound';
+    sound.dataset.sleeping = 'false';
+    return;
+  }
+  const master = audio.getLayer('master');
+  audio.setLayer('master', master.gain, muted);
+  sound.textContent = muted ? 'Sound muted' : 'Sound on';
+  sound.dataset.sleeping = 'false';
+  window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 3200);
+}
+
 async function boot(): Promise<void> {
   const activationToken = requestedActivationToken();
   // A missing network/session must not stop built-in rooms from working.
@@ -142,6 +155,12 @@ window.addEventListener('focus', () => {
   sound.dataset.sleeping = 'false';
   if (state.started) window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 4200);
 });
+
+if ('__TAURI_INTERNALS__' in window) {
+  void import('@tauri-apps/api/event').then(({ listen }) =>
+    listen<boolean>('vibe://set-sound-muted', (event) => setSoundMuted(event.payload)),
+  );
+}
 
 let audioPump = 0;
 function pumpAudio(): void {
