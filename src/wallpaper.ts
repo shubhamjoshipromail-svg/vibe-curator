@@ -45,7 +45,7 @@ async function receiveActivation(token: string): Promise<Preset> {
   if (!response.ok || !body.preset) throw new Error(body.message || 'The Mac handoff could not be loaded.');
   const assetIds = [
     body.preset.scene.kind === 'image' || body.preset.scene.kind === 'video' ? body.preset.scene.assetId : undefined,
-    body.preset.music?.assetId,
+    body.preset.music?.url ? undefined : body.preset.music?.assetId,
   ].filter((value): value is string => Boolean(value));
   for (const assetId of [...new Set(assetIds)]) {
     const assetResponse = await fetch(`/api/native/activations/${token}/assets/${encodeURIComponent(assetId)}`, { cache: 'no-store' });

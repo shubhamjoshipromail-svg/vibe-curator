@@ -83,7 +83,7 @@ for (const rel of PACK_DIRS) {
 
     for (const [name, asset] of Object.entries(pack.assets ?? {})) {
       checked++;
-      checkLicense(where, name, asset.license);
+      checkLicense(where, name, asset.license ?? pack.license);
       checkFileExists(where, name, dir, asset.file);
     }
 

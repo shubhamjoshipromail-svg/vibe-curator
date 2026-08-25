@@ -69,7 +69,7 @@ function referencedAssets(preset: Record<string, unknown>): Set<string> {
   const result = new Set<string>();
   const scene = preset.scene as Record<string, unknown> | undefined;
   const music = preset.music as Record<string, unknown> | undefined;
-  for (const value of [scene?.assetId, music?.assetId]) {
+  for (const value of [scene?.assetId, music?.url ? undefined : music?.assetId]) {
     if (typeof value === 'string' && ID_PATTERN.test(value)) result.add(value);
   }
   return result;

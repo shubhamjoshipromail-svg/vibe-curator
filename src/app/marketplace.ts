@@ -88,6 +88,9 @@ export function marketPresets(): Map<string, Preset> {
   return new Map(listPresets().map((preset) => [preset.id, preset]));
 }
 
+let activeScore: HTMLAudioElement | undefined;
+let activeScoreButton: HTMLButtonElement | undefined;
+
 export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLElement {
   const card = document.createElement('article');
   card.className = 'card market-card';
@@ -104,13 +107,38 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
   const copy = document.createElement('p'); copy.textContent = preset.description;
   const meta = document.createElement('div'); meta.className = 'card-meta';
   const coded = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural';
-  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${coded ? 'still coded scene' : 'static scene'}</span><span class="chip">${coded ? 'motion-ready' : 'simple music'}</span>`;
+  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${coded ? 'still coded scene' : 'static scene'}</span><span class="chip">${preset.music ? 'authored score' : 'procedural score'}</span>`;
   body.append(author, title, copy, meta); card.appendChild(body);
   const actions = document.createElement('div'); actions.className = 'card-actions';
   const remix = document.createElement('button'); remix.className = 'primary'; remix.textContent = 'Open & remix';
   const open = () => navigate({ name: 'labs', presetId: preset.id, returnTo: 'marketplace' });
   remix.addEventListener('click', (event) => { event.stopPropagation(); open(); });
-  actions.appendChild(remix); card.appendChild(actions);
+  actions.appendChild(remix);
+  if (preset.music?.url) {
+    const preview = document.createElement('button');
+    preview.className = 'ghost';
+    preview.textContent = '▶ Preview score';
+    preview.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (activeScore && activeScoreButton === preview && !activeScore.paused) {
+        activeScore.pause();
+        preview.textContent = '▶ Preview score';
+        return;
+      }
+      activeScore?.pause();
+      if (activeScoreButton) activeScoreButton.textContent = '▶ Preview score';
+      const score = new Audio(preset.music!.url!);
+      score.loop = true;
+      score.volume = 0.72;
+      activeScore = score;
+      activeScoreButton = preview;
+      score.addEventListener('error', () => { preview.textContent = 'Score unavailable'; }, { once: true });
+      await score.play();
+      preview.textContent = 'Ⅱ Pause score';
+    });
+    actions.appendChild(preview);
+  }
+  card.appendChild(actions);
   card.addEventListener('click', open);
   card.addEventListener('keydown', (event) => { if (event.key === 'Enter') open(); });
   return card;
