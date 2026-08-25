@@ -6,6 +6,7 @@ import {
   DEFAULT_CONTROLS,
   newId,
   type Controls,
+  type MusicAsset,
   type Preset,
   type SceneLayer,
 } from './types';
@@ -313,6 +314,39 @@ function seedPresets(): Preset[] {
     market(seed('market-living-ember-throne', 'Ember Throne', 'The original code-painted dark-fantasy hall with live fire, sparks and light.', 'ashen-keep', ASHEN,
       { mood: 0.92, motion: 0.58, depth: 0.66, glow: 0.82, atmosphere: 0.52, intensity: 0.62 }, ['builtin_drifting-motes', 'builtin_volumetric-shaft'])),
   );
+
+  const curatedMusic = (
+    assetId: string,
+    file: string,
+    name: string,
+    durationSeconds: number,
+    createdAt: string,
+  ): MusicAsset => ({
+    assetId,
+    url: `/audio/curated/${file}`,
+    name,
+    mimeType: 'audio/mpeg',
+    durationSeconds,
+    provenance: { provider: 'elevenlabs', model: 'music_v2', vocalMode: 'instrumental', createdAt },
+  });
+  const marketScores: Record<string, MusicAsset> = {
+    'market-pixel-last-broadcast': curatedMusic('builtin_last_broadcast_score', 'last-broadcast.mp3', 'Moonlit signal', 30, '2026-08-13T22:18:47.735Z'),
+    'market-pixel-midnight-shrine': curatedMusic('builtin_pixel_forest_score', 'pixel-forest.mp3', 'Pixel forest nocturne', 90, '2026-08-15T12:08:00.000Z'),
+    'market-pixel-lantern-save': curatedMusic('builtin_japanese_water_garden', 'japanese-water-garden.mp3', 'Japanese water garden', 30, '2026-08-11T20:27:00.000Z'),
+    'market-cozy-gatehouse-rest': curatedMusic('builtin_gatehouse_rain', 'gatehouse-rain.mp3', 'Gatehouse rain', 90, '2026-08-15T00:51:00.000Z'),
+    'market-sketch-rain-table': curatedMusic('builtin_smiling_through_rain', 'smiling-through-rain.mp3', 'Smiling through rain', 30, '2026-08-11T20:57:00.000Z'),
+    'market-aurora-stillwater': curatedMusic('builtin_impressionist_water', 'impressionist-water.mp3', 'Impressionist water', 30, '2026-08-12T22:30:00.000Z'),
+    'market-aurora-night-current': curatedMusic('builtin_luminous_current', 'luminous-current.mp3', 'Luminous current', 30, '2026-08-11T21:40:00.000Z'),
+    'market-japandi-blue-hour': curatedMusic('builtin_late_night_focus', 'late-night-focus.mp3', 'Late-night focus', 30, '2026-08-11T21:02:00.000Z'),
+    'market-western-moon-ritual': curatedMusic('builtin_foggy_stone_shelter', 'foggy-stone-shelter.mp3', 'Foggy stone shelter', 90, '2026-08-15T00:53:00.000Z'),
+    'market-living-color-orbit': curatedMusic('builtin_electric_garden', 'electric-garden.mp3', 'Electric garden improvisation', 30, '2026-08-11T20:51:00.000Z'),
+    'market-living-midnight-haze': curatedMusic('builtin_koi_pond', 'koi-pond.mp3', 'Midnight koi pond', 30, '2026-08-11T20:27:00.000Z'),
+    'market-living-neon-koi': curatedMusic('builtin_bioluminescent_koi', 'bioluminescent-koi.mp3', 'Bioluminescent current', 30, '2026-08-11T20:20:00.000Z'),
+  };
+  for (const preset of rooms) {
+    const score = marketScores[preset.id];
+    if (score) preset.music = score;
+  }
 
   return rooms;
 }
