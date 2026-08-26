@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "wallpaper",
   "description": "Minimal permissions for the bundled wallpaper player",
-  "windows": ["wallpaper"],
+  "windows": ["wallpaper", "native-controls"],
   "remote": {
     "urls": [
       "https://vibe-curator-production.up.railway.app/*"

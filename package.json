@@ -11,6 +11,8 @@
     "build:native": "tauri build",
     "preview": "vite preview",
     "check:licenses": "node scripts/check-licenses.mjs",
+    "check:native": "node scripts/check-native-release.mjs",
+    "test:native": "node --test --experimental-strip-types test/native-release.test.ts",
     "gen:fixtures": "node scripts/make-dev-fixtures.mjs",
     "gen:effects": "node scripts/generate-builtin-effects.mjs",
     "report:effect-costs": "node scripts/report-effect-costs.mjs"

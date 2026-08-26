@@ -55,6 +55,7 @@ export default defineConfig(({ mode }) => {
       input: {
         app: 'index.html',
         wallpaper: 'wallpaper.html',
+        nativeControls: 'native-controls.html',
       },
     },
   },

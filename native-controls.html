@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Vibe Curator Controls</title>
+    <link rel="stylesheet" href="/src/native-controls.css" />
+  </head>
+  <body>
+    <main class="popover" aria-label="Vibe Curator controls">
+      <header class="popover-header">
+        <div>
+          <p class="eyebrow">NOW PLAYING</p>
+          <h1 id="scene-name">Vibe Curator</h1>
+        </div>
+        <span id="audio-status" class="status" data-state="stopped">Stopped</span>
+      </header>
+
+      <section class="sound" aria-label="Sound">
+        <div class="sound-heading">
+          <label for="master-volume">Master volume</label>
+          <output id="volume-value" for="master-volume">70%</output>
+        </div>
+        <input id="master-volume" type="range" min="0" max="1" value="0.7" step="0.01" />
+        <div class="sound-actions">
+          <button id="start" class="primary" type="button">Start</button>
+          <button id="stop" class="secondary" type="button">Stop</button>
+        </div>
+        <button id="gesture-fallback" class="text-button" type="button" hidden>
+          Show wallpaper controls to start sound
+        </button>
+      </section>
+
+      <section class="display" aria-label="Display">
+        <button id="wallpaper-toggle" class="row-button" type="button">
+          <span>Wallpaper</span><span class="row-value">Show</span>
+        </button>
+        <button id="icons-toggle" class="row-button" type="button">
+          <span>Desktop icons</span><span class="row-value">Hide</span>
+        </button>
+        <button id="open-editor" class="row-button" type="button">
+          <span>Open editor</span><span class="row-value">↗</span>
+        </button>
+      </section>
+    </main>
+    <script type="module" src="/src/native-controls.ts"></script>
+  </body>
+</html>

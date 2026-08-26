@@ -1,6 +1,12 @@
 export type DeepLinkActivation = { presetId: string } | { token: string };
 
-function activationFromDeepLink(value: string): DeepLinkActivation | undefined {
+/**
+ * Parse one URL delivered by the native deep-link plugin.
+ *
+ * This stays exported so the release smoke test can exercise the exact
+ * activation contract without booting a browser window or a Tauri runtime.
+ */
+export function activationFromDeepLink(value: string): DeepLinkActivation | undefined {
   try {
     const url = new URL(value);
     if (url.protocol !== 'vibecurator:' || url.hostname !== 'open') return undefined;

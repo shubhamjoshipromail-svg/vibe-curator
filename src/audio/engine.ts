@@ -115,13 +115,17 @@ export class AudioEngine {
   }
 
   async start(spec: AudioSpec): Promise<void> {
+    if (this.started) {
+      await this.setSpec(spec);
+      return;
+    }
     // Browsers require a user gesture before audio. The caller supplies one.
     const ToneRuntime = await loadTone();
     await ToneRuntime.start();
-    this.started = true;
     await this.build(spec);
     ToneRuntime.getTransport().bpm.value = 60;
     ToneRuntime.getTransport().start();
+    this.started = true;
   }
 
   async setSpec(spec: AudioSpec): Promise<void> {

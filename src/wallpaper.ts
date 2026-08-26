@@ -14,6 +14,12 @@ import { runtimeHost } from './runtime/host';
 import { registerDeepLinks } from './runtime/deep-link';
 import { isBundledSurface } from './runtime/config';
 import { cacheTransferredAsset } from './media/assets';
+import { readMasterAudioPreferences, writeMasterAudioPreferences } from './audio/preferences';
+import {
+  emitNativeMediaEvent,
+  listenNativeMediaControls,
+  type NativePlayerStatus,
+} from './runtime/media';
 import type { Preset } from './preset/types';
 
 const ACTIVE_PRESET_KEY = 'vibe.wallpaper.preset-id';
@@ -27,6 +33,10 @@ const sound = document.querySelector<HTMLButtonElement>('#wallpaper-sound')!;
 const scene = new Scene();
 const audio = new AudioEngine();
 const state = createState(scene, audio);
+let masterPreferences = readMasterAudioPreferences();
+let bootPromise: Promise<void> | undefined;
+let activationChain = Promise.resolve();
+const pendingActivationKeys = new Set<string>();
 
 function requestedPresetId(): string | undefined {
   return new URLSearchParams(location.search).get('preset')
@@ -48,9 +58,15 @@ async function receiveActivation(token: string): Promise<Preset> {
     body.preset.music?.url ? undefined : body.preset.music?.assetId,
   ].filter((value): value is string => Boolean(value));
   for (const assetId of [...new Set(assetIds)]) {
-    const assetResponse = await fetch(`/api/native/activations/${token}/assets/${encodeURIComponent(assetId)}`, { cache: 'no-store' });
-    if (!assetResponse.ok) throw new Error(`The transferred asset ${assetId} is unavailable.`);
-    await cacheTransferredAsset(assetId, await assetResponse.blob());
+    try {
+      const assetResponse = await fetch(`/api/native/activations/${token}/assets/${encodeURIComponent(assetId)}`, { cache: 'no-store' });
+      if (!assetResponse.ok) throw new Error(`HTTP ${assetResponse.status}`);
+      await cacheTransferredAsset(assetId, await assetResponse.blob());
+    } catch (error) {
+      // The scene loader has a renderer fallback. Keep the handoff usable when
+      // an individual transfer asset expires or its cache is unavailable.
+      console.warn(`[vibe] transferred asset ${assetId} could not be cached; using fallback if needed`, error);
+    }
   }
   history.replaceState({}, '', '/wallpaper.html');
   return body.preset;
@@ -77,44 +93,148 @@ async function bundledStarterPreset(): Promise<Preset> {
   return preset;
 }
 
-async function startSound(): Promise<void> {
+function playerStatus(status: NativePlayerStatus['status'], error?: unknown): NativePlayerStatus {
+  const master = audio.getLayer('master');
+  return {
+    status,
+    started: state.started,
+    muted: master.muted,
+    volume: master.gain,
+    presetId: state.loaded?.id,
+    ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
+  };
+}
+
+function reportPlayerStatus(status: NativePlayerStatus['status'], error?: unknown): void {
+  void emitNativeMediaEvent('vibe://audio/status', playerStatus(status, error)).catch((eventError) => {
+    console.warn('[vibe] could not report native player status', eventError);
+  });
+}
+
+function reportVolume(): void {
+  const master = audio.getLayer('master');
+  void emitNativeMediaEvent('vibe://audio/volume', { volume: master.gain, muted: master.muted });
+}
+
+function reportNativeState(): void {
+  const preset = state.loaded;
+  if (preset) void emitNativeMediaEvent('vibe://audio/current-preset', { presetId: preset.id, name: preset.name });
+  reportVolume();
+  reportPlayerStatus(state.started ? 'playing' : 'awaiting-gesture');
+}
+
+function applyMasterPreferences(): void {
+  audio.setLayer('master', masterPreferences.volume, masterPreferences.muted);
+}
+
+function persistMasterPreferences(): void {
+  const master = audio.getLayer('master');
+  masterPreferences = { volume: master.gain, muted: master.muted };
+  writeMasterAudioPreferences(masterPreferences);
+  reportVolume();
+}
+
+async function startSound(fromNativeControl = false): Promise<void> {
   const preset = state.loaded;
   if (!preset) return;
   if (state.started) {
     await runtimeHost.enterWallpaperMode();
     sound.textContent = 'Sound on';
     sound.dataset.sleeping = 'true';
+    reportPlayerStatus('playing');
     return;
   }
   sound.disabled = true;
+  reportPlayerStatus('starting');
   try {
     audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
     await audio.start(audioSpecForPreset(preset));
     state.started = true;
     syncAudioLayers(state, preset);
+    applyMasterPreferences();
     await syncGeneratedMusic(state, preset);
     sound.textContent = 'Sound on';
     window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 2600);
     await runtimeHost.enterWallpaperMode();
+    reportPlayerStatus('playing');
   } catch (error) {
     console.error('[vibe] wallpaper audio failed to start', error);
     sound.textContent = error instanceof Error ? `Sound unavailable · ${error.message}` : 'Sound unavailable';
+    // A native menu/popover click is not a gesture in this webview. Do not
+    // pretend otherwise: leave the visible wallpaper button available.
+    reportPlayerStatus(fromNativeControl ? 'awaiting-gesture' : 'error', error);
   } finally {
     sound.disabled = false;
   }
 }
 
 function setSoundMuted(muted: boolean): void {
+  masterPreferences = { ...masterPreferences, muted };
+  writeMasterAudioPreferences(masterPreferences);
   if (!state.started) {
     sound.textContent = 'Start sound';
     sound.dataset.sleeping = 'false';
+    applyMasterPreferences();
+    reportVolume();
+    reportPlayerStatus('awaiting-gesture');
     return;
   }
-  const master = audio.getLayer('master');
-  audio.setLayer('master', master.gain, muted);
+  applyMasterPreferences();
   sound.textContent = muted ? 'Sound muted' : 'Sound on';
   sound.dataset.sleeping = 'false';
   window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 3200);
+  reportVolume();
+  reportPlayerStatus('playing');
+}
+
+function setMasterVolume(volume: number): void {
+  masterPreferences = { ...masterPreferences, volume };
+  applyMasterPreferences();
+  persistMasterPreferences();
+  reportPlayerStatus(state.started ? 'playing' : 'awaiting-gesture');
+}
+
+function stopSound(): void {
+  if (state.started) audio.stop();
+  state.started = false;
+  sound.textContent = 'Start sound';
+  sound.dataset.sleeping = 'false';
+  reportPlayerStatus('stopped');
+}
+
+async function activatePreset(preset: Preset): Promise<void> {
+  localStorage.setItem(ACTIVE_PRESET_KEY, preset.id);
+  document.title = `${preset.name} — Vibe Curator`;
+  await loadPreset(state, preset);
+  // Presets author their ambience/music mix, but the system master belongs to
+  // the listener and survives every native activation.
+  applyMasterPreferences();
+  status.textContent = preset.name;
+  delete status.dataset.error;
+  app.dataset.ready = 'true';
+  sound.textContent = state.started ? (masterPreferences.muted ? 'Sound muted' : 'Sound on') : 'Start sound';
+  void emitNativeMediaEvent('vibe://audio/current-preset', { presetId: preset.id, name: preset.name });
+  reportVolume();
+  reportPlayerStatus(state.started ? 'playing' : 'awaiting-gesture');
+}
+
+function queueActivation(key: string, work: () => Promise<void>): void {
+  // Tauri's deep-link plugin and the single-instance handler can both observe
+  // one OS URL. Ignore only the duplicate that is already in flight; a later
+  // request for the same preset is still allowed to refresh it.
+  if (pendingActivationKeys.has(key)) return;
+  pendingActivationKeys.add(key);
+  activationChain = activationChain
+    .then(work)
+    .catch((error) => {
+      console.error('[vibe] wallpaper activation failed', error);
+      status.textContent = error instanceof Error ? error.message : 'Wallpaper activation failed.';
+      status.dataset.error = 'true';
+      reportPlayerStatus('error', error);
+    })
+    .finally(() => {
+      pendingActivationKeys.delete(key);
+    });
 }
 
 async function boot(): Promise<void> {
@@ -134,16 +254,9 @@ async function boot(): Promise<void> {
     : (isBundledSurface() && requestedPresetId() === STARTER_PRESET_ID
       ? await bundledStarterPreset()
       : (requestedPresetId() ? getPreset(requestedPresetId()!) : undefined) ?? listPresets()[0]);
-  localStorage.setItem(ACTIVE_PRESET_KEY, preset.id);
-  document.title = `${preset.name} — Vibe Curator`;
-
   await scene.mount(stage, { ...VIBES[0], palette: preset.palette });
   scene.setViewMode('player');
-  await loadPreset(state, preset);
-
-  status.textContent = preset.name;
-  app.dataset.ready = 'true';
-  sound.textContent = 'Start sound';
+  await activatePreset(preset);
   sound.hidden = false;
 }
 
@@ -156,11 +269,28 @@ window.addEventListener('focus', () => {
   if (state.started) window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 4200);
 });
 
-if ('__TAURI_INTERNALS__' in window) {
-  void import('@tauri-apps/api/event').then(({ listen }) =>
-    listen<boolean>('vibe://set-sound-muted', (event) => setSoundMuted(event.payload)),
-  );
-}
+void listenNativeMediaControls({
+  onActivatePreset: async (presetId) => {
+    await bootPromise;
+    queueActivation(`preset:${presetId}`, async () => {
+      const preset = getPreset(presetId) ?? (await hydrateLibrary(), getPreset(presetId));
+      if (!preset) throw new Error(`Preset “${presetId}” is unavailable.`);
+      await activatePreset(preset);
+    });
+  },
+  onActivateTransfer: async (token) => {
+    await bootPromise;
+    queueActivation(`transfer:${token}`, async () => activatePreset(await receiveActivation(token)));
+  },
+  onSetMasterVolume: setMasterVolume,
+  onSetMuted: setSoundMuted,
+  onStart: async () => {
+    await bootPromise;
+    await startSound(true);
+  },
+  onStop: stopSound,
+  onRequestState: reportNativeState,
+});
 
 let audioPump = 0;
 function pumpAudio(): void {
@@ -182,15 +312,18 @@ audioPump = requestAnimationFrame(pumpAudio);
 // running companion receives Display on Mac activations instead of staying on
 // the bundled Koi starter.
 void registerDeepLinks(async (activation) => {
-  if ('token' in activation) {
-    await runtimeHost.activateTransfer(activation.token);
-  } else {
-    await runtimeHost.activatePreset(activation.presetId);
-  }
+  await bootPromise;
+  if ('token' in activation) queueActivation(`transfer:${activation.token}`, async () => activatePreset(await receiveActivation(activation.token)));
+  else queueActivation(`preset:${activation.presetId}`, async () => {
+    const preset = getPreset(activation.presetId) ?? (await hydrateLibrary(), getPreset(activation.presetId));
+    if (!preset) throw new Error(`Preset “${activation.presetId}” is unavailable.`);
+    await activatePreset(preset);
+  });
 });
 
-void boot().catch((error) => {
+bootPromise = boot().catch((error) => {
   console.error('[vibe] wallpaper failed to start', error);
   status.textContent = error instanceof Error ? error.message : 'Wallpaper could not start.';
   status.dataset.error = 'true';
+  reportPlayerStatus('error', error);
 });
