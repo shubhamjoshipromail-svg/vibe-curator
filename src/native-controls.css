@@ -1,0 +1,45 @@
+:root {
+  color: #f4f0ea;
+  background: transparent;
+  font-family: ui-rounded, "SF Pro Rounded", "SF Pro Text", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 340px; background: transparent; }
+
+button, input { font: inherit; }
+
+.popover {
+  margin: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 16px;
+  background: rgba(24, 25, 29, .96);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(24px) saturate(130%);
+}
+
+.popover-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 16px 14px; }
+.eyebrow { margin: 0 0 4px; color: #a8a6ae; font-size: 10px; font-weight: 700; letter-spacing: .11em; }
+h1 { max-width: 200px; margin: 0; overflow: hidden; font-size: 16px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.status { flex: none; border-radius: 999px; background: rgba(255, 255, 255, .08); color: #c8c6cd; padding: 5px 8px; font-size: 11px; font-weight: 650; }
+.status[data-state="playing"] { background: rgba(123, 220, 174, .16); color: #96e7bb; }
+.status[data-state="awaiting-gesture"] { background: rgba(245, 190, 102, .16); color: #ffd38b; }
+
+.sound { border-top: 1px solid rgba(255, 255, 255, .08); padding: 14px 16px 15px; }
+.sound-heading { display: flex; justify-content: space-between; color: #d5d2da; font-size: 12px; font-weight: 600; }
+output { color: #aaa7b1; }
+input[type="range"] { accent-color: #c9a7ff; display: block; margin: 12px 0 14px; width: 100%; }
+.sound-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+button { border: 0; border-radius: 10px; cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+.primary, .secondary { min-height: 34px; font-size: 13px; font-weight: 700; }
+.primary { background: #d5bbff; color: #241634; }
+.secondary { background: rgba(255, 255, 255, .1); color: #f0edf2; }
+.text-button { width: 100%; margin-top: 10px; background: transparent; color: #d5bbff; font-size: 12px; font-weight: 650; text-align: left; }
+
+.display { border-top: 1px solid rgba(255, 255, 255, .08); padding: 7px 8px 8px; }
+.row-button { display: flex; width: 100%; align-items: center; justify-content: space-between; background: transparent; color: #efedf1; padding: 11px 8px; font-size: 13px; text-align: left; }
+.row-button:hover { background: rgba(255, 255, 255, .07); }
+.row-value { color: #aaa7b1; font-size: 12px; }

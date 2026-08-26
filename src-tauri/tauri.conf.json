@@ -23,6 +23,19 @@
         "alwaysOnBottom": false,
         "visibleOnAllWorkspaces": true,
         "skipTaskbar": true
+      },
+      {
+        "label": "native-controls",
+        "title": "Vibe Curator Controls",
+        "url": "native-controls.html",
+        "width": 340,
+        "height": 430,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "transparent": true,
+        "visible": false
       }
     ],
     "security": {
