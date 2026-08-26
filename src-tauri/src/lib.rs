@@ -1,11 +1,12 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, PhysicalPosition, Rect, Url, WebviewWindow, WindowEvent,
+    AppHandle, Emitter, Manager, PhysicalPosition, Rect, Url, WebviewWindow,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::process::Command;
+use tauri_plugin_autostart::ManagerExt;
 
 const DEFAULT_APP_URL: &str = "https://vibe-curator-production.up.railway.app";
 
@@ -17,6 +18,7 @@ const DEFAULT_APP_URL: &str = "https://vibe-curator-production.up.railway.app";
 struct NativeControlsSnapshot {
     wallpaper_visible: bool,
     desktop_icons_visible: bool,
+    launch_at_login: bool,
 }
 
 struct NativeControlsState(Mutex<NativeControlsSnapshot>);
@@ -38,6 +40,7 @@ enum NativeControlsAction {
     SetMasterVolume { volume: f64 },
     SetWallpaperVisible { visible: bool },
     SetDesktopIconsVisible { visible: bool },
+    SetLaunchAtLogin { enabled: bool },
     OpenEditor,
 }
 
@@ -158,6 +161,14 @@ fn activation_token_from_args(args: &[String]) -> Option<String> {
     })
 }
 
+fn controls_requested_from_args(args: &[String]) -> bool {
+    args.iter().any(|value| {
+        Url::parse(value)
+            .map(|url| url.scheme() == "vibecurator" && url.host_str() == Some("controls"))
+            .unwrap_or(false)
+    })
+}
+
 fn prepare_wallpaper_activation(window: &WebviewWindow) -> Result<(), String> {
     window.set_decorations(false).map_err(|error| error.to_string())?;
     window
@@ -229,11 +240,13 @@ fn status_item_icon() -> tauri::image::Image<'static> {
 }
 
 fn native_controls_snapshot(app: &AppHandle) -> Result<NativeControlsSnapshot, String> {
-    app.state::<NativeControlsState>()
+    let mut snapshot = app.state::<NativeControlsState>()
         .0
         .lock()
         .map_err(|_| "Native controls state is unavailable".to_string())
-        .map(|state| state.clone())
+        .map(|state| state.clone())?;
+    snapshot.launch_at_login = app.autolaunch().is_enabled().unwrap_or(false);
+    Ok(snapshot)
 }
 
 fn emit_native_controls_snapshot(app: &AppHandle) -> Result<(), String> {
@@ -256,6 +269,15 @@ fn show_native_controls(app: &AppHandle, anchor: Option<Rect>) -> Result<(), Str
         let y = anchor_position.y + anchor_size.height + 8.0;
         window
             .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
+            .map_err(|error| error.to_string())?;
+    } else if let Some(monitor) = window.primary_monitor().map_err(|error| error.to_string())? {
+        let monitor_position = monitor.position();
+        let monitor_size = monitor.size();
+        let size = window.outer_size().map_err(|error| error.to_string())?;
+        let x = monitor_position.x + monitor_size.width.saturating_sub(size.width + 18) as i32;
+        let y = monitor_position.y + 44;
+        window
+            .set_position(PhysicalPosition::new(x, y))
             .map_err(|error| error.to_string())?;
     }
 
@@ -284,6 +306,11 @@ fn native_controls_snapshot_command(app: AppHandle) -> Result<NativeControlsSnap
 #[tauri::command]
 fn native_controls_close(app: AppHandle) {
     hide_native_controls(&app);
+}
+
+#[tauri::command]
+fn show_native_controls_command(app: AppHandle) -> Result<(), String> {
+    show_native_controls(&app, None)
 }
 
 #[tauri::command]
@@ -331,6 +358,14 @@ fn native_controls_dispatch(app: AppHandle, action: NativeControlsAction) -> Res
                 .lock()
                 .map_err(|_| "Native controls state is unavailable".to_string())?
                 .desktop_icons_visible = visible;
+            emit_native_controls_snapshot(&app)
+        }
+        NativeControlsAction::SetLaunchAtLogin { enabled } => {
+            if enabled {
+                app.autolaunch().enable().map_err(|error| error.to_string())?;
+            } else {
+                app.autolaunch().disable().map_err(|error| error.to_string())?;
+            }
             emit_native_controls_snapshot(&app)
         }
         NativeControlsAction::OpenEditor => {
@@ -434,6 +469,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(token) = activation_token_from_args(&args) {
                 let _ = activate_transfer_for_app(app, &token);
+            } else if controls_requested_from_args(&args) {
+                let _ = show_native_controls(app, None);
             } else {
                 let _ = open_web_editor();
             }
@@ -451,15 +488,9 @@ pub fn run() {
             leave_wallpaper_mode,
             native_controls_snapshot_command,
             native_controls_close,
+            show_native_controls_command,
             native_controls_dispatch
         ])
-        .on_window_event(|window, event| {
-            // Behave like a status-item popover: clicking away dismisses the
-            // compact controls instead of leaving an extra utility window.
-            if window.label() == "native-controls" && matches!(event, WindowEvent::Focused(false)) {
-                let _ = window.hide();
-            }
-        })
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -467,6 +498,7 @@ pub fn run() {
             app.manage(NativeControlsState(Mutex::new(NativeControlsSnapshot {
                 wallpaper_visible: true,
                 desktop_icons_visible: true,
+                launch_at_login: app.autolaunch().is_enabled().unwrap_or(false),
             })));
 
             let editor = MenuItem::with_id(app, "editor", "Open website editor", true, None::<&str>)?;
@@ -514,7 +546,7 @@ pub fn run() {
                     let _ = open_web_editor();
                 }
                 "controls" => {
-                    let _ = enable_wallpaper_controls(app.clone());
+                    let _ = show_native_controls(app, None);
                 }
                 "mute-sound" => {
                     let _ = app.emit_to("wallpaper", "vibe://audio/set-muted", true);
@@ -585,6 +617,8 @@ pub fn run() {
 
             if let Some(token) = activation_token_from_args(&std::env::args().collect::<Vec<_>>()) {
                 activate_transfer_for_app(app.handle(), &token).map_err(std::io::Error::other)?;
+            } else if controls_requested_from_args(&std::env::args().collect::<Vec<_>>()) {
+                show_native_controls(app.handle(), None).map_err(std::io::Error::other)?;
             }
 
             Ok(())
@@ -599,6 +633,8 @@ pub fn run() {
                 for url in urls {
                     if let Some(token) = activation_token_from_args(&[url.to_string()]) {
                         let _ = activate_transfer_for_app(app, &token);
+                    } else if controls_requested_from_args(&[url.to_string()]) {
+                        let _ = show_native_controls(app, None);
                     }
                 }
             }

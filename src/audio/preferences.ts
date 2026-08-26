@@ -1,4 +1,5 @@
 export const MASTER_AUDIO_PREFERENCES_KEY = 'vibe.audio.master.v1';
+export const MASTER_AUDIO_ZERO_RECOVERY_KEY = 'vibe.audio.master.zero-recovery.v1';
 
 export interface MasterAudioPreferences {
   volume: number;
@@ -28,6 +29,29 @@ export function readMasterAudioPreferences(storage: Storage | undefined = global
   } catch {
     return { ...DEFAULT_MASTER_AUDIO_PREFERENCES };
   }
+}
+
+/**
+ * One-time repair for builds that could silently persist an unlabelled 0%
+ * master level. Once marked, an intentional 0% chosen in current controls is
+ * preserved on every subsequent launch.
+ */
+export function recoverLegacyZeroVolume(
+  preferences: MasterAudioPreferences,
+  storage: Storage | undefined = globalThis.localStorage,
+): MasterAudioPreferences {
+  try {
+    if (storage?.getItem(MASTER_AUDIO_ZERO_RECOVERY_KEY)) return preferences;
+    storage?.setItem(MASTER_AUDIO_ZERO_RECOVERY_KEY, '1');
+    if (!preferences.muted && preferences.volume === 0) {
+      const recovered = { ...preferences, volume: DEFAULT_MASTER_AUDIO_PREFERENCES.volume };
+      writeMasterAudioPreferences(recovered, storage);
+      return recovered;
+    }
+  } catch {
+    // Storage failure should not block the player; use the in-memory value.
+  }
+  return preferences;
 }
 
 export function writeMasterAudioPreferences(preferences: MasterAudioPreferences, storage: Storage | undefined = globalThis.localStorage): void {

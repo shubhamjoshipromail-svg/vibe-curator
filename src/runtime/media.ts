@@ -27,6 +27,7 @@ export interface NativePlayerStatus {
   started: boolean;
   muted: boolean;
   volume: number;
+  levelDb?: number;
   presetId?: string;
   error?: string;
 }

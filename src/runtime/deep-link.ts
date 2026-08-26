@@ -1,4 +1,4 @@
-export type DeepLinkActivation = { presetId: string } | { token: string };
+export type DeepLinkActivation = { presetId: string } | { token: string } | { controls: true };
 
 /**
  * Parse one URL delivered by the native deep-link plugin.
@@ -9,7 +9,9 @@ export type DeepLinkActivation = { presetId: string } | { token: string };
 export function activationFromDeepLink(value: string): DeepLinkActivation | undefined {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'vibecurator:' || url.hostname !== 'open') return undefined;
+    if (url.protocol !== 'vibecurator:') return undefined;
+    if (url.hostname === 'controls') return { controls: true };
+    if (url.hostname !== 'open') return undefined;
     const token = url.searchParams.get('activation') ?? '';
     if (/^[a-f0-9]{64}$/.test(token)) return { token };
     const presetId = url.searchParams.get('preset') ?? '';
@@ -17,7 +19,10 @@ export function activationFromDeepLink(value: string): DeepLinkActivation | unde
   } catch { return undefined; }
 }
 
-export async function registerDeepLinks(openPreset: (activation: DeepLinkActivation) => Promise<void>): Promise<void> {
+export async function registerDeepLinks(
+  openPreset: (activation: DeepLinkActivation) => Promise<void>,
+  includeCurrent = true,
+): Promise<void> {
   if (!('__TAURI_INTERNALS__' in window)) return;
   const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
   const handle = (urls: string[]) => {
@@ -26,6 +31,6 @@ export async function registerDeepLinks(openPreset: (activation: DeepLinkActivat
       if (activation) void openPreset(activation);
     }
   };
-  handle((await getCurrent()) ?? []);
+  if (includeCurrent) handle((await getCurrent()) ?? []);
   await onOpenUrl(handle);
 }

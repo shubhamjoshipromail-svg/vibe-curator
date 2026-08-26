@@ -12,9 +12,9 @@ import { getPreset, hydrateLibrary, listPresets } from './preset/library';
 import { VIBES } from './vibes';
 import { runtimeHost } from './runtime/host';
 import { registerDeepLinks } from './runtime/deep-link';
-import { isBundledSurface } from './runtime/config';
+import { appApiUrl, isBundledSurface } from './runtime/config';
 import { cacheTransferredAsset } from './media/assets';
-import { readMasterAudioPreferences, writeMasterAudioPreferences } from './audio/preferences';
+import { readMasterAudioPreferences, recoverLegacyZeroVolume, writeMasterAudioPreferences } from './audio/preferences';
 import {
   emitNativeMediaEvent,
   listenNativeMediaControls,
@@ -29,11 +29,12 @@ const app = document.querySelector<HTMLDivElement>('#wallpaper-app')!;
 const stage = document.querySelector<HTMLDivElement>('#stage')!;
 const status = document.querySelector<HTMLDivElement>('#wallpaper-status')!;
 const sound = document.querySelector<HTMLButtonElement>('#wallpaper-sound')!;
+const controlsButton = document.querySelector<HTMLButtonElement>('#wallpaper-controls')!;
 
 const scene = new Scene();
 const audio = new AudioEngine();
 const state = createState(scene, audio);
-let masterPreferences = readMasterAudioPreferences();
+let masterPreferences = recoverLegacyZeroVolume(readMasterAudioPreferences());
 let bootPromise: Promise<void> | undefined;
 let activationChain = Promise.resolve();
 const pendingActivationKeys = new Set<string>();
@@ -50,7 +51,7 @@ function requestedActivationToken(): string | undefined {
 }
 
 async function receiveActivation(token: string): Promise<Preset> {
-  const response = await fetch(`/api/native/activations/${token}`, { cache: 'no-store' });
+  const response = await fetch(appApiUrl(`/api/native/activations/${token}`), { cache: 'no-store' });
   const body = await response.json().catch(() => ({})) as { preset?: Preset; message?: string };
   if (!response.ok || !body.preset) throw new Error(body.message || 'The Mac handoff could not be loaded.');
   const assetIds = [
@@ -59,7 +60,7 @@ async function receiveActivation(token: string): Promise<Preset> {
   ].filter((value): value is string => Boolean(value));
   for (const assetId of [...new Set(assetIds)]) {
     try {
-      const assetResponse = await fetch(`/api/native/activations/${token}/assets/${encodeURIComponent(assetId)}`, { cache: 'no-store' });
+      const assetResponse = await fetch(appApiUrl(`/api/native/activations/${token}/assets/${encodeURIComponent(assetId)}`), { cache: 'no-store' });
       if (!assetResponse.ok) throw new Error(`HTTP ${assetResponse.status}`);
       await cacheTransferredAsset(assetId, await assetResponse.blob());
     } catch (error) {
@@ -100,6 +101,7 @@ function playerStatus(status: NativePlayerStatus['status'], error?: unknown): Na
     started: state.started,
     muted: master.muted,
     volume: master.gain,
+    levelDb: audio.getLevel(),
     presetId: state.loaded?.id,
     ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
   };
@@ -127,6 +129,13 @@ function applyMasterPreferences(): void {
   audio.setLayer('master', masterPreferences.volume, masterPreferences.muted);
 }
 
+function soundLabel(): string {
+  if (!state.started) return 'Start sound';
+  if (masterPreferences.muted) return 'Sound muted';
+  const percent = Math.round(masterPreferences.volume * 100);
+  return percent === 0 ? 'Volume 0%' : `Sound on · ${percent}%`;
+}
+
 function persistMasterPreferences(): void {
   const master = audio.getLayer('master');
   masterPreferences = { volume: master.gain, muted: master.muted };
@@ -139,8 +148,8 @@ async function startSound(fromNativeControl = false): Promise<void> {
   if (!preset) return;
   if (state.started) {
     await runtimeHost.enterWallpaperMode();
-    sound.textContent = 'Sound on';
-    sound.dataset.sleeping = 'true';
+    sound.textContent = soundLabel();
+    sound.dataset.sleeping = masterPreferences.volume > 0 && !masterPreferences.muted ? 'true' : 'false';
     reportPlayerStatus('playing');
     return;
   }
@@ -153,10 +162,13 @@ async function startSound(fromNativeControl = false): Promise<void> {
     syncAudioLayers(state, preset);
     applyMasterPreferences();
     await syncGeneratedMusic(state, preset);
-    sound.textContent = 'Sound on';
-    window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 2600);
+    sound.textContent = soundLabel();
+    if (masterPreferences.volume > 0 && !masterPreferences.muted) {
+      window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 2600);
+    }
     await runtimeHost.enterWallpaperMode();
     reportPlayerStatus('playing');
+    window.setTimeout(() => reportPlayerStatus('playing'), 1600);
   } catch (error) {
     console.error('[vibe] wallpaper audio failed to start', error);
     sound.textContent = error instanceof Error ? `Sound unavailable · ${error.message}` : 'Sound unavailable';
@@ -180,9 +192,11 @@ function setSoundMuted(muted: boolean): void {
     return;
   }
   applyMasterPreferences();
-  sound.textContent = muted ? 'Sound muted' : 'Sound on';
+  sound.textContent = soundLabel();
   sound.dataset.sleeping = 'false';
-  window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 3200);
+  if (!muted && masterPreferences.volume > 0) {
+    window.setTimeout(() => { sound.dataset.sleeping = 'true'; }, 3200);
+  }
   reportVolume();
   reportPlayerStatus('playing');
 }
@@ -191,6 +205,8 @@ function setMasterVolume(volume: number): void {
   masterPreferences = { ...masterPreferences, volume };
   applyMasterPreferences();
   persistMasterPreferences();
+  sound.textContent = soundLabel();
+  sound.dataset.sleeping = volume > 0 && !masterPreferences.muted && state.started ? 'true' : 'false';
   reportPlayerStatus(state.started ? 'playing' : 'awaiting-gesture');
 }
 
@@ -212,7 +228,7 @@ async function activatePreset(preset: Preset): Promise<void> {
   status.textContent = preset.name;
   delete status.dataset.error;
   app.dataset.ready = 'true';
-  sound.textContent = state.started ? (masterPreferences.muted ? 'Sound muted' : 'Sound on') : 'Start sound';
+  sound.textContent = soundLabel();
   void emitNativeMediaEvent('vibe://audio/current-preset', { presetId: preset.id, name: preset.name });
   reportVolume();
   reportPlayerStatus(state.started ? 'playing' : 'awaiting-gesture');
@@ -255,12 +271,18 @@ async function boot(): Promise<void> {
       ? await bundledStarterPreset()
       : (requestedPresetId() ? getPreset(requestedPresetId()!) : undefined) ?? listPresets()[0]);
   await scene.mount(stage, { ...VIBES[0], palette: preset.palette });
+  await audio.prepare();
   scene.setViewMode('player');
   await activatePreset(preset);
   sound.hidden = false;
+  controlsButton.hidden = !isBundledSurface();
 }
 
 sound.addEventListener('click', () => void startSound());
+controlsButton.addEventListener('click', async () => {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('show_native_controls_command');
+});
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'm') void startSound();
 });
@@ -313,13 +335,16 @@ audioPump = requestAnimationFrame(pumpAudio);
 // the bundled Koi starter.
 void registerDeepLinks(async (activation) => {
   await bootPromise;
-  if ('token' in activation) queueActivation(`transfer:${activation.token}`, async () => activatePreset(await receiveActivation(activation.token)));
+  if ('controls' in activation) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('show_native_controls_command');
+  } else if ('token' in activation) queueActivation(`transfer:${activation.token}`, async () => activatePreset(await receiveActivation(activation.token)));
   else queueActivation(`preset:${activation.presetId}`, async () => {
     const preset = getPreset(activation.presetId) ?? (await hydrateLibrary(), getPreset(activation.presetId));
     if (!preset) throw new Error(`Preset “${activation.presetId}” is unavailable.`);
     await activatePreset(preset);
   });
-});
+}, false);
 
 bootPromise = boot().catch((error) => {
   console.error('[vibe] wallpaper failed to start', error);
