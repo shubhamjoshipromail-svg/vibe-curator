@@ -14,7 +14,10 @@
           <p class="eyebrow">NOW PLAYING</p>
           <h1 id="scene-name">Vibe Curator</h1>
         </div>
-        <span id="audio-status" class="status" data-state="stopped">Stopped</span>
+        <div class="header-actions">
+          <span id="audio-status" class="status" data-state="stopped">Stopped</span>
+          <button id="close-controls" class="close-button" type="button" aria-label="Close controls">×</button>
+        </div>
       </header>
 
       <section class="sound" aria-label="Sound">
@@ -38,6 +41,9 @@
         </button>
         <button id="icons-toggle" class="row-button" type="button">
           <span>Desktop icons</span><span class="row-value">Hide</span>
+        </button>
+        <button id="login-toggle" class="row-button" type="button">
+          <span>Launch at login</span><span class="row-value">Off</span>
         </button>
         <button id="open-editor" class="row-button" type="button">
           <span>Open editor</span><span class="row-value">↗</span>

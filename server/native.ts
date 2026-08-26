@@ -10,6 +10,7 @@ const ACTIVATION_TTL_MS = 10 * 60 * 1000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const TOKEN_PATTERN = /^[a-f0-9]{64}$/;
 const ID_PATTERN = /^[a-zA-Z0-9_-]{3,160}$/;
+const PACKAGED_APP_ORIGINS = new Set(['tauri://localhost', 'http://tauri.localhost']);
 
 interface NativeActivation {
   ownerId: string;
@@ -25,6 +26,16 @@ type ResponseLike = {
 };
 
 const activations = new Map<string, NativeActivation>();
+
+function allowPackagedApp(req: IncomingMessage, res: ResponseLike): boolean {
+  const origin = req.headers.origin ?? '';
+  if (!PACKAGED_APP_ORIGINS.has(origin)) return false;
+  res.setHeader('access-control-allow-origin', origin);
+  res.setHeader('vary', 'Origin');
+  res.setHeader('access-control-allow-methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('access-control-max-age', '600');
+  return true;
+}
 
 function json(res: ResponseLike, status: number, value: unknown): void {
   res.statusCode = status;
@@ -86,6 +97,12 @@ export function nativeActivationPlugin(): Plugin {
         const path = (req.url ?? '/').split('?')[0];
         const parts = path.split('/').filter(Boolean);
         try {
+          const packagedRequest = allowPackagedApp(req, res);
+          if (req.method === 'OPTIONS' && packagedRequest) {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
           if (parts[0] !== 'activations') {
             json(res, 404, { message: 'Native operation not found.' });
             return;

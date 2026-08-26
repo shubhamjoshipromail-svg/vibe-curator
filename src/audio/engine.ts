@@ -114,6 +114,12 @@ export class AudioEngine {
     return typeof v === 'number' ? v : -Infinity;
   }
 
+  /** Load the Web Audio runtime before the user clicks so the gesture is spent
+   * resuming the audio context, not waiting for a dynamic module download. */
+  async prepare(): Promise<void> {
+    await loadTone();
+  }
+
   async start(spec: AudioSpec): Promise<void> {
     if (this.started) {
       await this.setSpec(spec);

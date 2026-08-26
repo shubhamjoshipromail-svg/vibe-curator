@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 type NativeControlsSnapshot = {
   wallpaperVisible: boolean;
   desktopIconsVisible: boolean;
+  launchAtLogin: boolean;
 };
 
 type PlaybackState = 'playing' | 'stopped' | 'awaiting-gesture' | 'unknown';
@@ -17,9 +18,11 @@ const stop = document.querySelector<HTMLButtonElement>('#stop')!;
 const gestureFallback = document.querySelector<HTMLButtonElement>('#gesture-fallback')!;
 const wallpaperToggle = document.querySelector<HTMLButtonElement>('#wallpaper-toggle')!;
 const iconsToggle = document.querySelector<HTMLButtonElement>('#icons-toggle')!;
+const loginToggle = document.querySelector<HTMLButtonElement>('#login-toggle')!;
 const openEditor = document.querySelector<HTMLButtonElement>('#open-editor')!;
+const closeControls = document.querySelector<HTMLButtonElement>('#close-controls')!;
 
-let nativeState: NativeControlsSnapshot = { wallpaperVisible: true, desktopIconsVisible: true };
+let nativeState: NativeControlsSnapshot = { wallpaperVisible: true, desktopIconsVisible: true, launchAtLogin: false };
 let volumeTimer: number | undefined;
 
 function actionButtonValue(button: HTMLButtonElement, text: string): void {
@@ -29,6 +32,7 @@ function actionButtonValue(button: HTMLButtonElement, text: string): void {
 function renderNativeState(): void {
   actionButtonValue(wallpaperToggle, nativeState.wallpaperVisible ? 'Hide' : 'Show');
   actionButtonValue(iconsToggle, nativeState.desktopIconsVisible ? 'Hide' : 'Show');
+  actionButtonValue(loginToggle, nativeState.launchAtLogin ? 'On' : 'Off');
 }
 
 function renderPlayback(state: PlaybackState, detail?: string): void {
@@ -58,16 +62,21 @@ async function dispatch(action: Record<string, unknown>): Promise<void> {
 }
 
 function readPlaybackStatus(payload: unknown): { state: PlaybackState; detail?: string } {
+  const values = typeof payload === 'object' && payload ? payload as Record<string, unknown> : undefined;
   const raw = typeof payload === 'string'
     ? payload
-    : typeof payload === 'object' && payload
-      ? String((payload as Record<string, unknown>).state ?? (payload as Record<string, unknown>).status ?? '')
+    : values
+      ? String(values.state ?? values.status ?? '')
       : '';
   const normalized = raw.toLowerCase().replaceAll('_', '-');
-  if (normalized === 'playing') return { state: 'playing' };
+  if (normalized === 'playing') {
+    const level = typeof values?.levelDb === 'number' && Number.isFinite(values.levelDb) ? values.levelDb : undefined;
+    return { state: 'playing', detail: level === undefined ? undefined : `Playing · ${Math.round(level)} dB` };
+  }
   if (normalized === 'awaiting-gesture' || normalized === 'needs-gesture') return { state: 'awaiting-gesture' };
   if (normalized === 'stopped' || normalized === 'idle') return { state: 'stopped' };
-  return { state: 'unknown', detail: raw || undefined };
+  const error = typeof values?.error === 'string' ? values.error : undefined;
+  return { state: 'unknown', detail: error || raw || undefined };
 }
 
 function readPresetName(payload: unknown): string | undefined {
@@ -107,7 +116,11 @@ wallpaperToggle.addEventListener('click', () => void dispatch({
 iconsToggle.addEventListener('click', () => void dispatch({
   action: 'setDesktopIconsVisible', visible: !nativeState.desktopIconsVisible,
 }));
+loginToggle.addEventListener('click', () => void dispatch({
+  action: 'setLaunchAtLogin', enabled: !nativeState.launchAtLogin,
+}));
 openEditor.addEventListener('click', () => void dispatch({ action: 'openEditor' }));
+closeControls.addEventListener('click', () => void invoke('native_controls_close'));
 gestureFallback.addEventListener('click', () => {
   void invoke('enable_wallpaper_controls').then(() => invoke('native_controls_close'));
 });

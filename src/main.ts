@@ -87,6 +87,11 @@ async function boot(): Promise<void> {
   if (initialRoute.name === 'legal') gate.classList.add('hidden');
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
   await registerDeepLinks(async (activation) => {
+    if ('controls' in activation) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('show_native_controls_command');
+      return;
+    }
     if ('token' in activation) {
       await runtimeHost.activateTransfer(activation.token);
       return;

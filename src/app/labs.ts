@@ -85,6 +85,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <button class="ghost" id="back">← Back</button>
           <button class="ghost" id="save">Save</button>
           <button class="display-mac-button" id="display-mac">${runtimeHost.kind === 'tauri' ? 'Set as Mac desktop' : 'Send to Mac desktop'}</button>
+          ${runtimeHost.kind === 'tauri' ? '' : '<button class="ghost" id="mac-controls">Mac controls</button>'}
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
       </header>
@@ -855,6 +856,9 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     } finally {
       button.disabled = false;
     }
+  });
+  host.querySelector<HTMLButtonElement>('#mac-controls')?.addEventListener('click', () => {
+    location.href = 'vibecurator://controls';
   });
   host.querySelector('#apply')?.addEventListener('click', () => {
     commit();

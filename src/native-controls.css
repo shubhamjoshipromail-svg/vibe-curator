@@ -21,6 +21,9 @@ button, input { font: inherit; }
 }
 
 .popover-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 16px 14px; }
+.header-actions { display: flex; align-items: center; gap: 7px; }
+.close-button { width: 24px; height: 24px; padding: 0 0 2px; background: rgba(255, 255, 255, .08); color: #c8c6cd; font-size: 18px; line-height: 1; }
+.close-button:hover { background: rgba(255, 255, 255, .14); color: #fff; }
 .eyebrow { margin: 0 0 4px; color: #a8a6ae; font-size: 10px; font-weight: 700; letter-spacing: .11em; }
 h1 { max-width: 200px; margin: 0; overflow: hidden; font-size: 16px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .status { flex: none; border-radius: 999px; background: rgba(255, 255, 255, .08); color: #c8c6cd; padding: 5px 8px; font-size: 11px; font-weight: 650; }

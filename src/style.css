@@ -583,3 +583,18 @@ code { padding: 2px 6px; border-radius: 5px; background: rgba(255,255,255,.08); 
 }
 #wallpaper-sound[data-sleeping='false'], #wallpaper-sound:hover, #wallpaper-sound:focus-visible { opacity: 1; }
 #wallpaper-sound:active { transform: translateX(-50%) translateY(1px); }
+#wallpaper-controls {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 2;
+  padding: 9px 13px;
+  background: rgba(8, 9, 13, .56);
+  color: rgba(255, 255, 255, .74);
+  border-color: rgba(255, 255, 255, .16);
+  box-shadow: 0 10px 30px rgba(0,0,0,.24);
+  backdrop-filter: blur(14px);
+  opacity: .24;
+  transition: opacity .25s ease, background .2s ease;
+}
+#wallpaper-controls:hover, #wallpaper-controls:focus-visible { opacity: 1; background: rgba(8, 9, 13, .78); }
