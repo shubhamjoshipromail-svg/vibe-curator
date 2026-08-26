@@ -3,6 +3,7 @@ import { audioSpecForPreset, syncAudioLayers, syncGeneratedMusic } from './state
 import { navigate } from './router';
 import { savePreset } from '../preset/library';
 import { runtimeHost } from '../runtime/host';
+import { setAsChromeVibe } from '../runtime/chrome-handoff';
 
 /**
  * Player — where the environment is actually experienced.
@@ -31,6 +32,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
         ${runtimeHost.kind === 'tauri'
           ? '<button class="ghost" id="desktop">Set as desktop</button>'
           : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="display-mac-button" id="desktop">Send to Mac desktop</button>'}
+        ${runtimeHost.kind === 'tauri' ? '' : '<button class="ghost" id="chrome-vibe">Set as Chrome Vibe</button><span class="handoff-status" id="chrome-status" role="status"></span>'}
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>
@@ -62,6 +64,15 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
   host.querySelector('#edit')?.addEventListener('click', () =>
     navigate({ name: 'labs', presetId: preset.id }),
   );
+  host.querySelector<HTMLButtonElement>('#chrome-vibe')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const status = host.querySelector<HTMLElement>('#chrome-status');
+    button.disabled = true;
+    const result = await setAsChromeVibe(preset);
+    if (status) status.textContent = result.message;
+    button.textContent = result.ok ? 'Chrome Vibe set' : 'Set as Chrome Vibe';
+    button.disabled = false;
+  });
   host.querySelector<HTMLButtonElement>('#desktop')?.addEventListener('click', async (event) => {
     const button = event.currentTarget as HTMLButtonElement;
     button.disabled = true;

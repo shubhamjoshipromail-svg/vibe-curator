@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vibe Curator</title>
+    <link rel="stylesheet" href="./ui.css">
+  </head>
+  <body class="newtab-page">
+    <main class="vibe-stage" id="stage">
+      <img class="scene-image" id="scene-image" alt="">
+      <div class="scene-wash" aria-hidden="true"></div>
+      <div class="ambient-orb orb-one" aria-hidden="true"></div>
+      <div class="ambient-orb orb-two" aria-hidden="true"></div>
+      <header class="brand"><span class="brand-mark">V</span><span>Vibe Curator</span></header>
+      <section class="scene-copy" aria-live="polite">
+        <p class="eyebrow" id="scene-style">PROCEDURAL</p>
+        <h1 id="scene-name">Signal Drift</h1>
+        <p id="scene-description">Weightless and deep. Nothing to look at directly.</p>
+      </section>
+      <section class="sound-card" id="sound-card">
+        <div><strong id="sound-title">Sound is off</strong><span id="sound-detail">One click enables ambient audio on this device.</span></div>
+        <button class="primary" id="enable-sound">Enable sound</button>
+        <button class="icon-button" id="toggle-play" hidden aria-label="Play ambient sound">▶</button>
+      </section>
+      <p class="status" id="status" role="status"></p>
+    </main>
+    <script type="module" src="./newtab.ts"></script>
+  </body>
+</html>

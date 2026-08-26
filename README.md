@@ -89,6 +89,20 @@ The finished environment.
 - Sound remains opt-in and begins only after the user presses **Start sound**.
 - Browser Back and trackpad swipe navigation remain meaningful across the full flow.
 
+### Chrome companion
+
+The isolated [`chrome-extension/`](chrome-extension/) package is a production-minded Manifest V3 companion:
+
+- replaces New Tab with a validated Vibe Curator scene;
+- keeps explicitly enabled audio alive in an offscreen document after New Tab closes;
+- exposes the current scene, play/pause, and master volume in the toolbar popup;
+- persists versioned state in `chrome.storage.local`;
+- accepts acknowledged handoffs only from the exact production website origin;
+- requests only `storage` and `offscreen`, with no browsing, tab, scripting, content-script, or broad host access;
+- packages all executable code locally while allowing only validated first-party curated image/MP3 media.
+
+After `npm --prefix chrome-extension ci`, run `npm run verify:chrome` and `npm run package:chrome` from the repository root. Privacy details, permission rationale, website-ID setup, and manual loading steps are in the [Chrome extension guide](chrome-extension/README.md).
+
 ## What works today
 
 | Capability | Status | Implementation |
