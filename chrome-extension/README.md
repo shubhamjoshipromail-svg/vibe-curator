@@ -34,12 +34,14 @@ To restore Chrome's default New Tab, disable or remove Vibe Curator at `chrome:/
 Chrome assigns an ID after the extension is loaded or published. Put that public ID in the website build environment:
 
 ```sh
-VITE_CHROME_EXTENSION_ID=abcdefghijklmnopqrstuvwxyzabcdef
+VITE_CHROME_EXTENSION_ID=niamjnjkmfnlpcejieffodipboacfdnm
 ```
 
 Rebuild the website. Its **Set as Chrome Vibe** action sends a versioned request and displays success only after the extension validates the preset, updates active audio when needed, commits `chrome.storage.local`, and returns a matching acknowledgement.
 
 The stable production value should be the Chrome Web Store extension ID. Unpacked IDs are suitable for local testing but may differ across machines or paths.
+
+The production Chrome Web Store item ID is `niamjnjkmfnlpcejieffodipboacfdnm`.
 
 ## Architecture and safety boundary
 

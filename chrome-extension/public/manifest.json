@@ -4,9 +4,22 @@
   "version": "0.1.0",
   "minimum_chrome_version": "116",
   "description": "A calm visual and sound scene for each new tab.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": ["storage", "offscreen"],
   "background": { "service_worker": "service_worker.js", "type": "module" },
-  "action": { "default_popup": "popup.html", "default_title": "Vibe Curator" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Vibe Curator",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "chrome_url_overrides": { "newtab": "newtab.html" },
   "externally_connectable": {
     "matches": ["https://vibe-curator-production.up.railway.app/*"],
