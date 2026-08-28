@@ -1,0 +1,21 @@
+{
+  "name": "vibe-curator-chrome-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && node scripts/package.mjs",
+    "verify": "npm run typecheck && npm test && npm run build && node scripts/verify-build.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "@types/node": "^22.10.1",
+    "fflate": "^0.8.3",
+    "typescript": "^5.6.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

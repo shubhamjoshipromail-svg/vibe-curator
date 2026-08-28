@@ -260,7 +260,8 @@ select {
 .chip-own { background: rgba(212, 180, 131, 0.2); color: #e6cba0; }
 .chip-quiet { opacity: 0.65; }
 
-.card-actions { display: flex; gap: 8px; padding: 10px 16px 16px; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 16px; }
+.chrome-handoff-status { color: var(--dim); flex-basis: 100%; font-size: 11px; min-height: 15px; }
 
 /* --- marketplace --------------------------------------------------------- */
 .market-head { max-width: 1220px; margin: 24px auto 30px; align-items: center; }
@@ -480,6 +481,7 @@ input[type='range'] {
 .player-control-drawer.open { opacity: 1; visibility: visible; transform: translateY(0); }
 .player-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .player-actions #browse { grid-column: 1 / -1; }
+.handoff-status { color: rgba(255,255,255,.65); font-size: 11px; grid-column: 1 / -1; min-height: 14px; }
 
 .mixer {
   position: static;

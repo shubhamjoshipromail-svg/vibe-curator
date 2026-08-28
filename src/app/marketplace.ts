@@ -2,6 +2,7 @@ import { listPresets } from '../preset/library';
 import { renderThumbnail } from '../preset/thumbnail';
 import type { Preset } from '../preset/types';
 import { navigate } from './router';
+import { setAsChromeVibe } from '../runtime/chrome-handoff';
 
 export type MarketCollectionId = 'pixel-art' | 'cozy-dark-fantasy' | 'conceptual-sketch' | 'japandi' | 'synthwave' | 'aurora' | 'mystical-western' | 'art-deco' | 'bauhaus' | 'art-nouveau' | 'wabi-sabi' | 'neo-brutalism' | 'risograph' | 'paper-cut' | 'cyanotype' | 'stained-glass' | 'surreal-collage' | 'mid-century' | 'living-scenes';
 
@@ -114,6 +115,22 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
   const open = () => navigate({ name: 'labs', presetId: preset.id, returnTo: 'marketplace' });
   remix.addEventListener('click', (event) => { event.stopPropagation(); open(); });
   actions.appendChild(remix);
+  const chromeButton = document.createElement('button');
+  const chromeStatus = document.createElement('span');
+  chromeButton.className = 'ghost';
+  chromeButton.textContent = 'Set as Chrome Vibe';
+  chromeStatus.className = 'chrome-handoff-status';
+  chromeStatus.setAttribute('role', 'status');
+  chromeButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    chromeButton.disabled = true;
+    chromeStatus.textContent = 'Contacting the extension…';
+    const result = await setAsChromeVibe(preset);
+    chromeButton.textContent = result.ok ? 'Chrome Vibe set' : 'Set as Chrome Vibe';
+    chromeStatus.textContent = result.message;
+    chromeButton.disabled = false;
+  });
+  actions.append(chromeButton, chromeStatus);
   if (preset.music?.url) {
     const preview = document.createElement('button');
     preview.className = 'ghost';
