@@ -1,5 +1,5 @@
 import { getState, onStoredState, sendRequest } from './client';
-import { TRUSTED_SITE_ORIGIN, type ExtensionState } from './core';
+import type { ExtensionState } from './core';
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const stage = element<HTMLElement>('stage');
@@ -25,7 +25,6 @@ function render(next: ExtensionState): void {
   stage.style.setProperty('--mood', String(preset.controls.mood));
   stage.dataset.baseVibe = preset.baseVibeId;
   stage.dataset.source = preset.scene.kind === 'procedural' ? preset.scene.sourceId : preset.scene.kind;
-  element<HTMLAnchorElement>('customize').href = `${TRUSTED_SITE_ORIGIN}/labs/${encodeURIComponent(preset.id)}`;
   element('scene-name').textContent = preset.name;
   element('scene-description').textContent = preset.description;
   element('scene-style').textContent = preset.scene.style.toUpperCase();

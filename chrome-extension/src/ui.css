@@ -40,6 +40,16 @@ button:disabled { cursor: wait; opacity: .62; }
 @keyframes drift-two { to { transform: translate(18vw, -16vh) scale(1.15); } }
 @media (prefers-reduced-motion: reduce) { .ambient-orb { animation: none; } }
 .brand { align-items: center; display: flex; font-size: 14px; font-weight: 650; gap: 10px; left: 34px; letter-spacing: .02em; position: absolute; top: 30px; }
+.google-shortcuts { align-items: center; display: flex; gap: 18px; position: absolute; right: 28px; top: 27px; }
+.google-shortcuts > a { color: var(--text); font-size: 13px; font-weight: 520; opacity: .9; text-decoration: none; }
+.google-shortcuts > a:hover, .google-shortcuts > a:focus-visible { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
+.google-icon-link { align-items: center; border-radius: 50%; display: inline-flex; height: 34px; justify-content: center; width: 34px; }
+.google-icon-link:hover, .google-icon-link:focus-visible { background: color-mix(in srgb, var(--text) 12%, transparent); text-decoration: none !important; }
+.apps-grid { background-image: radial-gradient(circle, currentColor 1.7px, transparent 1.9px); background-position: 0 0; background-size: 6px 6px; display: block; height: 18px; width: 18px; }
+.account-link { background: color-mix(in srgb, var(--accent) 80%, white); color: var(--base) !important; }
+.account-link:hover, .account-link:focus-visible { background: color-mix(in srgb, var(--accent) 65%, white); }
+.account-glyph { border: 2px solid currentColor; border-radius: 50% 50% 44% 44%; display: block; height: 10px; position: relative; top: 4px; width: 16px; }
+.account-glyph::before { background: currentColor; border-radius: 50%; content: ''; height: 7px; left: 50%; position: absolute; top: -10px; transform: translateX(-50%); width: 7px; }
 .scene-copy { left: clamp(30px, 8vw, 130px); max-width: 650px; position: absolute; top: 50%; transform: translateY(-55%); }
 .eyebrow { font-size: 12px; font-weight: 760; letter-spacing: .2em; margin: 0 0 18px; opacity: .7; }
 .scene-copy h1 { font-size: clamp(48px, 8vw, 112px); font-weight: 480; letter-spacing: -.055em; line-height: .92; margin: 0; text-wrap: balance; }
@@ -51,9 +61,14 @@ button:disabled { cursor: wait; opacity: .62; }
 .sound-card div { display: grid; flex: 1; gap: 4px; min-width: 0; }
 .sound-card strong { font-size: 14px; }
 .sound-card span { font-size: 12px; opacity: .68; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sound-card a, .customize-link { color: var(--text, #dff6f4); font-size: 11px; opacity: .78; text-underline-offset: 3px; width: fit-content; }
+.customize-link { color: var(--text, #dff6f4); font-size: 11px; opacity: .78; text-underline-offset: 3px; width: fit-content; }
 .icon-button { font-size: 15px; min-width: 42px; padding: 0; width: 42px; }
 .newtab-page .status { bottom: 10px; left: 50%; position: absolute; text-align: center; transform: translateX(-50%); }
+@media (max-width: 680px) {
+  .google-shortcuts { gap: 10px; right: 16px; }
+  .google-shortcuts > a:not(.google-icon-link) { display: none; }
+  .brand { left: 18px; }
+}
 
 .popup-page { --popup-base: #05060f; --popup-accent: #4fa3b8; background: linear-gradient(150deg, var(--popup-base), #111827); color: #eefafa; min-width: 310px; }
 .popup-shell { padding: 18px; width: 310px; }
