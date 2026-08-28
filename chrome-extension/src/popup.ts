@@ -1,5 +1,5 @@
 import { getState, onStoredState, sendRequest } from './client';
-import type { ExtensionState } from './core';
+import { TRUSTED_SITE_ORIGIN, type ExtensionState } from './core';
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const enable = element<HTMLButtonElement>('enable-sound');
@@ -21,6 +21,7 @@ function render(next: ExtensionState): void {
   output.value = `${Math.round(next.playback.masterVolume * 100)}%`;
   document.body.style.setProperty('--popup-accent', next.preset.palette.accent);
   document.body.style.setProperty('--popup-base', next.preset.palette.base);
+  element<HTMLAnchorElement>('customize').href = `${TRUSTED_SITE_ORIGIN}/labs/${encodeURIComponent(next.preset.id)}`;
 }
 
 async function run(operation: () => Promise<ExtensionState>): Promise<void> {

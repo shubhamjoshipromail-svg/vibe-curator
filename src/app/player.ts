@@ -3,7 +3,7 @@ import { audioSpecForPreset, syncAudioLayers, syncGeneratedMusic } from './state
 import { navigate } from './router';
 import { savePreset } from '../preset/library';
 import { runtimeHost } from '../runtime/host';
-import { setAsChromeVibe } from '../runtime/chrome-handoff';
+import { projectPresetForChrome, setAsChromeVibe } from '../runtime/chrome-handoff';
 
 /**
  * Player — where the environment is actually experienced.
@@ -20,6 +20,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     host.querySelector('#go')?.addEventListener('click', () => navigate({ name: 'explore' }));
     return;
   }
+  const chromeEligible = projectPresetForChrome(preset) !== null;
 
   host.dataset.artStyle = preset.scene.style.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -32,7 +33,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
         ${runtimeHost.kind === 'tauri'
           ? '<button class="ghost" id="desktop">Set as desktop</button>'
           : '<button class="ghost" id="desktop-preview">Preview wallpaper</button><button class="display-mac-button" id="desktop">Send to Mac desktop</button>'}
-        ${runtimeHost.kind === 'tauri' ? '' : '<button class="ghost" id="chrome-vibe">Set as Chrome Vibe</button><span class="handoff-status" id="chrome-status" role="status"></span>'}
+        ${runtimeHost.kind === 'tauri' || !chromeEligible ? '' : '<button class="ghost" id="chrome-vibe">Set as Chrome Vibe</button><span class="handoff-status" id="chrome-status" role="status"></span>'}
         <button class="ghost" id="edit">Customize</button>
         <button class="ghost" id="browse">← Back</button>
       </div>

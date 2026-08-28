@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_PRESET, DEFAULT_STATE, commitAfterAudio, isTrustedExternalSender, nextState, validateExternalRequest,
+  DEFAULT_PRESET, DEFAULT_STATE, commitAfterAudio, effectiveLayerVolume, isTrustedExternalSender, nextState, validateExternalRequest,
   validateInternalRequest, validatePreset, validateState,
 } from '../src/core';
 
@@ -64,6 +64,15 @@ describe('message and state validation', () => {
     expect(changed.revision).toBe(1);
     expect(changed.playback.soundUnlocked).toBe(false);
     expect(validateState(changed)).toEqual(changed);
+  });
+
+  it('applies the authored layer, master, and popup volumes together', () => {
+    const state = structuredClone(DEFAULT_STATE);
+    state.playback.masterVolume = 0.5;
+    expect(effectiveLayerVolume(state, 'ambience')).toBeCloseTo(0.32);
+    expect(effectiveLayerVolume(state, 'music')).toBeCloseTo(0.26);
+    state.preset.audio.music.muted = true;
+    expect(effectiveLayerVolume(state, 'music')).toBe(0);
   });
 
   it('requires both exact origin and URL for website senders', () => {

@@ -1,4 +1,39 @@
-import type { Preset } from '../preset/types';
+interface ChromeVibePalette {
+  base: string;
+  surface: string;
+  primary: string;
+  accent: string;
+  text: string;
+  ramp: string[];
+}
+
+interface ChromeVibeControls {
+  mood: number;
+  motion: number;
+  depth: number;
+  glow: number;
+  atmosphere: number;
+  intensity: number;
+}
+
+interface ChromeVibeAudio {
+  ambience: { gain: number; muted: boolean };
+  music: { gain: number; muted: boolean };
+  master: { gain: number; muted: boolean };
+}
+
+/** Minimal structural contract so the isolated extension tests do not need the web renderer dependencies. */
+export interface ChromeVibeInput {
+  id: string;
+  name: string;
+  description: string;
+  baseVibeId: string;
+  scene: { kind: string; label: string; style: string; sourceId?: string; url?: string; assetId?: string };
+  palette: ChromeVibePalette;
+  controls: ChromeVibeControls;
+  audio: ChromeVibeAudio;
+  music?: { url?: string };
+}
 
 export interface ChromeVibePreset {
   id: string;
@@ -6,19 +41,20 @@ export interface ChromeVibePreset {
   description: string;
   baseVibeId: string;
   scene: { kind: 'renderer' | 'procedural' | 'image'; label: string; style: string; sourceId?: string; url?: string };
-  palette: Preset['palette'];
-  controls: Preset['controls'];
-  audio: Preset['audio'];
+  palette: ChromeVibePalette;
+  controls: ChromeVibeControls;
+  audio: ChromeVibeAudio;
   trackUrl?: string;
 }
 
 export interface ChromeHandoffResult { ok: boolean; message: string }
 
-const configuredExtensionId = import.meta.env.VITE_CHROME_EXTENSION_ID?.trim();
+const PRODUCTION_EXTENSION_ID = 'niamjnjkmfnlpcejieffodipboacfdnm';
+const configuredExtensionId = import.meta.env.VITE_CHROME_EXTENSION_ID?.trim() || PRODUCTION_EXTENSION_ID;
 const extensionId = configuredExtensionId && /^[a-p]{32}$/.test(configuredExtensionId) ? configuredExtensionId : undefined;
 
 /** Deliberately excludes effects, private assets, arbitrary media URLs and provenance. */
-export function projectPresetForChrome(preset: Preset): ChromeVibePreset | null {
+export function projectPresetForChrome(preset: ChromeVibeInput): ChromeVibePreset | null {
   const origin = 'https://vibe-curator-production.up.railway.app';
   let scene: ChromeVibePreset['scene'];
   if (preset.scene.kind === 'image') {
@@ -42,7 +78,7 @@ export function projectPresetForChrome(preset: Preset): ChromeVibePreset | null 
 
 function requestId(): string { return `web_${crypto.randomUUID().replaceAll('-', '')}`; }
 
-export async function setAsChromeVibe(preset: Preset): Promise<ChromeHandoffResult> {
+export async function setAsChromeVibe(preset: ChromeVibeInput): Promise<ChromeHandoffResult> {
   const safePreset = projectPresetForChrome(preset);
   if (!safePreset) return { ok: false, message: 'Chrome Vibe supports coded scenes, not private media.' };
   if (!extensionId) return { ok: false, message: configuredExtensionId ? 'The Chrome extension ID is invalid.' : 'Chrome Vibe is not configured for this site.' };

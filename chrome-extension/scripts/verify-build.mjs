@@ -3,6 +3,8 @@ import { join, resolve } from 'node:path';
 
 const distribution = resolve('dist');
 const manifest = JSON.parse(await readFile(join(distribution, 'manifest.json'), 'utf8'));
+const packageJson = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
+if (manifest.version !== packageJson.version) throw new Error(`Manifest version ${manifest.version} does not match package version ${packageJson.version}.`);
 const required = [
   manifest.chrome_url_overrides.newtab,
   manifest.action.default_popup,

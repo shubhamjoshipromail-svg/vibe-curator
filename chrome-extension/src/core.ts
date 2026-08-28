@@ -272,6 +272,13 @@ export function nextState(current: ExtensionState, change: Partial<ExtensionStat
   });
 }
 
+export function effectiveLayerVolume(state: ExtensionState, layerName: 'ambience' | 'music'): number {
+  const master = state.preset.audio.master;
+  const layer = state.preset.audio[layerName];
+  if (master.muted || layer.muted) return 0;
+  return master.gain * layer.gain * state.playback.masterVolume;
+}
+
 export async function commitAfterAudio(
   next: ExtensionState,
   applyAudio: (state: ExtensionState) => Promise<void>,

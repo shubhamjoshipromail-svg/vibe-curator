@@ -1,24 +1,9 @@
-import { PROTOCOL_VERSION, errorResponse, validateAudioRequest, type ExtensionState } from './core';
+import { PROTOCOL_VERSION, effectiveLayerVolume, errorResponse, validateAudioRequest, type ExtensionState } from './core';
 
 let track: HTMLAudioElement | undefined;
 let context: AudioContext | undefined;
 let synthGain: GainNode | undefined;
-let synthNodes: AudioNode[] = [];
 const sessionToken = new URL(location.href).searchParams.get('session');
-
-function effectiveVolume(state: ExtensionState): number {
-  const master = state.preset.audio.master;
-  return (master.muted ? 0 : master.gain) * state.playback.masterVolume;
-}
-
-function stopSynth(): void {
-  for (const node of synthNodes) {
-    try { if (node instanceof OscillatorNode) node.stop(); } catch { /* Already stopped. */ }
-    try { node.disconnect(); } catch { /* Already disconnected. */ }
-  }
-  synthNodes = [];
-  synthGain = undefined;
-}
 
 function pauseTrack(): void {
   if (!track) return;
@@ -47,15 +32,12 @@ async function startSynth(volume: number): Promise<void> {
       gain.gain.value = frequency < 100 ? 0.32 : 0.12;
       oscillator.connect(gain).connect(lowpass);
       oscillator.start();
-      synthNodes.push(oscillator, gain);
     }
-    synthNodes.push(lowpass, synthGain);
   }
   synthGain.gain.setTargetAtTime(volume * 0.13, context.currentTime, 0.08);
 }
 
 async function startTrack(url: string, volume: number): Promise<void> {
-  stopSynth();
   if (!track || track.src !== url) {
     pauseTrack();
     track = new Audio(url);
@@ -73,12 +55,9 @@ async function applyAudio(state: ExtensionState): Promise<void> {
     if (context?.state === 'running') await context.suspend();
     return;
   }
-  const volume = effectiveVolume(state);
-  if (state.preset.trackUrl) await startTrack(state.preset.trackUrl, volume);
-  else {
-    pauseTrack();
-    await startSynth(volume);
-  }
+  await startSynth(effectiveLayerVolume(state, 'ambience'));
+  if (state.preset.trackUrl) await startTrack(state.preset.trackUrl, effectiveLayerVolume(state, 'music'));
+  else pauseTrack();
 }
 
 chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {

@@ -84,6 +84,8 @@ Never create a `VITE_`-prefixed secret.
     customer portal opens.
 11. A redeploy preserves accounts, credit history, projects and media.
 12. Provider keys are absent from the client bundle and browser network payloads.
+13. Chrome Web Store version matches the packaged manifest; New Tab, sound opt-in,
+    popup volume, and the website-to-extension handoff pass in a clean Chrome profile.
 
 ## Rollback
 
