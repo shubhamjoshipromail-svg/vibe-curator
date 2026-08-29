@@ -101,6 +101,7 @@ button.ghost { background: transparent; }
 }
 .account-trigger { min-width: 74px; padding: 9px 15px; }
 .install-trigger { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px 8px 10px; font-size: 13px; font-weight: 700; text-decoration: none; }
+.chrome-trigger { padding-right: 12px; }
 .install-trigger svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .account-trigger:hover, .install-trigger:hover { color: #fff; border-color: rgba(255,255,255,.25); background: rgba(236,230,221,.1); }
 .account-popover { position: absolute; top: calc(100% + 10px); right: 0; width: min(300px, calc(100vw - 32px)); padding: 18px; border: 1px solid rgba(255,255,255,.13); border-radius: 18px; background: rgba(14,12,16,.88); box-shadow: 0 18px 60px rgba(0,0,0,.38); backdrop-filter: blur(24px); }
@@ -309,6 +310,9 @@ button.display-mac-button {
 button.display-mac-button:hover { background: #b9f3ff; }
 
 @media (max-width: 760px) {
+  .account-control { top: 14px; right: 14px; gap: 6px; }
+  .install-trigger { padding: 8px 10px; }
+  .install-trigger svg { width: 18px; height: 18px; }
   .labs-head { padding-top: 68px; align-items: stretch; }
   .labs-actions { border-radius: 18px; flex-wrap: wrap; }
   .labs-actions button { flex: 1 1 auto; }

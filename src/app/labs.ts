@@ -78,8 +78,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     <div class="labs">
       <header class="page-head labs-head">
         <div>
-          <input id="name" class="name-input" value="${draft.name}" />
-          <p class="sub">${source.builtIn ? `Remixing <strong>${source.name}</strong> — the original stays untouched.` : 'Your room.'}</p>
+          <input id="name" class="name-input" />
+          <p class="sub" id="labs-context"></p>
         </div>
         <div class="labs-actions">
           <button class="ghost" id="back">← Back</button>
@@ -169,6 +169,16 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   installPeekWhileAdjusting(host);
 
   const nameInput = host.querySelector<HTMLInputElement>('#name')!;
+  nameInput.value = draft.name;
+  const labsContext = host.querySelector<HTMLParagraphElement>('#labs-context')!;
+  if (source.builtIn) {
+    labsContext.append('Remixing ');
+    const sourceName = document.createElement('strong');
+    sourceName.textContent = source.name;
+    labsContext.append(sourceName, ' — the original stays untouched.');
+  } else {
+    labsContext.textContent = 'Your room.';
+  }
   nameInput.addEventListener('input', () => {
     draft.name = nameInput.value.trim() || 'Untitled room';
   });
@@ -324,10 +334,16 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         : draft.scene.kind === 'video'
           ? 'Looping video'
           : 'Image';
-    sceneSummary.innerHTML = `
-      <div><strong>${draft.scene.label}</strong><span>${kind} · ${draft.scene.style}</span></div>
-      <span class="scene-kind">${draft.scene.kind}</span>
-    `;
+    const description = document.createElement('div');
+    const label = document.createElement('strong');
+    label.textContent = draft.scene.label;
+    const detail = document.createElement('span');
+    detail.textContent = `${kind} · ${draft.scene.style}`;
+    description.append(label, detail);
+    const sceneKind = document.createElement('span');
+    sceneKind.className = 'scene-kind';
+    sceneKind.textContent = draft.scene.kind;
+    sceneSummary.replaceChildren(description, sceneKind);
     sceneAnimate.hidden = draft.scene.kind !== 'image' || !draft.scene.assetId;
     drawSourceMotion();
     drawLivingStill();
@@ -443,14 +459,19 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     el.className = 'fx-card source-card';
     el.innerHTML = `
       <div class="fx-card-head">
-        <label class="toggle"><input type="checkbox" ${recipe.enabled ? 'checked' : ''} /><span>${recipe.name}</span></label>
+        <label class="toggle"><input type="checkbox" /><span></span></label>
         <button class="ghost tiny" data-act="remove" title="Remove">×</button>
       </div>
-      <p class="fx-notes">${recipe.notes}</p>
+      <p class="fx-notes"></p>
       <div class="fx-params"></div>
-      <label class="color-row"><span>Tint</span><input type="color" value="${recipe.params.color}" /></label>
+      <label class="color-row"><span>Tint</span><input type="color" /></label>
     `;
-    el.querySelector<HTMLInputElement>('input[type=checkbox]')!.addEventListener('change', (event) => {
+    const enabled = el.querySelector<HTMLInputElement>('input[type=checkbox]')!;
+    enabled.checked = recipe.enabled;
+    el.querySelector<HTMLElement>('.toggle span')!.textContent = recipe.name;
+    el.querySelector<HTMLElement>('.fx-notes')!.textContent = recipe.notes;
+    el.querySelector<HTMLInputElement>('input[type=color]')!.value = recipe.params.color;
+    enabled.addEventListener('change', (event) => {
       recipe.enabled = (event.target as HTMLInputElement).checked;
       syncSourceTreatments();
     });
@@ -578,21 +599,26 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     el.innerHTML = `
       <div class="fx-card-head">
         <label class="toggle">
-          <input type="checkbox" ${fx.enabled ? 'checked' : ''} />
-          <span>${fx.name}</span>
+          <input type="checkbox" />
+          <span></span>
         </label>
         <button class="ghost tiny" data-act="remove" title="Remove">×</button>
       </div>
-      <p class="fx-notes">${fx.notes}</p>
+      <p class="fx-notes"></p>
       <div class="fx-params"></div>
       <details class="fx-remix">
         <summary>Remix this effect</summary>
-        <textarea rows="2">${fx.prompt}</textarea>
+        <textarea rows="2"></textarea>
         <button class="ghost wide" data-act="remix">Regenerate from this prompt</button>
       </details>
     `;
 
-    el.querySelector<HTMLInputElement>('input[type=checkbox]')!.addEventListener('change', (e) => {
+    const enabled = el.querySelector<HTMLInputElement>('input[type=checkbox]')!;
+    enabled.checked = fx.enabled;
+    el.querySelector<HTMLElement>('.toggle span')!.textContent = fx.name;
+    el.querySelector<HTMLElement>('.fx-notes')!.textContent = fx.notes;
+    el.querySelector<HTMLTextAreaElement>('.fx-remix textarea')!.value = fx.prompt;
+    enabled.addEventListener('change', (e) => {
       fx.enabled = (e.target as HTMLInputElement).checked;
       reloadEffects(state, draft);
     });
@@ -610,11 +636,13 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     for (const p of fx.params) {
       const row = document.createElement('div');
       row.className = 'ctl ctl-tight';
-      row.innerHTML = `
-        <div class="ctl-head"><label>${p.label}</label></div>
-        <input type="range" min="${p.min}" max="${p.max}" step="${(p.max - p.min) / 100}" value="${p.value}" />
-      `;
+      row.innerHTML = '<div class="ctl-head"><label></label></div><input type="range" />';
+      row.querySelector<HTMLLabelElement>('label')!.textContent = p.label;
       const slider = row.querySelector<HTMLInputElement>('input')!;
+      slider.min = String(p.min);
+      slider.max = String(p.max);
+      slider.step = String((p.max - p.min) / 100);
+      slider.value = String(p.value);
       slider.addEventListener('input', () => {
         p.value = Number(slider.value);
         state.filters.get(fx.id)?.setParams(fx.params);

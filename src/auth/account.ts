@@ -13,6 +13,10 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
   const root = document.createElement('div');
   root.className = 'account-control';
   root.innerHTML = `
+    <a class="install-trigger chrome-trigger" href="https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm" target="_blank" rel="noreferrer" aria-label="Add Vibe Curator to Chrome">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9"/><path d="M4.2 7.5h10.4M8.5 20l5.2-9"/><circle cx="12" cy="12" r="3.4"/></svg>
+      <span>Chrome</span>
+    </a>
     <a class="install-trigger" href="/desktop" aria-label="Install the Mac app">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5v10M8 12.5l4 4 4-4"/></svg>
       <span>Install App</span>
@@ -94,7 +98,13 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
     desktop.className = 'account-link';
     desktop.href = '/desktop';
     desktop.textContent = 'Download the Mac app';
-    panel.append(desktop, privacy);
+    const chrome = document.createElement('a');
+    chrome.className = 'account-link';
+    chrome.href = 'https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm';
+    chrome.target = '_blank';
+    chrome.rel = 'noreferrer';
+    chrome.textContent = 'Add the Chrome extension';
+    panel.append(chrome, desktop, privacy);
     root.appendChild(panel);
   });
 }

@@ -1,6 +1,6 @@
 [package]
 name = "vibe-curator"
-version = "0.1.0"
+version = "0.1.1"
 description = "The native wallpaper player for Vibe Curator"
 authors = ["Vibe Curator"]
 edition = "2021"

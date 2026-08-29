@@ -17,12 +17,13 @@ Last reviewed: 2026-08-23. This is an engineering/compliance checklist, not juri
 
 - [x] App Store distribution is not required. Apple supports distribution outside the Mac App Store using Developer ID. See [Apple macOS distribution](https://developer.apple.com/macos/distribution/) and [Developer ID](https://developer.apple.com/developer-id/).
 - [x] `vibecurator://open?preset=…` deep links and single-instance behavior are integrated. A registered URL scheme can launch a closed installed app; a WebSocket cannot wake a process that is not running. See [Tauri deep linking](https://v2.tauri.app/plugin/deep-linking/).
-- [x] Website desktop page explains that the download is pending signing/notarization and does not offer the ad-hoc engineering build publicly.
+- [x] Website desktop page labels the ad-hoc build for technically informed testers and gives the narrow Finder/System Settings workaround without telling users to disable Gatekeeper.
 - [ ] Join/renew the Apple Developer Program. Tauri documents the US price as $99/year; regional pricing/tax can vary. See [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/).
 - [ ] Create/import a `Developer ID Application` certificate and protect its private key.
 - [ ] Add hardened-runtime entitlements, sign every nested binary, archive as a DMG, submit to Apple notarization, and staple the ticket. See [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [Tauri DMG distribution](https://v2.tauri.app/distribute/dmg/).
 - [ ] Verify the final artifact on a different Mac: `codesign --verify --deep --strict`, `spctl --assess --type open`, install, first launch, menu bar, wallpaper, quit, and web deep link.
-- [ ] Host the versioned notarized DMG over HTTPS, publish SHA-256 and file size, then enable the website download button.
+- [x] Host the versioned technical-tester DMG over HTTPS with a published SHA-256.
+- [ ] Replace the technical-tester download with a Developer ID-signed, notarized and stapled DMG before general public distribution.
 - [ ] Add signed automatic updates only after the manual beta install is stable.
 
 ## Data map and minimization

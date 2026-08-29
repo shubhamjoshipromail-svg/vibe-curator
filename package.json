@@ -1,13 +1,13 @@
 {
   "name": "vibe-curator",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:native": "tauri dev",
     "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173} --strictPort",
-    "build": "npm run check:licenses && tsc --noEmit && vite build",
+    "build": "npm run check:licenses && npm run test:release && tsc --noEmit && vite build",
     "build:native": "tauri build",
     "build:chrome": "npm --prefix chrome-extension run build",
     "test:chrome": "npm --prefix chrome-extension test",
@@ -17,6 +17,7 @@
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:native": "node scripts/check-native-release.mjs",
     "test:native": "node --test --experimental-strip-types test/native-release.test.ts",
+    "test:release": "node --test --experimental-strip-types test/release-surface.test.ts",
     "gen:fixtures": "node scripts/make-dev-fixtures.mjs",
     "gen:effects": "node scripts/generate-builtin-effects.mjs",
     "report:effect-costs": "node scripts/report-effect-costs.mjs"
