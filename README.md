@@ -4,6 +4,20 @@
 
 **Live app:** <https://vibe-curator-production.up.railway.app>
 
+## Beta release status
+
+| Surface | Current beta | Distribution |
+|---|---|---|
+| Web and API | `0.1.1` live | [Railway production](https://vibe-curator-production.up.railway.app) |
+| Chrome extension | `0.1.1` published | [Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) |
+| macOS app | `0.1.1` Beta 2, Apple silicon | [GitHub prerelease](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.2) |
+
+The web beta and extension are public. The macOS DMG is an ad-hoc-signed,
+unnotarized technical-tester build: Gatekeeper blocks a normal first launch, so
+the release page documents Finder **Open** / System Settings **Open Anyway**.
+Developer ID signing and Apple notarization remain required before presenting
+the native app as a frictionless general-public download.
+
 Vibe Curator is an experimental desktop-first product that sits between a generative media studio, an ambient player, and a creator marketplace. A user describes a world—or brings an image or video—then shapes its motion, visual treatment, atmosphere, and soundtrack without losing editability after generation.
 
 The thesis is simple:
@@ -101,6 +115,8 @@ The isolated [`chrome-extension/`](chrome-extension/) package is a production-mi
 - requests only `storage` and `offscreen`, with no browsing, tab, scripting, content-script, or broad host access;
 - packages all executable code locally while allowing only validated first-party curated image/MP3 media.
 
+Version `0.1.1` is approved and installable from the [Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm). It preserves Gmail, Images, Google Apps, and Account equivalents in the extension-owned New Tab interface. Chrome-owned footer/customization UI remains controlled by Chrome and the user's appearance settings.
+
 After `npm --prefix chrome-extension ci`, run `npm run verify:chrome` and `npm run package:chrome` from the repository root. Privacy details, permission rationale, website-ID setup, and manual loading steps are in the [Chrome extension guide](chrome-extension/README.md).
 
 ## What works today
@@ -117,13 +133,14 @@ After `npm --prefix chrome-extension ci`, run `npm run verify:chrome` and `npm r
 | Prompt → generated music | Working with many saved outputs | ElevenLabs Music v2, stored once and replayed locally |
 | Vocal music and fast rap intent | Working | Explicit vocal mode plus Anthropic prompt adaptation |
 | Artist-reference translation | Working | Named references converted into transferable musical characteristics |
-| Project persistence | Working | Shared local JSON project store plus browser cache |
-| Media persistence | Working | IndexedDB/local binary asset endpoints |
+| Project persistence | Working beta | Owner-scoped Railway Postgres records plus browser cache |
+| Media persistence | Working beta | IndexedDB plus authenticated owner-scoped endpoints on the Railway volume |
 | Folders, automatic types, tags | Working | One explicit folder per project plus independent tags |
 | Curated/community Market model | Working prototype | Collection folders and remixable preset cards |
 | Performance-aware rendering | Working | 15 fps Explore, 30 fps Labs, 60 fps Player; hidden-tab suspension |
 | Railway web deployment | Shipped | Production app at `vibe-curator-production.up.railway.app` |
-| Native application | Working macOS beta | Tauri 2 wallpaper window, tray controls, hosted editor, autostart foundation |
+| Chrome extension | Shipped | Web Store `0.1.1`, MV3, stable production item ID |
+| Native application | Published technical beta | Tauri 2 Apple-silicon Beta 2, wallpaper window, tray controls, hosted editor |
 | Cloud accounts and credits | Working beta | Better Auth guests, Google-ready account linking, Postgres credit ledger |
 
 ## System architecture
@@ -260,18 +277,17 @@ Provider details live behind same-origin server modules. API keys never enter cl
 - User-visible messages avoid leaking provider payloads or credentials.
 - The build fails if content-pack assets lack acceptable license metadata.
 
-## Local persistence model
+## Persistence model
 
-The prototype is deliberately local-first:
+The interactive renderer remains local-first, while production ownership and durable metadata are server-backed:
 
-- compact project documents are cached in `localStorage` and mirrored through local JSON endpoints;
-- folders are persisted as their own records;
-- binary images, video, and music use IndexedDB and local asset endpoints;
+- compact project and folder documents are cached in the browser and stored under the authenticated owner in Railway Postgres;
+- binary images, video, and music use IndexedDB for browser access and authenticated owner-scoped endpoints backed by the mounted Railway volume;
 - newest `updatedAt` wins during browser/server hydration;
 - built-ins are immutable and fork into owned projects;
 - older duplicate remixes are consolidated in the Library without destroying recoverable data.
 
-This is appropriate for a desktop prototype. In production, Postgres should store users, projects, folders, Market metadata, job state, and permissions; media belongs in object storage, not database rows.
+The beta deliberately runs one Railway web replica while binary assets remain on the mounted volume. Postgres stores identities, ownership, project/folder metadata, credits, jobs, and policy acknowledgments. Moving media to private object storage is a post-beta scaling step, not a prerequisite for the invited beta.
 
 ## Why Railway and a database do not fix rendering performance
 
@@ -298,7 +314,7 @@ The native layer currently owns:
 - the boundary between an offline starter scene and the hosted account surface;
 - an autostart plugin foundation, without silently enabling login launch.
 
-Signing, notarization, automatic updates, multi-display selection, and user-facing launch-at-login controls remain release work. Secure credential storage and filesystem import/export should be added only when a native feature genuinely requires them; provider secrets remain server-side.
+The current Apple-silicon DMG is published as [`v0.1.1-beta.2`](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.2). It uses an ad-hoc signature and hardened runtime, includes a SHA-256 checksum, and is explicitly limited to technically informed testers. Developer ID signing, notarization, automatic updates, multi-display selection, and user-facing launch-at-login controls remain release work. Secure credential storage and filesystem import/export should be added only when a native feature genuinely requires them; provider secrets remain server-side.
 
 The `Scene` interface remains the rendering boundary. A Rust/WGPU rewrite should happen only if measurements show WebView/WebGL is the remaining constraint—not because “native” automatically implies rewriting a working renderer.
 
@@ -347,7 +363,8 @@ Market cards are not flattened videos. They are remixable presets that open in L
 | [`src/media/api.ts`](src/media/api.ts) | Provider-neutral client media boundary |
 | [`server/media.ts`](server/media.ts) | Secret-holding image, motion, prompt-adaptation, and music proxy |
 | [`server/gen-shader.ts`](server/gen-shader.ts) | Secret-holding shader generation proxy |
-| [`server/library.ts`](server/library.ts) | Shared local project, folder, and binary asset endpoints |
+| [`server/library.ts`](server/library.ts) | Owner-scoped project, folder, and binary asset endpoints |
+| [`server/privacy.ts`](server/privacy.ts) | Versioned beta acknowledgment, export, and deletion endpoints |
 | [`src/runtime/host.ts`](src/runtime/host.ts) | Browser/Tauri wallpaper capability boundary |
 | [`src/wallpaper.ts`](src/wallpaper.ts) | Standalone offline/hosted wallpaper entrypoint |
 | [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs) | Desktop window levels, tray menu, and validated native commands |
@@ -392,7 +409,12 @@ Never prefix secrets with `VITE_`; Vite exposes those variables to the browser b
 ## Validate and build
 
 ```bash
-npm run build                 # license gate + TypeScript + production bundle
+npm run build                 # licenses + release tests + TypeScript + production bundle
+npm run test:release          # release-surface and consent invariants
+npm run verify:chrome         # extension typecheck, tests, build, and MV3 inspection
+npm run package:chrome        # versioned Chrome Web Store ZIP
+npm run test:native           # native activation/deep-link tests
+npm run check:native          # native manifest and curated-media checks
 npm run check:licenses        # validate every declared content asset
 npm run report:effect-costs   # offline report from recorded shader usage
 npm run gen:fixtures          # regenerate development art/audio fixtures
@@ -401,7 +423,7 @@ npm run gen:fixtures          # regenerate development art/audio fixtures
 Preview the production build:
 
 ```bash
-npm run preview
+npm run start
 ```
 
 Build the macOS desktop beta (Rust and the Tauri CLI are also required):
@@ -435,7 +457,7 @@ Release bundles default to the Railway production origin. To build for a differe
 
 - Sign and notarize the Tauri macOS bundle, then add verified automatic updates.
 - Add explicit launch-at-login controls and multi-display wallpaper selection.
-- Expand the shipped Railway web deployment into a durable generation/job API.
+- Move long-running generation into durable Railway worker jobs with retries and cancellation.
 - Postgres for metadata and object storage for media.
 - Durable job state, cancellation, retries, and background notifications.
 - Secure native keychain integration and production authentication.
@@ -452,7 +474,7 @@ ComfyUI is intentionally deferred. It becomes valuable when a single authored wo
 - Generated media has estimated rather than provider-reconciled per-request billing.
 - The repository has build/type/license validation but does not yet have a full automated browser performance suite.
 - Some visual content remains deliberately procedural or fixture-based while the product loop is validated.
-- The macOS bundle is a developer beta: it is not yet signed, notarized, or distributed through an updater.
+- The macOS Beta 2 DMG is ad-hoc signed and published for technical testers, but it is not Developer ID signed, notarized, or distributed through an updater.
 
 ## What this project demonstrates
 

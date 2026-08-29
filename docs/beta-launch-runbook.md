@@ -1,6 +1,8 @@
-# Private beta launch runbook
+# Invited beta launch and operations runbook
 
-## Tomorrow's release boundary
+Last reconciled with release `0.1.1`: 2026-08-29.
+
+## Current release boundary
 
 The beta is ready when a new visitor can become an anonymous user, receive 100
 non-cash Vibe Credits once, save private projects, link Google without losing
@@ -8,19 +10,32 @@ media, purchase in Stripe test mode, and generate only while a server-side
 credit reservation is available. Playback, local editing, uploads and curated
 worlds remain free after their assets are stored.
 
-Not in tomorrow's boundary: creator payouts, public user publishing, native app
+Not in this boundary: creator payouts, public user publishing, native app
 store review, community moderation, usage-based invoices, or selling a music
 library.
 
+Current distribution:
+
+- Web/API `0.1.1`: Railway production.
+- Chrome `0.1.1`: approved and published under item `niamjnjkmfnlpcejieffodipboacfdnm`.
+- macOS `0.1.1` Beta 2: published for technical testers, ad-hoc signed and unnotarized.
+
 ## Release order
 
-1. Merge the stabilized beta branch to `main` and allow Railway to build.
-2. Confirm the Better Auth migration and product schema complete in pre-deploy.
-3. Set the canonical HTTPS URL and Google OAuth callback.
-4. Configure Stripe test products, webhook and price ids.
-5. Add restricted provider keys with provider-side hard spend limits.
-6. Run the smoke matrix below with a fresh anonymous browser and one Google test account.
-7. Invite 5–10 named testers; do not publish an open signup link on day one.
+1. Run the web, Chrome, and native release checks from a clean release worktree.
+2. Fast-forward or merge the stabilized beta branch to `main` only after the checks pass.
+3. Deploy the exact merged worktree with `railway up --detach -y --service vibe-curator --environment production --message "<release>"`. This project currently uses CLI uploads rather than GitHub auto-deploy.
+4. Wait for Railway status `SUCCESS`; confirm the Better Auth migration and product schema complete in pre-deploy.
+5. Verify `/api/health`, `/`, and `/desktop`, then inspect the served bundle for the expected release links.
+6. Confirm the Chrome Web Store public listing version and the GitHub native asset/checksum URLs.
+7. Run the smoke matrix below with a fresh anonymous browser and one Google test account.
+
+Initial environment setup, when needed:
+
+1. Set the canonical HTTPS URL and Google OAuth callback.
+2. Configure Stripe test products, webhook and price ids.
+3. Add restricted provider keys with provider-side hard spend limits.
+4. Invite 5–10 named testers; do not publish an open signup link on day one.
 
 ## Required Railway variables
 
@@ -86,6 +101,8 @@ Never create a `VITE_`-prefixed secret.
 12. Provider keys are absent from the client bundle and browser network payloads.
 13. Chrome Web Store version matches the packaged manifest; New Tab, sound opt-in,
     popup volume, and the website-to-extension handoff pass in a clean Chrome profile.
+14. A fresh browser cannot enter until the Beta Terms checkbox is checked; missing,
+    false, or stale-policy acknowledgment requests are rejected by the server.
 
 ## Rollback
 

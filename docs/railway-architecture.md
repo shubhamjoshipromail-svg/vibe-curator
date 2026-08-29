@@ -1,5 +1,7 @@
 # Railway production architecture
 
+Current beta: web/API `0.1.1` is deployed at <https://vibe-curator-production.up.railway.app> as one Railway service and one replica with Postgres and a mounted `/data` volume. `/api/health` is the deployment health check. Production releases currently use an explicit Railway CLI upload from the tested `main` worktree; GitHub auto-deploy is not assumed.
+
 ## Decision
 
 Ship in two deliberate stages. The first deployment is a single Railway web
@@ -130,3 +132,18 @@ their authorization metadata is stored in Postgres.
 6. Deploy one replica and enable daily volume backups.
 7. Verify `/api/health`, create a project, upload an asset, redeploy, and confirm
    both survive before inviting users.
+
+## Repeat deployment
+
+From a clean worktree at the same commit as `origin/main`:
+
+```sh
+npm run build
+npm run verify:chrome
+npm run test:native
+npm run check:native
+railway up --detach -y --service vibe-curator --environment production --message "<release>"
+railway deployment list --limit 1
+```
+
+Wait for `SUCCESS`, inspect build/deploy logs, then smoke-test `/api/health`, `/`, and `/desktop`. A successful Git push alone does not deploy this service under its current CLI-upload configuration.

@@ -2,6 +2,8 @@
 
 This directory is an isolated Manifest V3 companion to the Vibe Curator website. It replaces Chrome's New Tab page with the selected scene, exposes play/pause and master volume in the toolbar popup, and keeps user-enabled audio in an offscreen document when the New Tab closes.
 
+**Current release:** [`0.1.1` on the Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) (item ID `niamjnjkmfnlpcejieffodipboacfdnm`).
+
 ## Build, test, and package
 
 Requires Node.js 20 or newer.
@@ -41,7 +43,7 @@ Rebuild the website. Its **Set as Chrome Vibe** action sends a versioned request
 
 Unpacked IDs are suitable for local testing but may differ across machines or paths.
 
-The production Chrome Web Store item ID is `niamjnjkmfnlpcejieffodipboacfdnm`.
+The stable production item URL is used by the website's Chrome button. It serves the latest approved version without requiring a website link change for every extension update.
 
 ## Architecture and safety boundary
 
@@ -73,6 +75,7 @@ State remains in `chrome.storage.local` until the extension is removed or its st
 - Confirm no sound starts before the explicit **Enable sound** click.
 - Enable sound, close the New Tab, and confirm it continues; pause and change volume from the popup.
 - Restart Chrome and confirm scene/playback settings hydrate from storage without bypassing first-use sound state.
+- Confirm the extension-owned New Tab keeps Gmail, Images, Google Apps, and Account equivalents accessible. Treat Chrome-owned footer and customization UI as browser settings, not extension DOM.
 - From the production site, apply a curated image/score and a coded scene; confirm real success and negative responses.
 - Confirm a copied request from any other origin is rejected.
 - Disable the network: coded scenes and synthesized fallback audio should still work; first-party curated media needs the network.

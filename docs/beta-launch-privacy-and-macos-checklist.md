@@ -1,6 +1,6 @@
 # Vibe Curator invited-beta launch checklist
 
-Last reviewed: 2026-08-23. This is an engineering/compliance checklist, not jurisdiction-specific legal advice.
+Last reviewed: 2026-08-29. This is an engineering/compliance checklist, not jurisdiction-specific legal advice.
 
 ## Recommended launch shape
 
@@ -42,6 +42,7 @@ The design follows GDPR principles of lawfulness/transparency, purpose limitatio
 
 - [x] Privacy Notice and Beta Terms are directly accessible at `/privacy` and `/terms`.
 - [x] Entry uses an unchecked affirmative control. It separates agreement to terms from acknowledgment of the notice; it does not falsely label all necessary processing as optional consent.
+- [x] Policy version `2026-08-29-beta` is enforced on both client and server. Missing, false, or stale-version acknowledgment requests are rejected, and the entry handler re-checks the control instead of relying only on disabled-button styling.
 - [x] No marketing/analytics consent box exists because those activities do not exist.
 - [x] No cookie banner exists because only necessary session/auth cookies are used. Add a granular opt-in before adding nonessential analytics/advertising storage. See the [ICO cookies guidance](https://ico.org.uk/media/for-organisations/guide-to-pecr/guidance-on-the-use-of-cookies-and-similar-technologies-1-0.pdf).
 - [ ] Add the operator identity and private contact address to the Privacy Notice.
