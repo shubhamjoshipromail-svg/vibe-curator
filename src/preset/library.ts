@@ -334,18 +334,36 @@ function seedPresets(): Preset[] {
     'market-pixel-midnight-shrine': curatedMusic('builtin_pixel_forest_score', 'pixel-forest.mp3', 'Pixel forest nocturne', 90, '2026-08-15T12:08:00.000Z'),
     'market-pixel-lantern-save': curatedMusic('builtin_japanese_water_garden', 'japanese-water-garden.mp3', 'Japanese water garden', 30, '2026-08-11T20:27:00.000Z'),
     'market-cozy-gatehouse-rest': curatedMusic('builtin_gatehouse_rain', 'gatehouse-rain.mp3', 'Gatehouse rain', 90, '2026-08-15T00:51:00.000Z'),
+    'market-living-ember-throne': curatedMusic('builtin_ember_throne_score', 'foggy-stone-shelter.mp3', 'Ember throne vigil', 90, '2026-08-15T00:53:00.000Z'),
     'market-sketch-rain-table': curatedMusic('builtin_smiling_through_rain', 'smiling-through-rain.mp3', 'Smiling through rain', 30, '2026-08-11T20:57:00.000Z'),
+    'market-sketch-green-note': curatedMusic('builtin_green_note_score', 'late-night-focus.mp3', 'Green note study', 30, '2026-08-11T21:02:00.000Z'),
     'market-aurora-stillwater': curatedMusic('builtin_impressionist_water', 'impressionist-water.mp3', 'Impressionist water', 30, '2026-08-12T22:30:00.000Z'),
     'market-aurora-night-current': curatedMusic('builtin_luminous_current', 'luminous-current.mp3', 'Luminous current', 30, '2026-08-11T21:40:00.000Z'),
     'market-japandi-blue-hour': curatedMusic('builtin_late_night_focus', 'late-night-focus.mp3', 'Late-night focus', 30, '2026-08-11T21:02:00.000Z'),
+    'market-japandi-warm-stillness': curatedMusic('builtin_warm_stillness_score', 'japanese-water-garden.mp3', 'Warm stillness', 30, '2026-08-11T20:27:00.000Z'),
     'market-western-moon-ritual': curatedMusic('builtin_foggy_stone_shelter', 'foggy-stone-shelter.mp3', 'Foggy stone shelter', 90, '2026-08-15T00:53:00.000Z'),
+    'market-western-dust-signal': curatedMusic('builtin_dust_signal_score', 'last-broadcast.mp3', 'Dust signal transmission', 30, '2026-08-13T22:18:47.735Z'),
+    'market-deco-emerald-midnight': curatedMusic('builtin_emerald_midnight_score', 'late-night-focus.mp3', 'Emerald after-hours', 30, '2026-08-11T21:02:00.000Z'),
+    'market-deco-golden-hour': curatedMusic('builtin_golden_afterglow_score', 'electric-garden.mp3', 'Golden lounge pulse', 30, '2026-08-11T20:51:00.000Z'),
+    'market-synthwave-observatory': curatedMusic('builtin_night_observatory_score', 'luminous-current.mp3', 'Night observatory pulse', 30, '2026-08-11T21:40:00.000Z'),
+    'market-synthwave-coastal-drive': curatedMusic('builtin_coastal_drive_score', 'electric-garden.mp3', 'Coastal drive pulse', 30, '2026-08-11T20:51:00.000Z'),
+    'market-bauhaus-pavilion': curatedMusic('builtin_primary_pavilion_score', 'last-broadcast.mp3', 'Primary geometry', 30, '2026-08-13T22:18:47.735Z'),
+    'market-art-nouveau-conservatory': curatedMusic('builtin_moon_conservatory_score', 'japanese-water-garden.mp3', 'Moon conservatory', 30, '2026-08-11T20:27:00.000Z'),
+    'market-wabi-sabi-rain-bowl': curatedMusic('builtin_rain_bowl_score', 'smiling-through-rain.mp3', 'Rain bowl stillness', 30, '2026-08-11T20:57:00.000Z'),
+    'market-neo-brutalist-playground': curatedMusic('builtin_raw_playground_score', 'electric-garden.mp3', 'Raw playground rhythm', 30, '2026-08-11T20:51:00.000Z'),
+    'market-risograph-hill-ride': curatedMusic('builtin_hill_ride_score', 'electric-garden.mp3', 'Hill ride print rhythm', 30, '2026-08-11T20:51:00.000Z'),
+    'market-paper-cut-fox-valley': curatedMusic('builtin_fox_valley_score', 'pixel-forest.mp3', 'Fox valley nocturne', 90, '2026-08-15T12:08:00.000Z'),
+    'market-cyanotype-coast': curatedMusic('builtin_botanical_coast_score', 'impressionist-water.mp3', 'Botanical coast', 30, '2026-08-12T22:30:00.000Z'),
+    'market-stained-glass-heron': curatedMusic('builtin_heron_sunrise_score', 'luminous-current.mp3', 'Heron sunrise', 30, '2026-08-11T21:40:00.000Z'),
+    'market-surreal-collage-door': curatedMusic('builtin_ocean_door_score', 'foggy-stone-shelter.mp3', 'Ocean door dream', 90, '2026-08-15T00:53:00.000Z'),
+    'market-mid-century-lake-house': curatedMusic('builtin_lake_house_score', 'japanese-water-garden.mp3', 'Lake house morning', 30, '2026-08-11T20:27:00.000Z'),
     'market-living-color-orbit': curatedMusic('builtin_electric_garden', 'electric-garden.mp3', 'Electric garden improvisation', 30, '2026-08-11T20:51:00.000Z'),
     'market-living-midnight-haze': curatedMusic('builtin_koi_pond', 'koi-pond.mp3', 'Midnight koi pond', 30, '2026-08-11T20:27:00.000Z'),
     'market-living-neon-koi': curatedMusic('builtin_bioluminescent_koi', 'bioluminescent-koi.mp3', 'Bioluminescent current', 30, '2026-08-11T20:20:00.000Z'),
   };
   for (const preset of rooms) {
     const score = marketScores[preset.id];
-    if (score) preset.music = score;
+    if (score) preset.baselineMusic = score;
   }
 
   return rooms;
@@ -354,8 +372,13 @@ function seedPresets(): Preset[] {
 // --- persistence -------------------------------------------------------------
 
 function normalizePreset(raw: Preset): Preset {
+  // Before baselineMusic existed, bundled scores occupied the custom music
+  // slot. Migrate those IDs so Remove Custom reliably restores the card score.
+  const legacyBundled = raw.music?.assetId.startsWith('builtin_') ? raw.music : undefined;
   return {
     ...raw,
+    baselineMusic: raw.baselineMusic ?? legacyBundled,
+    music: legacyBundled ? undefined : raw.music,
     updatedAt: raw.updatedAt ?? raw.createdAt,
     tags: Array.isArray(raw.tags) ? raw.tags : automaticTags(raw.scene, raw.scene?.style ?? 'scene', raw.description),
     scene: raw.scene ?? { kind: 'renderer', label: 'Living renderer', style: 'procedural' },
@@ -545,6 +568,7 @@ export function presetFingerprint(preset: Preset): string {
     effects: (preset.effects ?? []).map((e) => [e.name, e.enabled, e.params?.map((p) => p.value)]),
     sourceEffects: (preset.sourceEffects ?? []).map((e) => [e.kind, e.enabled, e.params]),
     living: (preset.livingStill?.effects ?? []).map((e) => [e.kind, e.enabled, e.intensity]),
+    baselineMusic: preset.baselineMusic?.assetId ?? null,
     music: preset.music?.assetId ?? null,
     audio: preset.audio ?? null,
   });

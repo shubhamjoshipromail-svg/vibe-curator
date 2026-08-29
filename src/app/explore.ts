@@ -301,7 +301,7 @@ function projectCard(preset: Preset, folders: ProjectFolder[], refresh: () => vo
   const body = document.createElement('div'); body.className = 'card-body';
   const title = document.createElement('h2'); title.textContent = preset.name; const description = document.createElement('p'); description.textContent = preset.description; body.append(title, description);
   const meta = document.createElement('div'); meta.className = 'card-meta';
-  for (const label of [preset.scene.style, preset.scene.kind, preset.music ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) { const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = label; meta.appendChild(chip); }
+  for (const label of [preset.scene.style, preset.scene.kind, preset.music || preset.baselineMusic ? 'music' : '', preset.parentId ? 'remix' : ''].filter(Boolean)) { const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = label; meta.appendChild(chip); }
   body.appendChild(meta); el.appendChild(body);
   const actions = document.createElement('div'); actions.className = 'card-actions'; const open = document.createElement('button'); open.className = 'primary'; open.textContent = preset.builtIn ? 'Use starting point' : 'Continue'; open.addEventListener('click', (event) => { event.stopPropagation(); navigate({ name: 'labs', presetId: preset.id }); }); actions.appendChild(open);
   if (!preset.builtIn) {

@@ -108,7 +108,7 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
   const copy = document.createElement('p'); copy.textContent = preset.description;
   const meta = document.createElement('div'); meta.className = 'card-meta';
   const coded = preset.scene.kind === 'renderer' || preset.scene.kind === 'procedural';
-  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${coded ? 'still coded scene' : 'static scene'}</span><span class="chip">${preset.music ? 'authored score' : 'procedural score'}</span>`;
+  meta.innerHTML = `<span class="chip">${post.variant}</span><span class="chip">${coded ? 'still coded scene' : 'static scene'}</span><span class="chip">${preset.baselineMusic ? 'included score' : 'procedural score'}</span>`;
   body.append(author, title, copy, meta); card.appendChild(body);
   const actions = document.createElement('div'); actions.className = 'card-actions';
   const remix = document.createElement('button'); remix.className = 'primary'; remix.textContent = 'Open & remix';
@@ -133,7 +133,7 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
     });
     actions.append(chromeButton, chromeStatus);
   }
-  if (preset.music?.url) {
+  if (preset.baselineMusic?.url) {
     const preview = document.createElement('button');
     preview.className = 'ghost';
     preview.textContent = '▶ Preview score';
@@ -146,7 +146,7 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
       }
       activeScore?.pause();
       if (activeScoreButton) activeScoreButton.textContent = '▶ Preview score';
-      const score = new Audio(preset.music!.url!);
+      const score = new Audio(preset.baselineMusic!.url!);
       score.loop = true;
       score.volume = 0.72;
       activeScore = score;

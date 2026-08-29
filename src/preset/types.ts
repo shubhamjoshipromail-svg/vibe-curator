@@ -163,7 +163,9 @@ export interface Preset {
   livingStill?: LivingStillManifest;
   /** Ambience + music levels. */
   audio: AudioLayers;
-  /** Optional persisted AI-authored music, played instead of the procedural bed. */
+  /** Bundled, predetermined score that ships with a curated card. */
+  baselineMusic?: MusicAsset;
+  /** Optional user-authored override, played instead of the bundled baseline. */
   music?: MusicAsset;
   /** Optional accent used by the app chrome when this preset is playing. */
   theme?: { accent: string };

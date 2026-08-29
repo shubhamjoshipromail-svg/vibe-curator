@@ -100,8 +100,9 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
 }
 
 export async function syncGeneratedMusic(state: AppState, preset: Preset): Promise<void> {
-  const url = preset.music?.url ?? (preset.music ? await assetUrl(preset.music.assetId) : undefined);
-  if (preset.music && !url) console.warn(`[vibe] music asset missing: ${preset.music.assetId}`);
+  const selected = preset.music ?? preset.baselineMusic;
+  const url = selected?.url ?? (selected ? await assetUrl(selected.assetId) : undefined);
+  if (selected && !url) console.warn(`[vibe] music asset missing: ${selected.assetId}`);
   await state.audio.setGeneratedMusic(url);
 }
 

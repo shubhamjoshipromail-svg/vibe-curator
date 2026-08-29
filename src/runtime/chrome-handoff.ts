@@ -33,6 +33,7 @@ export interface ChromeVibeInput {
   controls: ChromeVibeControls;
   audio: ChromeVibeAudio;
   music?: { url?: string };
+  baselineMusic?: { url?: string };
 }
 
 export interface ChromeVibePreset {
@@ -65,9 +66,10 @@ export function projectPresetForChrome(preset: ChromeVibeInput): ChromeVibePrese
   } else if (preset.scene.kind === 'renderer') {
     scene = { kind: 'renderer' as const, label: preset.scene.label, style: preset.scene.style };
   } else return null;
-  const trackUrl = preset.music?.url && /^\/audio\/curated\/[a-z0-9][a-z0-9._-]*\.mp3$/i.test(preset.music.url)
-    ? `${origin}${preset.music.url}` : undefined;
-  if (preset.music?.url && !trackUrl) return null;
+  const selectedMusic = preset.music ?? preset.baselineMusic;
+  const trackUrl = selectedMusic?.url && /^\/audio\/curated\/[a-z0-9][a-z0-9._-]*\.mp3$/i.test(selectedMusic.url)
+    ? `${origin}${selectedMusic.url}` : undefined;
+  if (selectedMusic?.url && !trackUrl) return null;
   return {
     id: preset.id, name: preset.name, description: preset.description, baseVibeId: preset.baseVibeId,
     scene, palette: { ...preset.palette, ramp: [...preset.palette.ramp] },

@@ -45,6 +45,8 @@ function checkMarketplaceAudio() {
   assert.ok(posts.length > 0, 'marketplace posts are missing');
   assert.ok(scores.length > 0, 'curated marketplace scores are missing');
   const postIds = new Set(posts);
+  const scoreIds = new Set(scores.map((score) => score.id));
+  assert.deepEqual(scoreIds, postIds, 'every marketplace card must have one included baseline score');
   for (const score of scores) {
     assert.ok(postIds.has(score.id), `orphan curated score mapping: ${score.id}`);
     assert.ok(existsSync(resolve(ROOT, 'public/audio/curated', score.file)), `missing curated score file: ${score.file}`);
@@ -58,7 +60,7 @@ function checkMarketplaceAudio() {
   const actualFiles = readdirSync(resolve(ROOT, 'public/audio/curated')).filter((file) => /\.(mp3|wav|ogg)$/i.test(file));
   assert.deepEqual([...actualFiles].sort(), [...new Set(packFiles)].sort(), 'curated audio directory and pack manifest diverged');
   assert.deepEqual(new Set(scores.map((score) => score.file)), new Set(packFiles), 'curated tracks must be reachable from marketplace score mappings');
-  console.log(`Marketplace audio: ${scores.length}/${posts.length} posts have authored scores; ${packFiles.length} files verified (OK)`);
+  console.log(`Marketplace audio: ${scoreIds.size}/${postIds.size} cards have included scores; ${packFiles.length} files verified (OK)`);
 }
 
 function shellQuote(value) {

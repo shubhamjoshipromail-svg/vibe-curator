@@ -1,5 +1,5 @@
 import type { AppState } from './state';
-import { loadPreset, reloadEffects, syncAudioLayers } from './state';
+import { audioSpecForPreset, loadPreset, reloadEffects, syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
 import { builtInEffects, forkPreset, getPreset, savePreset } from '../preset/library';
 import { CONTROL_DEFS, newId, type Preset } from '../preset/types';
@@ -709,6 +709,27 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
   // --- sound -----------------------------------------------------------------
   const audioEl = host.querySelector<HTMLDivElement>('#audio')!;
+  const startSound = document.createElement('button');
+  startSound.className = 'primary wide';
+  startSound.textContent = state.started ? 'Sound on' : 'Play included sound';
+  startSound.disabled = state.started;
+  startSound.addEventListener('click', async () => {
+    startSound.disabled = true;
+    startSound.textContent = 'Starting sound…';
+    try {
+      state.audio.setAmbientEvents(draft.livingStill?.audio.events ?? []);
+      await state.audio.start(audioSpecForPreset(draft));
+      state.started = true;
+      syncAudioLayers(state, draft);
+      await syncGeneratedMusic(state, draft);
+      startSound.textContent = 'Sound on';
+    } catch (error) {
+      console.error('[vibe] audio failed to start', error);
+      startSound.textContent = 'Sound unavailable';
+      startSound.disabled = false;
+    }
+  });
+  audioEl.appendChild(startSound);
   for (const layer of [
     { key: 'ambience' as const, label: 'Ambience', hint: 'the sound of the place' },
     { key: 'music' as const, label: 'Music', hint: 'the sound of the mood' },
@@ -768,7 +789,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
   function drawMusic() {
     musicCurrent.innerHTML = '';
-    if (!draft.music) {
+    const selectedMusic = draft.music ?? draft.baselineMusic;
+    if (!selectedMusic) {
       musicCurrent.innerHTML = '<p class="empty-inline">Procedural score · instant and free</p>';
       return;
     }
@@ -776,19 +798,20 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     row.className = 'music-asset';
     const description = document.createElement('div');
     const name = document.createElement('strong');
-    name.textContent = draft.music.name;
+    name.textContent = selectedMusic.name;
     const duration = document.createElement('span');
-    duration.textContent = `saved track · ${draft.music.durationSeconds ?? 30}s`;
+    duration.textContent = `${draft.music ? 'custom track' : 'included baseline'} · ${selectedMusic.durationSeconds ?? 30}s`;
     description.append(name, duration);
     const remove = document.createElement('button');
     remove.className = 'ghost tiny';
-    remove.textContent = 'Remove';
+    remove.textContent = draft.music ? 'Use baseline' : 'Included';
+    remove.disabled = !draft.music;
     row.append(description, remove);
     remove.addEventListener('click', async () => {
       draft.music = undefined;
-      await state.audio.setGeneratedMusic();
+      await syncGeneratedMusic(state, draft);
       drawMusic();
-      musicStatus.textContent = 'Procedural score restored.';
+      musicStatus.textContent = draft.baselineMusic ? 'Included baseline score restored.' : 'Procedural score restored.';
     });
     musicCurrent.appendChild(row);
   }
