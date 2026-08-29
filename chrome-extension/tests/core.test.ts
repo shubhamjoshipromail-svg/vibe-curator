@@ -56,6 +56,7 @@ describe('message and state validation', () => {
 
   it('validates internal controls strictly', () => {
     expect(validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-volume', requestId: 'ui_12345678', volume: 0.4 }).type).toBe('set-volume');
+    expect(validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-vibe-volume', requestId: 'ui_12345678', volume: 0.4 }).type).toBe('set-vibe-volume');
     expect(() => validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-volume', requestId: 'ui_12345678', volume: Infinity })).toThrow();
   });
 
@@ -73,6 +74,13 @@ describe('message and state validation', () => {
     expect(effectiveLayerVolume(state, 'music')).toBeCloseTo(0.26);
     state.preset.audio.music.muted = true;
     expect(effectiveLayerVolume(state, 'music')).toBe(0);
+  });
+
+  it('keeps per-vibe and overall volume as separate multipliers', () => {
+    const state = structuredClone(DEFAULT_STATE);
+    state.preset.audio.master.gain = 0.25;
+    state.playback.masterVolume = 0.5;
+    expect(effectiveLayerVolume(state, 'ambience')).toBeCloseTo(0.1);
   });
 
   it('requires both exact origin and URL for website senders', () => {

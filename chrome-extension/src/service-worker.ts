@@ -85,6 +85,11 @@ async function applyInternal(request: InternalRequest): Promise<ExtensionState> 
     if (request.playing && !current.playback.soundUnlocked) throw new Error('Enable sound once before starting playback.');
     return commit(nextState(current, { desiredPlaying: request.playing }));
   }
+  if (request.type === 'set-vibe-volume') {
+    const preset = structuredClone(current.preset);
+    preset.audio.master.gain = request.volume;
+    return commit(nextState(current, { preset }));
+  }
   return commit(nextState(current, { masterVolume: request.volume }));
 }
 

@@ -6,8 +6,11 @@ const stage = element<HTMLElement>('stage');
 const image = element<HTMLImageElement>('scene-image');
 const enable = element<HTMLButtonElement>('enable-sound');
 const play = element<HTMLButtonElement>('toggle-play');
+const volume = element<HTMLInputElement>('vibe-volume');
+const volumeOutput = element<HTMLOutputElement>('vibe-volume-output');
 const status = element<HTMLElement>('status');
 let state: ExtensionState | undefined;
+let volumeTimer: number | undefined;
 
 function render(next: ExtensionState): void {
   state = next;
@@ -41,26 +44,38 @@ function render(next: ExtensionState): void {
   play.hidden = !playback.soundUnlocked;
   play.textContent = playback.desiredPlaying ? 'Ⅱ' : '▶';
   play.setAttribute('aria-label', playback.desiredPlaying ? 'Pause ambient sound' : 'Play ambient sound');
+  volume.value = String(preset.audio.master.gain);
+  volumeOutput.value = `${Math.round(preset.audio.master.gain * 100)}%`;
   element('sound-title').textContent = playback.soundUnlocked
     ? (playback.desiredPlaying ? 'Ambient sound is playing' : 'Ambient sound is paused')
     : 'Sound is off';
   element('sound-detail').textContent = playback.soundUnlocked
-    ? 'It keeps playing when this tab closes. Use the toolbar for volume.'
-    : 'One click enables ambient audio on this device.';
+    ? 'It keeps playing when this tab closes. This slider controls only this vibe.'
+    : 'One click enables this vibe\'s audio on this device.';
 }
 
 async function run(operation: () => Promise<ExtensionState>): Promise<void> {
   enable.disabled = true;
   play.disabled = true;
+  volume.disabled = true;
   status.textContent = '';
   try { render(await operation()); }
   catch (error) { status.textContent = error instanceof Error ? error.message : 'The sound control failed.'; }
-  finally { enable.disabled = false; play.disabled = false; }
+  finally { enable.disabled = false; play.disabled = false; volume.disabled = false; }
 }
 
 enable.addEventListener('click', () => void run(() => sendRequest({ type: 'enable-sound' })));
 play.addEventListener('click', () => {
   if (state) void run(() => sendRequest({ type: 'set-playing', playing: !state!.playback.desiredPlaying }));
+});
+volume.addEventListener('input', () => {
+  volumeOutput.value = `${Math.round(Number(volume.value) * 100)}%`;
+  window.clearTimeout(volumeTimer);
+  volumeTimer = window.setTimeout(() => void run(() => sendRequest({ type: 'set-vibe-volume', volume: Number(volume.value) })), 80);
+});
+volume.addEventListener('change', () => {
+  window.clearTimeout(volumeTimer);
+  void run(() => sendRequest({ type: 'set-vibe-volume', volume: Number(volume.value) }));
 });
 onStoredState(render);
 void getState().then(render).catch((error) => { status.textContent = error instanceof Error ? error.message : 'Vibe Curator could not start.'; });

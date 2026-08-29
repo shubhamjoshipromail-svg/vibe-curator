@@ -15,6 +15,7 @@ describe('production manifest', () => {
   });
 
   it('declares the New Tab, popup, worker, and locked-down script policy', () => {
+    expect(manifest.version).toBe('0.1.2');
     expect(manifest.chrome_url_overrides.newtab).toBe('newtab.html');
     expect(manifest.action.default_popup).toBe('popup.html');
     expect(manifest.background).toEqual({ service_worker: 'service_worker.js', type: 'module' });
@@ -28,5 +29,11 @@ describe('production manifest', () => {
     expect(newTab).toContain('https://www.google.com/intl/en/about/products');
     expect(newTab).toContain('https://myaccount.google.com/');
     expect(newTab).not.toContain('id="customize"');
+  });
+
+  it('keeps branding out of the background and volume controls in the page', () => {
+    expect(newTab).toContain('<title>New Tab</title>');
+    expect(newTab).not.toContain('class="brand"');
+    expect(newTab).toContain('id="vibe-volume"');
   });
 });

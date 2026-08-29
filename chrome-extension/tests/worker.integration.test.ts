@@ -103,6 +103,15 @@ describe('service worker routing', () => {
     expect(createCount).toBe(1);
   });
 
+  it('changes the current vibe volume without changing overall extension volume', async () => {
+    const response = await invoke(internalListener, {
+      v: 1, target: 'service-worker', type: 'set-vibe-volume', requestId: 'ui_vibevolume', volume: 0.35,
+    }, popupSender) as { ok: boolean; state: { preset: { audio: { master: { gain: number } } }; playback: { masterVolume: number } } };
+    expect(response.ok).toBe(true);
+    expect(response.state.preset.audio.master.gain).toBe(0.35);
+    expect(response.state.playback.masterVolume).toBe(0.8);
+  });
+
   it('rejects external messages from any non-production origin', async () => {
     const response = await invoke(externalListener, {
       v: 1, type: 'vibe:set-preset', requestId: 'web_12345678', preset: DEFAULT_PRESET,

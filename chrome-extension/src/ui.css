@@ -39,7 +39,6 @@ button:disabled { cursor: wait; opacity: .62; }
 @keyframes drift-one { to { transform: translate(-14vw, 18vh) scale(.78); } }
 @keyframes drift-two { to { transform: translate(18vw, -16vh) scale(1.15); } }
 @media (prefers-reduced-motion: reduce) { .ambient-orb { animation: none; } }
-.brand { align-items: center; display: flex; font-size: 14px; font-weight: 650; gap: 10px; left: 34px; letter-spacing: .02em; position: absolute; top: 30px; }
 .google-shortcuts { align-items: center; display: flex; gap: 18px; position: absolute; right: 28px; top: 27px; }
 .google-shortcuts > a { color: var(--text); font-size: 13px; font-weight: 520; opacity: .9; text-decoration: none; }
 .google-shortcuts > a:hover, .google-shortcuts > a:focus-visible { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
@@ -58,16 +57,20 @@ button:disabled { cursor: wait; opacity: .62; }
   align-items: center; backdrop-filter: blur(22px); background: color-mix(in srgb, var(--base) 58%, transparent); border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
   border-radius: 22px; bottom: 34px; display: flex; gap: 22px; left: 50%; max-width: calc(100vw - 60px); padding: 14px 14px 14px 20px; position: absolute; transform: translateX(-50%); width: 590px;
 }
-.sound-card div { display: grid; flex: 1; gap: 4px; min-width: 0; }
+.sound-card .sound-copy { display: grid; flex: 1; gap: 4px; min-width: 0; }
 .sound-card strong { font-size: 14px; }
-.sound-card span { font-size: 12px; opacity: .68; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sound-card .sound-copy span { font-size: 12px; opacity: .68; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vibe-volume { display: grid; flex: 0 0 170px; gap: 5px; }
+.vibe-volume > span { display: flex; font-size: 11px; justify-content: space-between; opacity: .78; }
+.vibe-volume input { accent-color: var(--accent); margin: 0; width: 100%; }
 .customize-link { color: var(--text, #dff6f4); font-size: 11px; opacity: .78; text-underline-offset: 3px; width: fit-content; }
 .icon-button { font-size: 15px; min-width: 42px; padding: 0; width: 42px; }
 .newtab-page .status { bottom: 10px; left: 50%; position: absolute; text-align: center; transform: translateX(-50%); }
 @media (max-width: 680px) {
   .google-shortcuts { gap: 10px; right: 16px; }
   .google-shortcuts > a:not(.google-icon-link) { display: none; }
-  .brand { left: 18px; }
+  .sound-card { flex-wrap: wrap; }
+  .vibe-volume { flex-basis: 100%; order: 2; }
 }
 
 .popup-page { --popup-base: #05060f; --popup-accent: #4fa3b8; background: linear-gradient(150deg, var(--popup-base), #111827); color: #eefafa; min-width: 310px; }

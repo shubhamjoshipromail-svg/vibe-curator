@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Vibe Curator</title>
+    <title>New Tab</title>
     <link rel="stylesheet" href="./ui.css">
   </head>
   <body class="newtab-page">
@@ -12,7 +12,6 @@
       <div class="scene-wash" aria-hidden="true"></div>
       <div class="ambient-orb orb-one" aria-hidden="true"></div>
       <div class="ambient-orb orb-two" aria-hidden="true"></div>
-      <header class="brand"><span class="brand-mark">V</span><span>Vibe Curator</span></header>
       <nav class="google-shortcuts" aria-label="Google shortcuts">
         <a href="https://mail.google.com/mail/u/0/" rel="noreferrer">Gmail</a>
         <a href="https://images.google.com/" rel="noreferrer">Images</a>
@@ -25,7 +24,11 @@
         <p id="scene-description">Weightless and deep. Nothing to look at directly.</p>
       </section>
       <section class="sound-card" id="sound-card">
-        <div><strong id="sound-title">Sound is off</strong><span id="sound-detail">One click enables ambient audio on this device.</span></div>
+        <div class="sound-copy"><strong id="sound-title">Sound is off</strong><span id="sound-detail">One click enables this vibe's audio on this device.</span></div>
+        <label class="vibe-volume" for="vibe-volume">
+          <span><span>Vibe volume</span><output id="vibe-volume-output">80%</output></span>
+          <input id="vibe-volume" type="range" min="0" max="1" step="0.01" value="0.8">
+        </label>
         <button class="primary" id="enable-sound">Enable sound</button>
         <button class="icon-button" id="toggle-play" hidden aria-label="Play ambient sound">▶</button>
       </section>

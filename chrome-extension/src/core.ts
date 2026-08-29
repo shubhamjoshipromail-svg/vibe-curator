@@ -79,6 +79,7 @@ export type InternalRequest =
   | { v: 1; target: 'service-worker'; type: 'get-state'; requestId: string }
   | { v: 1; target: 'service-worker'; type: 'enable-sound'; requestId: string }
   | { v: 1; target: 'service-worker'; type: 'set-playing'; requestId: string; playing: boolean }
+  | { v: 1; target: 'service-worker'; type: 'set-vibe-volume'; requestId: string; volume: number }
   | { v: 1; target: 'service-worker'; type: 'set-volume'; requestId: string; volume: number };
 
 export interface ExternalSetPresetRequest { v: 1; type: 'vibe:set-preset'; requestId: string; preset: SafePreset }
@@ -241,7 +242,7 @@ export function validateInternalRequest(value: unknown): InternalRequest {
     if (request.target !== 'service-worker') throw new Error('Invalid request target.');
     booleanValue(request.playing, 'playing'); return request as unknown as InternalRequest;
   }
-  if (type === 'set-volume') {
+  if (type === 'set-volume' || type === 'set-vibe-volume') {
     const request = validateEnvelope(base, ['v', 'target', 'type', 'requestId', 'volume'], 'request');
     if (request.target !== 'service-worker') throw new Error('Invalid request target.');
     unitValue(request.volume, 'volume'); return request as unknown as InternalRequest;

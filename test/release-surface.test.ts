@@ -50,3 +50,10 @@ test('beta entry requires explicit acceptance on both client and server', () => 
   assert.match(privacy, /POLICY_VERSION = '2026-08-29-beta'/);
   assert.match(privacy, /body\.accepted !== true \|\| body\.policyVersion !== POLICY_VERSION/);
 });
+
+test('Labs exposes Chrome handoff and no longer opens the standalone Mac controls window', () => {
+  const labs = read('src/app/labs.ts');
+  assert.match(labs, /id="display-chrome">Send to Chrome/);
+  assert.match(labs, /setAsChromeVibe\(commit\(\)\)/);
+  assert.doesNotMatch(labs, /mac-controls|vibecurator:\/\/controls/);
+});

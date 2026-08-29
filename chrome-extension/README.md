@@ -2,7 +2,7 @@
 
 This directory is an isolated Manifest V3 companion to the Vibe Curator website. It replaces Chrome's New Tab page with the selected scene, exposes play/pause and master volume in the toolbar popup, and keeps user-enabled audio in an offscreen document when the New Tab closes.
 
-**Current release:** [`0.1.1` on the Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) (item ID `niamjnjkmfnlpcejieffodipboacfdnm`).
+**Current published release:** [`0.1.1` on the Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) (item ID `niamjnjkmfnlpcejieffodipboacfdnm`). Source version `0.1.2` is the next store candidate.
 
 ## Build, test, and package
 

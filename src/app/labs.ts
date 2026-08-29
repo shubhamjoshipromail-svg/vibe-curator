@@ -11,6 +11,7 @@ import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '
 import { orchestrateLivingStill } from '../living-still/orchestrator';
 import { directLivingStill } from '../living-still/api';
 import { runtimeHost } from '../runtime/host';
+import { setAsChromeVibe } from '../runtime/chrome-handoff';
 
 /**
  * While a slider is being dragged, fade the panels so the change can be judged
@@ -85,7 +86,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <button class="ghost" id="back">← Back</button>
           <button class="ghost" id="save">Save</button>
           <button class="display-mac-button" id="display-mac">${runtimeHost.kind === 'tauri' ? 'Set as Mac desktop' : 'Send to Mac desktop'}</button>
-          ${runtimeHost.kind === 'tauri' ? '' : '<button class="ghost" id="mac-controls">Mac controls</button>'}
+          ${runtimeHost.kind === 'tauri' ? '' : '<button class="ghost" id="display-chrome">Send to Chrome</button><span class="handoff-status" id="chrome-status" role="status"></span>'}
           <button class="primary" id="apply">Save &amp; Play</button>
         </div>
       </header>
@@ -885,8 +886,14 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       button.disabled = false;
     }
   });
-  host.querySelector<HTMLButtonElement>('#mac-controls')?.addEventListener('click', () => {
-    location.href = 'vibecurator://controls';
+  host.querySelector<HTMLButtonElement>('#display-chrome')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const status = host.querySelector<HTMLElement>('#chrome-status');
+    button.disabled = true;
+    const result = await setAsChromeVibe(commit());
+    if (status) status.textContent = result.message;
+    button.textContent = result.ok ? 'Sent to Chrome' : 'Send to Chrome';
+    button.disabled = false;
   });
   host.querySelector('#apply')?.addEventListener('click', () => {
     commit();

@@ -33,6 +33,17 @@ describe('website safe projection', () => {
     });
   });
 
+  it('projects edited mix levels and a curated score', () => {
+    const value = websitePreset({ kind: 'renderer', label: 'Room', style: 'procedural' });
+    value.audio.ambience.gain = 0.31;
+    value.audio.music.gain = 0.72;
+    (value as unknown as { music: { url: string } }).music = { url: '/audio/curated/last-broadcast.mp3' };
+    const projected = projectPresetForChrome(value as never);
+    expect(projected?.audio.ambience.gain).toBe(0.31);
+    expect(projected?.audio.music.gain).toBe(0.72);
+    expect(projected?.trackUrl).toBe('https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast.mp3');
+  });
+
   it('rejects private image identifiers and arbitrary authored tracks', () => {
     expect(projectPresetForChrome(websitePreset({ kind: 'image', label: 'Private', style: 'test', assetId: 'private-1' }) as never)).toBeNull();
     const renderer = websitePreset({ kind: 'renderer', label: 'Room', style: 'procedural' });
