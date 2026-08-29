@@ -38,3 +38,15 @@ test('Labs does not interpolate user or provider labels into HTML', () => {
     '<textarea rows="2">${fx.prompt}</textarea>', '<label>${p.label}</label>',
   ]) assert.equal(labs.includes(unsafe), false, unsafe);
 });
+
+test('beta entry requires explicit acceptance on both client and server', () => {
+  const main = read('src/main.ts');
+  const client = read('src/auth/client.ts');
+  const privacy = read('server/privacy.ts');
+  assert.match(main, /if \(!accept\.checked\)/);
+  assert.match(main, /acknowledgeBetaTerms\(policyVersion, true\)/);
+  assert.match(main, /localStorage\.getItem\(`vibe\.policy\.\$\{policyVersion\}`\)/);
+  assert.match(client, /JSON\.stringify\(\{ policyVersion, accepted \}\)/);
+  assert.match(privacy, /POLICY_VERSION = '2026-08-29-beta'/);
+  assert.match(privacy, /body\.accepted !== true \|\| body\.policyVersion !== POLICY_VERSION/);
+});

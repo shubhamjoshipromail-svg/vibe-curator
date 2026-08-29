@@ -48,6 +48,7 @@ const scene = new Scene();
 const audio = new AudioEngine();
 const state = createState(scene, audio);
 let policyAcknowledged = false;
+let policyVersion = '';
 
 /**
  * Collapse exact-duplicate remixes left by older builds. Runs once per browser;
@@ -68,9 +69,10 @@ function cleanUpLegacyDuplicates(): void {
 async function boot(): Promise<void> {
   const viewerStatus = await ensureViewer();
   const policyStatus = await betaTermsStatus();
+  policyVersion = policyStatus.policyVersion;
   policyAcknowledged = viewerStatus.persistent
     ? policyStatus.acknowledged
-    : Boolean(localStorage.getItem('vibe.policy.2026-08-23-beta'));
+    : Boolean(localStorage.getItem(`vibe.policy.${policyVersion}`));
   await hydrateLibrary();
   cleanUpLegacyDuplicates();
   const first = listPresets()[0];
@@ -140,19 +142,27 @@ onRouteChange((route) => void render(route));
 const accept = app.querySelector<HTMLInputElement>('#accept-beta')!;
 const begin = app.querySelector<HTMLButtonElement>('#begin')!;
 const gateError = app.querySelector<HTMLElement>('#gate-error')!;
-accept.addEventListener('change', () => { begin.disabled = !accept.checked; });
+accept.addEventListener('change', () => {
+  begin.disabled = !accept.checked;
+  if (accept.checked) gateError.textContent = '';
+});
 begin.addEventListener('click', async () => {
+  if (!accept.checked) {
+    begin.disabled = true;
+    gateError.textContent = 'Please agree to the Beta Terms before continuing.';
+    return;
+  }
   begin.disabled = true;
   gateError.textContent = '';
   try {
-    await acknowledgeBetaTerms();
+    await acknowledgeBetaTerms(policyVersion, true);
     policyAcknowledged = true;
-    localStorage.setItem('vibe.policy.2026-08-23-beta', new Date().toISOString());
+    localStorage.setItem(`vibe.policy.${policyVersion}`, new Date().toISOString());
     gate.classList.add('hidden');
     scene.resetSession();
   } catch (error) {
     gateError.textContent = error instanceof Error ? error.message : 'Could not enter the beta.';
-    begin.disabled = false;
+    begin.disabled = !accept.checked;
   }
 });
 

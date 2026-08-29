@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
+import type { IncomingMessage } from 'node:http';
 import { join } from 'node:path';
 import type { Plugin } from 'vite';
 import { viewerFor } from './auth';
 import { database, deleteProductData, ensureProductSchema } from './database';
 import { deleteOwnerStorage, ownerDir } from './storage';
 
-export const POLICY_VERSION = '2026-08-23-beta';
+export const POLICY_VERSION = '2026-08-29-beta';
 
 type ResponseLike = { statusCode: number; setHeader(name: string, value: string): void; end(body?: string): void };
 function json(res: ResponseLike, status: number, value: unknown): void {
@@ -14,6 +15,18 @@ function json(res: ResponseLike, status: number, value: unknown): void {
   res.setHeader('content-type', 'application/json');
   res.setHeader('cache-control', 'no-store');
   res.end(JSON.stringify(value));
+}
+
+async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += value.length;
+    if (size > 4096) throw new Error('Policy acknowledgment payload is too large.');
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as Record<string, unknown>;
 }
 
 async function localJson(ownerId: string, name: string): Promise<unknown[]> {
@@ -59,6 +72,10 @@ export function privacyPlugin(): Plugin {
           return json(res, 200, { acknowledged: Boolean(result.rowCount), policyVersion: POLICY_VERSION, persistent: true });
         }
         if (req.method === 'POST' && (path === '/acknowledge' || path === 'acknowledge')) {
+          const body = await readJson(req);
+          if (body.accepted !== true || body.policyVersion !== POLICY_VERSION) {
+            return json(res, 400, { message: 'Explicit acceptance of the current Beta Terms is required.' });
+          }
           if (db) {
             await ensureProductSchema();
             await db.query(

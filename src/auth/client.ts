@@ -87,8 +87,13 @@ export async function openBillingPortal(): Promise<void> {
   location.assign(body.url);
 }
 
-export async function acknowledgeBetaTerms(): Promise<void> {
-  const response = await fetch('/api/privacy/acknowledge', { method: 'POST', credentials: 'same-origin' });
+export async function acknowledgeBetaTerms(policyVersion: string, accepted: boolean): Promise<void> {
+  const response = await fetch('/api/privacy/acknowledge', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ policyVersion, accepted }),
+  });
   if (!response.ok) throw new Error('Could not record the beta terms acknowledgment.');
 }
 
