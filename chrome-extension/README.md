@@ -2,6 +2,8 @@
 
 This directory is an isolated Manifest V3 companion to the Vibe Curator website. It replaces Chrome's New Tab page with the selected scene, exposes play/pause and master volume in the toolbar popup, and keeps user-enabled audio in an offscreen document when the New Tab closes.
 
+The toolbar also has a master **Vibe** switch and an opt-in **Google Search** switch. Google access is requested only when that feature is enabled. The background script is then registered only for `https://www.google.com/search*`; it does not run on Gmail, Drive, Google Account pages, or unrelated websites.
+
 ## Build, test, and package
 
 Requires Node.js 20 or newer.
@@ -58,9 +60,11 @@ The external payload is a safe projection of the website preset—not the full a
 | --- | --- |
 | `storage` | Persists the selected scene, first-use sound state, play/pause, volume, revision, and update time on this Chrome profile. |
 | `offscreen` | Hosts audio after a New Tab or popup closes; service workers do not have DOM audio APIs. |
+| `scripting` | Registers or removes the packaged Google Search background script after the user changes the Search toggle. It does not execute arbitrary or remotely hosted code. |
+| Optional `https://www.google.com/*` | Requested at runtime only when the user enables the Google Search background. The registered script itself is restricted to `/search` result pages. |
 | `externally_connectable` | Allows messages only from `https://vibe-curator-production.up.railway.app/*`. The worker re-checks the sender's exact origin. |
 
-The extension has no `tabs`, `activeTab`, `scripting`, history, web-navigation, content-script, or broad host permission. It cannot inspect the pages you visit. It does not collect analytics or send browsing data.
+The extension has no `tabs`, `activeTab`, history, web-navigation, or broad host permission. The optional Google Search content script changes page presentation only; it does not read, retain, or transmit search queries or result content. It does not collect analytics or send browsing data.
 
 Curated image and MP3 media may load from the exact first-party Vibe Curator production origin. The manifest CSP allows that origin only for images and audio. All JavaScript, HTML, and CSS execute from the installed package; remote executable code, `eval`, and inline scripts are not allowed.
 
@@ -75,4 +79,6 @@ State remains in `chrome.storage.local` until the extension is removed or its st
 - Restart Chrome and confirm scene/playback settings hydrate from storage without bypassing first-use sound state.
 - From the production site, apply a curated image/score and a coded scene; confirm real success and negative responses.
 - Confirm a copied request from any other origin is rejected.
+- Turn **Vibe** off and confirm audio stops, Search styling disappears, and New Tab shows the disabled state.
+- Enable **Google Search**, grant the one-site prompt, and confirm the background appears on `/search` while Gmail, Drive, and non-Google pages remain untouched.
 - Disable the network: coded scenes and synthesized fallback audio should still work; first-party curated media needs the network.

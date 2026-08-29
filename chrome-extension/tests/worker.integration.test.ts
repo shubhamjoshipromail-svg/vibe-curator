@@ -26,6 +26,7 @@ const fakeChrome = {
     onMessage: { addListener: (listener: Listener) => { internalListener = listener; } },
     onMessageExternal: { addListener: (listener: Listener) => { externalListener = listener; } },
     onInstalled: { addListener: vi.fn() },
+    onStartup: { addListener: vi.fn() },
   },
   storage: {
     local: {
@@ -40,6 +41,12 @@ const fakeChrome = {
       contexts.push({ documentUrl: `${extensionOrigin}/${url}` });
     }),
     closeDocument: vi.fn(async () => { contexts.length = 0; }),
+  },
+  permissions: { contains: vi.fn(async () => true) },
+  scripting: {
+    getRegisteredContentScripts: vi.fn(async () => []),
+    registerContentScripts: vi.fn(async () => undefined),
+    unregisterContentScripts: vi.fn(async () => undefined),
   },
 };
 
@@ -109,5 +116,26 @@ describe('service worker routing', () => {
     }, { origin: 'https://evil.example', url: 'https://evil.example/' }) as { ok: boolean };
     expect(response.ok).toBe(false);
     expect(stored[STORAGE_KEY]).toBeUndefined();
+  });
+
+  it('turns the vibe off and stops playback authoritatively', async () => {
+    const response = await invoke(internalListener, {
+      v: 1, target: 'service-worker', type: 'set-enabled', requestId: 'ui_enabled12', enabled: false,
+    }, popupSender) as { ok: boolean; state: { features: { enabled: boolean }; playback: { desiredPlaying: boolean } } };
+    expect(response.ok).toBe(true);
+    expect(response.state.features.enabled).toBe(false);
+    expect(response.state.playback.desiredPlaying).toBe(false);
+    expect(stored[STORAGE_KEY]).toEqual(response.state);
+  });
+
+  it('registers the narrowly scoped Google Search script after permission is granted', async () => {
+    const response = await invoke(internalListener, {
+      v: 1, target: 'service-worker', type: 'set-google-search', requestId: 'ui_search123', enabled: true,
+    }, popupSender) as { ok: boolean; state: { features: { googleSearchBackground: boolean } } };
+    expect(response.ok).toBe(true);
+    expect(response.state.features.googleSearchBackground).toBe(true);
+    expect(fakeChrome.scripting.registerContentScripts).toHaveBeenCalledWith([expect.objectContaining({
+      matches: ['https://www.google.com/search*'], js: ['search_overlay.js'],
+    })]);
   });
 });

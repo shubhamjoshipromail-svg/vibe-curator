@@ -8,8 +8,11 @@ const required = [
   manifest.action.default_popup,
   manifest.background.service_worker,
   'offscreen.html',
+  'search_overlay.js',
 ];
 for (const file of required) await access(join(distribution, file));
+const searchOverlay = await readFile(join(distribution, 'search_overlay.js'), 'utf8');
+if (/^\s*import\s/m.test(searchOverlay)) throw new Error('Registered content script must be a self-contained classic script.');
 
 async function scan(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {

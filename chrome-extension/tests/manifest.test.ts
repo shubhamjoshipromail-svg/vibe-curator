@@ -7,9 +7,10 @@ const manifest = JSON.parse(readFileSync(resolve('public/manifest.json'), 'utf8'
 describe('production manifest', () => {
   it('uses only the required permissions and exact website origin', () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.permissions).toEqual(['storage', 'offscreen']);
+    expect(manifest.permissions).toEqual(['storage', 'offscreen', 'scripting']);
     expect(manifest.host_permissions).toBeUndefined();
     expect(manifest.content_scripts).toBeUndefined();
+    expect(manifest.optional_host_permissions).toEqual(['https://www.google.com/*']);
     expect(manifest.externally_connectable.matches).toEqual(['https://vibe-curator-production.up.railway.app/*']);
   });
 
@@ -19,5 +20,6 @@ describe('production manifest', () => {
     expect(manifest.background).toEqual({ service_worker: 'service_worker.js', type: 'module' });
     expect(manifest.content_security_policy.extension_pages).toContain("script-src 'self'");
     expect(manifest.content_security_policy.extension_pages).not.toMatch(/script-src[^;]*https:/);
+    expect(manifest.version).toBe('0.2.0');
   });
 });

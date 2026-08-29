@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Google Search overlay fixture</title>
+    <style>
+      body { margin: 0; color: #202124; font: 16px Arial, sans-serif; }
+      .sfbg, #searchform, #appbar { padding: 20px 8vw; background: white; }
+      #searchform { font-size: 24px; }
+      #appbar { border-bottom: 1px solid #ddd; }
+      #rcnt { display: grid; grid-template-columns: minmax(0, 700px) 320px; gap: 36px; padding: 36px 8vw; }
+      .result { margin-bottom: 28px; padding: 20px; border-radius: 18px; background: white; box-shadow: 0 4px 24px #0001; }
+      .result h2 { color: #1a0dab; margin: 0 0 8px; }
+    </style>
+    <script>
+      const fixtureState = {
+        preset: {
+          scene: { kind: 'renderer' },
+          palette: { base: '#05060f', surface: '#141d3d', primary: '#22345e', accent: '#4fa3b8' }
+        },
+        features: { enabled: true, googleSearchBackground: true }
+      };
+      window.chrome = {
+        storage: {
+          local: { get: async () => ({ 'vibe.curator.extension.state.v1': fixtureState }) },
+          onChanged: { addListener: (listener) => { window.fixtureStorageListener = listener; } }
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <div class="sfbg">Google</div>
+    <div id="searchform">vibe curator</div>
+    <div id="appbar">All &nbsp; Images &nbsp; Videos</div>
+    <main id="rcnt">
+      <section id="center_col">
+        <article class="result"><h2>Vibe Curator</h2><p>A calm result card remains completely readable.</p></article>
+        <article class="result"><h2>Another search result</h2><p>The extension changes only outer surfaces, not result content.</p></article>
+      </section>
+      <aside id="rhs" class="result"><h2>About</h2><p>Knowledge panels stay intact.</p></aside>
+    </main>
+    <script src="../../dist/search_overlay.js"></script>
+  </body>
+</html>
