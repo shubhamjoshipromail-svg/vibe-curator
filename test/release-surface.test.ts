@@ -21,10 +21,10 @@ test('first-page Chrome action uses the stable published extension identity', ()
   assert.match(account, /<span>Chrome<\/span>/);
 });
 
-test('desktop page targets the reviewed Beta 2 artifact and warns about Gatekeeper', () => {
+test('desktop page targets the reviewed Beta 3 artifact and warns about Gatekeeper', () => {
   const legal = read('src/app/legal.ts');
-  assert.match(legal, /NATIVE_RELEASE_TAG = 'v0\.1\.1-beta\.2'/);
-  assert.match(legal, /Vibe-Curator-0\.1\.1-beta\.2-arm64-unnotarized\.dmg/);
+  assert.match(legal, /NATIVE_RELEASE_TAG = 'v0\.1\.1-beta\.3'/);
+  assert.match(legal, /Vibe-Curator-0\.1\.1-beta\.3-arm64-unnotarized\.dmg/);
   assert.match(legal, /Gatekeeper will block the first normal launch/);
   assert.doesNotMatch(legal, /v0\.1\.0-beta\.1/);
 });

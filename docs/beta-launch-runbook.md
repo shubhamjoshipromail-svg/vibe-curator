@@ -18,7 +18,7 @@ Current distribution:
 
 - Web/API `0.1.1`: Railway production.
 - Chrome `0.1.1`: approved and published under item `niamjnjkmfnlpcejieffodipboacfdnm`.
-- macOS `0.1.1` Beta 2: published for technical testers, ad-hoc signed and unnotarized.
+- macOS `0.1.1` Beta 3: published for technical testers, ad-hoc signed and unnotarized.
 
 ## Release order
 

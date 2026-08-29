@@ -298,6 +298,17 @@ fn hide_native_controls(app: &AppHandle) {
     }
 }
 
+fn toggle_native_controls(app: &AppHandle, anchor: Rect) -> Result<(), String> {
+    let window = app
+        .get_webview_window("native-controls")
+        .ok_or_else(|| "Native controls window is unavailable".to_string())?;
+    if window.is_visible().map_err(|error| error.to_string())? {
+        window.hide().map_err(|error| error.to_string())
+    } else {
+        show_native_controls(app, Some(anchor))
+    }
+}
+
 #[tauri::command]
 fn native_controls_snapshot_command(app: AppHandle) -> Result<NativeControlsSnapshot, String> {
     native_controls_snapshot(&app)
@@ -606,7 +617,7 @@ pub fn run() {
                     ..
                 } = event
                 {
-                    let _ = show_native_controls(tray.app_handle(), Some(rect));
+                    let _ = toggle_native_controls(tray.app_handle(), rect);
                 }
             })
             .build(app)?;

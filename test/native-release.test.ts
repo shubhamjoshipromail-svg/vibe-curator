@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { activationFromDeepLink } from '../src/runtime/deep-link.ts';
 import { clampVolume } from '../src/runtime/media.ts';
@@ -11,6 +12,12 @@ import {
 } from '../src/audio/preferences.ts';
 
 const token = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+test('menu-bar clicks toggle the controls popup independently of playback', () => {
+  const nativeHost = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
+  assert.match(nativeHost, /fn toggle_native_controls[\s\S]*window\.is_visible\(\)[\s\S]*window\.hide\(\)[\s\S]*show_native_controls/);
+  assert.match(nativeHost, /toggle_native_controls\(tray\.app_handle\(\), rect\)/);
+});
 
 test('accepts a bounded preset activation on the canonical scheme and host', () => {
   assert.deepEqual(

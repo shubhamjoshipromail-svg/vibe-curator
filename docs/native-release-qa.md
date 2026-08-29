@@ -2,7 +2,7 @@
 
 ## Current beta artifact
 
-The current technical-tester release is [Vibe Curator `0.1.1` Beta 2](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.2) for Apple-silicon Macs. The DMG is ad-hoc signed with the hardened runtime and is not notarized. Its release includes a `.sha256` companion file. Gatekeeper rejection on a normal first launch is expected until a Developer ID Application certificate is available and the artifact is notarized/stapled.
+The current technical-tester release is [Vibe Curator `0.1.1` Beta 3](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.3) for Apple-silicon Macs. The DMG is ad-hoc signed with the hardened runtime and is not notarized. Its release includes a `.sha256` companion file. Gatekeeper rejection on a normal first launch is expected until a Developer ID Application certificate is available and the artifact is notarized/stapled.
 
 The native smoke checks are intentionally deterministic and read-only:
 
@@ -39,4 +39,4 @@ spctl --assess --type execute --verbose=4 "src-tauri/target/release/bundle/macos
 xcrun stapler validate "src-tauri/target/release/bundle/macos/Vibe Curator.app"
 ```
 
-For Beta 2, `codesign --verify` must pass, the signature reports `adhoc` with no Team ID, and `spctl`/`stapler` must report rejection/no ticket. Do not describe that result as generally signed or notarized.
+For Beta 3, `codesign --verify` must pass, the signature reports `adhoc` with no Team ID, and `spctl`/`stapler` must report rejection/no ticket. Do not describe that result as generally signed or notarized.
