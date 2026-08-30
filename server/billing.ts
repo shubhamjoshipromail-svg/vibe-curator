@@ -24,7 +24,9 @@ export function billingPlugin(): Plugin {
           const viewer = await viewerFor(req, res);
           if (!viewer) return json(res, 401, { message: 'A session is required.' });
           if (req.method === 'GET' && (path === '/status' || path === 'status')) {
-            const credits = await creditStatus(viewer.id);
+            // Email drives the admin allowlist check, so an unlimited account
+            // is reported as unlimited rather than as a balance.
+            const credits = await creditStatus(viewer.id, viewer.email);
             const checkoutConfigured = billingEnabled() && Boolean(
               process.env.STRIPE_SECRET_KEY
               && process.env.STRIPE_WEBHOOK_SECRET

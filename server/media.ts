@@ -12,8 +12,10 @@ import {
   completeReservation,
   failReservation,
   reserveCredits,
+  reserveFailureMessage,
   type CreditOperation,
   type CreditReservation,
+  type ReserveResult,
 } from './credits';
 import { generationAllowed, generationDisabledMessage, generationMode } from './beta';
 import { masterTrack } from './mastering';
@@ -40,8 +42,10 @@ const MUSIC_PROMPT_PROVIDER = 'anthropic';
 const IMAGE_MODEL = 'gpt-image-2';
 const IMAGE_PROVIDER = 'openai';
 const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
-// Conservative draft estimate. OpenAI bills GPT Image 2 output by image tokens.
-const IMAGE_COST_USD = 0.01;
+// GPT Image 2 at low quality, 1536x1024, bills about $0.005 per image. The
+// previous 0.01 was roughly 2x reality, which spent the daily budget twice as
+// fast as the numbers shown to users implied.
+const IMAGE_COST_USD = 0.005;
 const VIDEO_COST_USD = 1.20;
 const MUSIC_COST_USD = 0.225;
 // v2 asks for two minutes instead of ninety seconds. ElevenLabs bills $0.15/min,
@@ -240,11 +244,22 @@ export function mediaPlugin(mode: string): Plugin {
         estimatedCostUsd: number,
         provider: string,
         idempotencyKey?: string,
-      ): Promise<CreditReservation | undefined> => {
-        const reservation = await reserveCredits(ownerId, operation, { idempotencyKey, provider, estimatedCostUsd });
-        if (!reservation) return undefined;
-        if (!reservation.persistent && !reserve(estimatedCostUsd)) return undefined;
-        return reservation;
+        email?: string,
+      ): Promise<ReserveResult> => {
+        const result = await reserveCredits(ownerId, operation, {
+          idempotencyKey,
+          provider,
+          estimatedCostUsd,
+          email,
+        });
+        if (!result.ok) return result;
+        // Local/dev mode has no database, so the in-memory session cap stands in
+        // for the shared budget. Admins skip it for the same reason they skip
+        // the real one.
+        if (!result.reservation.persistent && !result.reservation.adminBypass && !reserve(estimatedCostUsd)) {
+          return { ok: false, reason: 'global_daily_cap' };
+        }
+        return result;
       };
 
       const fail = async (reservation: CreditReservation | undefined, estimatedCostUsd: number, code: string) => {
@@ -308,11 +323,12 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 400, { message: 'Describe the visual first.' });
               return;
             }
-            reservation = await authorize(viewer.id, 'image', IMAGE_COST_USD, IMAGE_PROVIDER, idempotencyKey);
-            if (!reservation) {
-              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for this image.' });
+            const authorizedImage = await authorize(viewer.id, 'image', IMAGE_COST_USD, IMAGE_PROVIDER, idempotencyKey, viewer.email);
+            if (!authorizedImage.ok) {
+              sendJson(res, 402, { message: reserveFailureMessage(authorizedImage.reason, 'this image') });
               return;
             }
+            reservation = authorizedImage.reservation;
             const style = body.style?.trim() || 'cinematic digital art';
             const imagePrompt = [
                 `Create a production-quality widescreen source image for a living visual environment. Subject: ${prompt}.`,
@@ -388,11 +404,12 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 400, { message: 'Motion generation needs a prompt and source image.' });
               return;
             }
-            reservation = await authorize(viewer.id, 'motion', VIDEO_COST_USD, 'google', idempotencyKey);
-            if (!reservation) {
-              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for motion generation.' });
+            const authorizedMotion = await authorize(viewer.id, 'motion', VIDEO_COST_USD, 'google', idempotencyKey, viewer.email);
+            if (!authorizedMotion.ok) {
+              sendJson(res, 402, { message: reserveFailureMessage(authorizedMotion.reason, 'motion generation') });
               return;
             }
+            reservation = authorizedMotion.reservation;
             let operation = await gemini.models.generateVideos({
               model: VIDEO_MODEL,
               source: {
@@ -475,11 +492,12 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 400, { message: 'Describe the music first.' });
               return;
             }
-            reservation = await authorize(viewer.id, 'direction', MUSIC_PROMPT_COST_USD, MUSIC_PROMPT_PROVIDER, idempotencyKey);
-            if (!reservation) {
-              sendJson(res, 402, { message: 'You do not have enough Vibe Credits for music direction.' });
+            const authorizedDirection = await authorize(viewer.id, 'direction', MUSIC_PROMPT_COST_USD, MUSIC_PROMPT_PROVIDER, idempotencyKey, viewer.email);
+            if (!authorizedDirection.ok) {
+              sendJson(res, 402, { message: reserveFailureMessage(authorizedDirection.reason, 'music direction') });
               return;
             }
+            reservation = authorizedDirection.reservation;
             const adapted = musicPipeline === 'v1'
               ? await adaptMusicPrompt(anthropic!, request, body.vocalMode ?? 'auto')
               : await (async () => {
@@ -550,11 +568,12 @@ export function mediaPlugin(mode: string): Plugin {
           }
           const prompt = body.prompt;
 
-          reservation = await authorize(viewer.id, 'music', totalMusicCostUsd, MUSIC_PROVIDER, idempotencyKey);
-          if (!reservation) {
-            sendJson(res, 402, { message: 'You do not have enough Vibe Credits for music generation.' });
+          const authorizedMusic = await authorize(viewer.id, 'music', totalMusicCostUsd, MUSIC_PROVIDER, idempotencyKey, viewer.email);
+          if (!authorizedMusic.ok) {
+            sendJson(res, 402, { message: reserveFailureMessage(authorizedMusic.reason, 'music generation') });
             return;
           }
+          reservation = authorizedMusic.reservation;
 
           let musicPrompt: string;
           let musicVocalMode: Exclude<VocalMode, 'auto'>;
@@ -592,11 +611,29 @@ export function mediaPlugin(mode: string): Plugin {
             promptModel = NO_LLM_CALL;
 
             if (providerPrompt.needsReferenceTranslation) {
-              const translated = await translateReferences(providerPrompt.prompt, openAiKey);
-              sanitisedPrompt = translated.prompt;
-              removedReferences = translated.removedReferences;
-              promptProvider = SANITISER_PROVIDER;
-              promptModel = SANITISER_MODEL;
+              try {
+                const translated = await translateReferences(providerPrompt.prompt, openAiKey);
+                sanitisedPrompt = translated.prompt;
+                removedReferences = translated.removedReferences;
+                promptProvider = SANITISER_PROVIDER;
+                promptModel = SANITISER_MODEL;
+              } catch (sanitiserErr) {
+                // Fail closed. The entire purpose of this pass is that a name
+                // must never reach the music generator, so an unavailable
+                // sanitiser can only stop the request — never wave it through.
+                //
+                // It must say so, though. The sanitiser runs on a different
+                // provider from the music itself, and the detector is
+                // deliberately biased to false positives, so one dead provider
+                // was reporting perfectly good music generation as broken.
+                await fail(reservation, totalMusicCostUsd, 'sanitiser_unavailable');
+                reservation = undefined;
+                server.config.logger.error(`[vibe] reference sanitiser unavailable: ${String(sanitiserErr)}`);
+                sendJson(res, 503, {
+                  message: 'This request may name an artist or track, and the check that rewrites those into musical terms is unavailable right now. Describe the sound you want instead — instruments, mood, tempo — and try again. Nothing was charged.',
+                });
+                return;
+              }
             }
 
             // Defence in depth: the regex pass runs on every request, including

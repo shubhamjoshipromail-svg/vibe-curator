@@ -69,8 +69,21 @@ export async function mountAccountControl(host: HTMLElement): Promise<void> {
     if (billing) {
       const creditLine = document.createElement('p');
       creditLine.className = 'account-credits';
-      creditLine.textContent = `${billing.credits.available} Vibe Credits available · ${billing.credits.plan}`;
+      creditLine.textContent = billing.credits.unlimited
+        ? `Unlimited generation · ${billing.credits.plan}`
+        : `${billing.credits.available} Vibe Credits available · ${billing.credits.plan}`;
       panel.appendChild(creditLine);
+
+      // A balance alone was misleading: a user could hold 100 credits and still
+      // be refused by a spend cap, with nothing on screen explaining why.
+      if (billing.credits.blockedBy) {
+        const note = document.createElement('p');
+        note.className = 'account-credit-note';
+        note.textContent = billing.credits.blockedBy === 'user_daily_cap'
+          ? `Daily generation limit reached ($${billing.credits.todaySpendUsd.toFixed(2)} of $${billing.credits.dailyCapUsd.toFixed(2)}). It resets at 00:00 UTC and your credits are unchanged.`
+          : 'Generation is paused for today across the beta. Your credits are unaffected.';
+        panel.appendChild(note);
+      }
     }
     const action = document.createElement('button');
     action.className = viewer?.isAnonymous ? 'primary wide' : 'ghost wide';
