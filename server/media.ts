@@ -611,11 +611,29 @@ export function mediaPlugin(mode: string): Plugin {
             promptModel = NO_LLM_CALL;
 
             if (providerPrompt.needsReferenceTranslation) {
-              const translated = await translateReferences(providerPrompt.prompt, openAiKey);
-              sanitisedPrompt = translated.prompt;
-              removedReferences = translated.removedReferences;
-              promptProvider = SANITISER_PROVIDER;
-              promptModel = SANITISER_MODEL;
+              try {
+                const translated = await translateReferences(providerPrompt.prompt, openAiKey);
+                sanitisedPrompt = translated.prompt;
+                removedReferences = translated.removedReferences;
+                promptProvider = SANITISER_PROVIDER;
+                promptModel = SANITISER_MODEL;
+              } catch (sanitiserErr) {
+                // Fail closed. The entire purpose of this pass is that a name
+                // must never reach the music generator, so an unavailable
+                // sanitiser can only stop the request — never wave it through.
+                //
+                // It must say so, though. The sanitiser runs on a different
+                // provider from the music itself, and the detector is
+                // deliberately biased to false positives, so one dead provider
+                // was reporting perfectly good music generation as broken.
+                await fail(reservation, totalMusicCostUsd, 'sanitiser_unavailable');
+                reservation = undefined;
+                server.config.logger.error(`[vibe] reference sanitiser unavailable: ${String(sanitiserErr)}`);
+                sendJson(res, 503, {
+                  message: 'This request may name an artist or track, and the check that rewrites those into musical terms is unavailable right now. Describe the sound you want instead — instruments, mood, tempo — and try again. Nothing was charged.',
+                });
+                return;
+              }
             }
 
             // Defence in depth: the regex pass runs on every request, including
