@@ -132,8 +132,18 @@ export interface MusicAsset {
   provenance: MediaProvenance;
 }
 
+/**
+ * The ambience bus is still pure synthesis — Tone.Noise brown/pink/white and a
+ * NoiseSynth — because no production texture pack ships yet (public/packs holds
+ * only dev-fixtures). src/audio/pack.ts says it plainly: synths sound like
+ * synths. It shipped at 0.8 against music at 0.65, so the loudest thing in the
+ * mix was filtered noise, and it was being blamed on the generated music.
+ *
+ * 0.4 puts it under the music where a bed belongs. Raise it again once real
+ * recorded textures replace the oscillators.
+ */
 export const DEFAULT_AUDIO: AudioLayers = {
-  ambience: { gain: 0.8, muted: false },
+  ambience: { gain: 0.4, muted: false },
   music: { gain: 0.65, muted: false },
   master: { gain: 0.8, muted: false },
 };

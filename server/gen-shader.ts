@@ -3,7 +3,7 @@ import { loadEnv } from 'vite';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IncomingMessage } from 'node:http';
 import { viewerFor } from './auth';
-import { completeReservation, failReservation, reserveCredits, type CreditReservation } from './credits';
+import { completeReservation, failReservation, reserveCredits, reserveFailureMessage, type CreditReservation } from './credits';
 import { generationAllowed, generationDisabledMessage } from './beta';
 // @ts-expect-error — plain .mjs shared with the built-in library generator, so
 // the shipped examples and the runtime path can never drift apart.
@@ -102,16 +102,18 @@ export function genShaderPlugin(mode: string): Plugin {
             return;
           }
           const header = req.headers['x-idempotency-key'];
-          reservation = await reserveCredits(viewer.id, 'shader', {
+          const authorized = await reserveCredits(viewer.id, 'shader', {
             idempotencyKey: typeof header === 'string' && header.length <= 200 ? header : undefined,
             provider: 'anthropic',
             estimatedCostUsd: SHADER_ESTIMATED_COST_USD,
+            email: viewer.email,
           });
-          if (!reservation) {
+          if (!authorized.ok) {
             res.statusCode = 402;
-            res.end('Not enough Vibe Credits.');
+            res.end(reserveFailureMessage(authorized.reason, 'this effect'));
             return;
           }
+          reservation = authorized.reservation;
 
           const message = await client.messages.create({
             model: MODEL,

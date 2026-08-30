@@ -331,17 +331,19 @@ function seedPresets(): Preset[] {
    */
   const CURATED_PLAYBACK: Record<string, PlaybackPlan> = {
     'bioluminescent-koi.mp3': { mode: 'crossfade', targetDurationSeconds: 21.4, crossfadeSeconds: 3.78 },
-    'electric-garden.mp3': { mode: 'crossfade', targetDurationSeconds: 22.31, crossfadeSeconds: 3.94 },
+    'electric-garden.mp3': { mode: 'crossfade', targetDurationSeconds: 107.53, crossfadeSeconds: 8 },
     'foggy-stone-shelter.mp3': { mode: 'crossfade', targetDurationSeconds: 70.51, crossfadeSeconds: 8 },
     'gatehouse-rain.mp3': { mode: 'crossfade', targetDurationSeconds: 75.75, crossfadeSeconds: 8 },
     'impressionist-water.mp3': { mode: 'crossfade', targetDurationSeconds: 22.29, crossfadeSeconds: 3.93 },
-    'japanese-water-garden.mp3': { mode: 'crossfade', targetDurationSeconds: 23, crossfadeSeconds: 4.06 },
+    // Folded over 18s rather than the ambient default: this piece decays to near
+    // silence, and a shorter fold left a 23dB jump at the loop point.
+    'japanese-water-garden.mp3': { mode: 'crossfade', targetDurationSeconds: 96.96, crossfadeSeconds: 18 },
     'koi-pond.mp3': { mode: 'crossfade', targetDurationSeconds: 22.28, crossfadeSeconds: 3.93 },
     'last-broadcast.mp3': { mode: 'crossfade', targetDurationSeconds: 20.61, crossfadeSeconds: 3.64 },
     'late-night-focus.mp3': { mode: 'crossfade', targetDurationSeconds: 22.1, crossfadeSeconds: 3.9 },
     'luminous-current.mp3': { mode: 'crossfade', targetDurationSeconds: 21.56, crossfadeSeconds: 3.8 },
     'pixel-forest.mp3': { mode: 'crossfade', targetDurationSeconds: 76, crossfadeSeconds: 8 },
-    'smiling-through-rain.mp3': { mode: 'crossfade', targetDurationSeconds: 21.68, crossfadeSeconds: 3.82 },
+    'smiling-through-rain.mp3': { mode: 'crossfade', targetDurationSeconds: 103.81, crossfadeSeconds: 8 },
   };
 
   /**
@@ -350,7 +352,11 @@ function seedPresets(): Preset[] {
    * query is the only way to stop browsers, the extension and any CDN from
    * serving the pre-master bytes.
    */
-  const CURATED_ASSET_VERSION = 2;
+  // 3: electric-garden, japanese-water-garden and smiling-through-rain were
+  // regenerated through the v2 pipeline at 120s with briefs that ask for music
+  // rather than a restrained bed, and that keep rain and water on the ambience
+  // bus instead of baking broadband noise into the track.
+  const CURATED_ASSET_VERSION = 3;
 
   const curatedMusic = (
     assetId: string,

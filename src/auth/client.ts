@@ -22,6 +22,15 @@ export interface BillingStatus {
     available: number;
     plan: string;
     persistent: boolean;
+    /** USD committed today against the per-user daily cap. */
+    todaySpendUsd: number;
+    dailyCapUsd: number;
+    /**
+     * Present when a spend cap, not the credit balance, is what blocks
+     * generation. The global variant carries no figure by design.
+     */
+    blockedBy?: 'user_daily_cap' | 'global_daily_cap';
+    unlimited: boolean;
   };
   costs: Record<'image' | 'music' | 'motion' | 'shader' | 'direction', number>;
   betaWelcomeCredits: number;

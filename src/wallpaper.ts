@@ -82,7 +82,9 @@ async function bundledStarterPreset(): Promise<Preset> {
     url: '/audio/curated/last-broadcast.mp3',
     name: 'The Last Broadcast — instrumental ambient score',
     mimeType: 'audio/mpeg',
-    durationSeconds: 30,
+    // Measured after mastering trimmed the fade. It was 30 here, which was the
+    // pre-master length and made the wallpaper loop early against a 20.6s file.
+    durationSeconds: 20.61,
     provenance: {
       provider: 'elevenlabs',
       model: 'music_v2',
