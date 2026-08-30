@@ -91,6 +91,13 @@ export function ensureProductSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS vibe_generation_jobs_owner_status_idx
       ON vibe_generation_jobs (owner_id, status, created_at DESC);
 
+    -- Admin generations are still recorded so accounting and spend visibility
+    -- stay intact, but they are excluded from the shared daily budget. Added by
+    -- ALTER because the CREATE above is IF NOT EXISTS and would skip existing
+    -- deployments.
+    ALTER TABLE vibe_generation_jobs
+      ADD COLUMN IF NOT EXISTS admin_bypass BOOLEAN NOT NULL DEFAULT FALSE;
+
     CREATE TABLE IF NOT EXISTS vibe_webhook_events (
       provider TEXT NOT NULL,
       event_id TEXT NOT NULL,
