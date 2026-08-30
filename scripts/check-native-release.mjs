@@ -40,7 +40,11 @@ function checkMarketplaceAudio() {
   const marketplace = read('src/app/marketplace.ts');
   const library = read('src/preset/library.ts');
   const posts = [...marketplace.matchAll(/presetId: '([^']+)'/g)].map((match) => match[1]);
-  const scores = [...library.matchAll(/'([^']+)': curatedMusic\([^,]+, '([^']+)'/g)]
+  // The card-to-score map moved from inline `curatedMusic(...)` calls to a
+  // `curated(assetId, file, name, createdAt)` helper that fills the playback
+  // plan from CURATED_PLAYBACK. The contract this asserts is unchanged: every
+  // marketplace card owns exactly one baseline score that exists on disk.
+  const scores = [...library.matchAll(/'([^']+)': curated\('[^']+', '([^']+)'/g)]
     .map((match) => ({ id: match[1], file: match[2] }));
   assert.ok(posts.length > 0, 'marketplace posts are missing');
   assert.ok(scores.length > 0, 'curated marketplace scores are missing');

@@ -1,0 +1,51 @@
+{
+  "file": "smiling-through-rain.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.82
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.82,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -21.9,
+    "truePeakDb": -4.4,
+    "peakDb": -4.44,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.92,
+    "noiseFloorDb": -89.55,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 4.54,
+    "contentDurationSeconds": 25.5,
+    "crossfadeSeconds": 3.82,
+    "seamDeltaDb": 0.17,
+    "loopStart": 0,
+    "loopEnd": 21.68,
+    "outputDurationSeconds": 21.68,
+    "outputLufs": -18.5,
+    "outputTruePeakDb": -1.9,
+    "gainDb": 3.4
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -21.9,
+    "truePeakDb": -4.4,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.92
+  },
+  "after": {
+    "durationSeconds": 21.71,
+    "lufs": -18.5,
+    "truePeakDb": -1.9,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

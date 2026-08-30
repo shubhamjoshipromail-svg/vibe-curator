@@ -1,0 +1,51 @@
+{
+  "file": "impressionist-water.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.93
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.93,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -21.3,
+    "truePeakDb": -8.2,
+    "peakDb": -8.26,
+    "leadingSilenceSeconds": 0.53,
+    "trailingSilenceSeconds": 0.42,
+    "noiseFloorDb": -107.72,
+    "trimStartSeconds": 0.53,
+    "trimEndSeconds": 3.29,
+    "contentDurationSeconds": 26.22,
+    "crossfadeSeconds": 3.93,
+    "seamDeltaDb": 0.13,
+    "loopStart": 0,
+    "loopEnd": 22.29,
+    "outputDurationSeconds": 22.29,
+    "outputLufs": -18.9,
+    "outputTruePeakDb": -6,
+    "gainDb": 2.4
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -21.3,
+    "truePeakDb": -8.2,
+    "leadingSilenceSeconds": 0.53,
+    "trailingSilenceSeconds": 0.42
+  },
+  "after": {
+    "durationSeconds": 22.33,
+    "lufs": -18.9,
+    "truePeakDb": -6,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

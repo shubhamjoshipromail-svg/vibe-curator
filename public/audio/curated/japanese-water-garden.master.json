@@ -1,0 +1,51 @@
+{
+  "file": "japanese-water-garden.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 4.06
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 4.06,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -20,
+    "truePeakDb": -5.6,
+    "peakDb": -5.67,
+    "leadingSilenceSeconds": 0.69,
+    "trailingSilenceSeconds": 0.53,
+    "noiseFloorDb": -128.08,
+    "trimStartSeconds": 0.69,
+    "trimEndSeconds": 2.29,
+    "contentDurationSeconds": 27.06,
+    "crossfadeSeconds": 4.06,
+    "seamDeltaDb": 1.08,
+    "loopStart": 0,
+    "loopEnd": 23,
+    "outputDurationSeconds": 23,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -3.6,
+    "gainDb": 1.6
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -20,
+    "truePeakDb": -5.6,
+    "leadingSilenceSeconds": 0.69,
+    "trailingSilenceSeconds": 0.62
+  },
+  "after": {
+    "durationSeconds": 23.04,
+    "lufs": -18.4,
+    "truePeakDb": -3.6,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

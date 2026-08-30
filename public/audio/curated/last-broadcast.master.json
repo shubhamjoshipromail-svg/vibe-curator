@@ -1,0 +1,51 @@
+{
+  "file": "last-broadcast.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.64
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.64,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -17.9,
+    "truePeakDb": -4,
+    "peakDb": -3.98,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.69,
+    "noiseFloorDb": -83.21,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 5.79,
+    "contentDurationSeconds": 24.25,
+    "crossfadeSeconds": 3.64,
+    "seamDeltaDb": 3.26,
+    "loopStart": 0,
+    "loopEnd": 20.61,
+    "outputDurationSeconds": 20.61,
+    "outputLufs": -18.8,
+    "outputTruePeakDb": -5.3,
+    "gainDb": -0.9
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -17.9,
+    "truePeakDb": -4,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.69
+  },
+  "after": {
+    "durationSeconds": 20.64,
+    "lufs": -18.8,
+    "truePeakDb": -5.3,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

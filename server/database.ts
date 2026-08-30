@@ -160,7 +160,7 @@ export async function transferOwnership(fromUserId: string, toUserId: string): P
     await client.query('DELETE FROM vibe_generation_jobs WHERE owner_id = $1', [fromUserId]);
     await client.query(
       `INSERT INTO vibe_policy_acknowledgements (id, owner_id, policy_version, source, created_at)
-       SELECT id, $2, policy_version, source, created_at
+       SELECT md5(random()::text || clock_timestamp()::text || id), $2, policy_version, source, created_at
        FROM vibe_policy_acknowledgements WHERE owner_id = $1
        ON CONFLICT (owner_id, policy_version) DO NOTHING`,
       [fromUserId, toUserId],

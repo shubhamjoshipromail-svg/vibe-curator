@@ -1,3 +1,5 @@
+import type { MasterReport, MusicBrief, PlaybackPlan, SceneAudioContext } from '../audio/brief';
+
 export interface MediaCapabilities {
   sceneGeneration: boolean;
   motionGeneration?: boolean;
@@ -33,6 +35,10 @@ export interface GeneratedMusic {
   promptModel?: string;
   estimatedCostUsd?: number;
   vocalMode?: 'vocals' | 'instrumental';
+  /** Present only on the v2 mastered pipeline; absent on v1. */
+  masterReport?: MasterReport;
+  playback?: PlaybackPlan;
+  degraded?: boolean;
 }
 
 async function safeMessage(res: Response): Promise<string> {
@@ -101,12 +107,27 @@ export async function generateSceneMotion(
   return decodeMedia(await res.json());
 }
 
+export interface MusicRequest {
+  brief: MusicBrief;
+  /** The user's own words. Empty is valid: the brief still carries direction. */
+  userRequest: string;
+  vocalMode: 'auto' | 'vocals' | 'instrumental';
+  sceneContext?: SceneAudioContext;
+  /**
+   * What the server currently reads. The structured `brief` above is the real
+   * payload, but `/api/media/music` still requires a non-empty `prompt`, so the
+   * caller passes rendered brief text when the user typed nothing. Remove this
+   * once the route consumes `brief` directly.
+   */
+  prompt: string;
+}
+
 /** Vendor-neutral client call. Labs asks for music, not for a specific SDK. */
-export async function generateMusic(prompt: string, vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto'): Promise<GeneratedMusic> {
+export async function generateMusic(request: MusicRequest): Promise<GeneratedMusic> {
   const res = await fetch('/api/media/music', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-idempotency-key': crypto.randomUUID() },
-    body: JSON.stringify({ prompt, vocalMode }),
+    body: JSON.stringify(request),
   });
   if (!res.ok) throw new Error(await safeMessage(res));
 
@@ -121,6 +142,9 @@ export async function generateMusic(prompt: string, vocalMode: 'auto' | 'vocals'
     promptModel?: string;
     estimatedCostUsd?: number;
     vocalMode?: 'vocals' | 'instrumental';
+    masterReport?: MasterReport;
+    playback?: PlaybackPlan;
+    degraded?: boolean;
   };
   const bytes = Uint8Array.from(atob(body.data), (char) => char.charCodeAt(0));
   return {
@@ -134,5 +158,8 @@ export async function generateMusic(prompt: string, vocalMode: 'auto' | 'vocals'
     promptModel: body.promptModel,
     estimatedCostUsd: body.estimatedCostUsd,
     vocalMode: body.vocalMode,
+    masterReport: body.masterReport,
+    playback: body.playback,
+    degraded: body.degraded,
   };
 }

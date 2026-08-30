@@ -1,0 +1,51 @@
+{
+  "file": "electric-garden.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.94
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.94,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -12.9,
+    "truePeakDb": -0.5,
+    "peakDb": -0.53,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.47,
+    "noiseFloorDb": -74.19,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.79,
+    "contentDurationSeconds": 26.25,
+    "crossfadeSeconds": 3.94,
+    "seamDeltaDb": 0.36,
+    "loopStart": 0,
+    "loopEnd": 22.31,
+    "outputDurationSeconds": 22.31,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -6.1,
+    "gainDb": -5.5
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -12.9,
+    "truePeakDb": -0.5,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.47
+  },
+  "after": {
+    "durationSeconds": 22.36,
+    "lufs": -18.4,
+    "truePeakDb": -6.1,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}
