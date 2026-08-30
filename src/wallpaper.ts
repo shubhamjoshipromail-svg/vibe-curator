@@ -11,7 +11,7 @@ import { ensureViewer } from './auth/client';
 import { getPreset, hydrateLibrary, listPresets } from './preset/library';
 import { VIBES } from './vibes';
 import { runtimeHost } from './runtime/host';
-import { registerDeepLinks } from './runtime/deep-link';
+import { connectNativeActivationInbox } from './runtime/deep-link';
 import { appApiUrl, isBundledSurface } from './runtime/config';
 import { cacheTransferredAsset } from './media/assets';
 import { readMasterAudioPreferences, recoverLegacyZeroVolume, writeMasterAudioPreferences } from './audio/preferences';
@@ -79,10 +79,11 @@ async function bundledStarterPreset(): Promise<Preset> {
   const preset = structuredClone(source);
   preset.music = {
     assetId: STARTER_MUSIC_ID,
-    url: '/audio/curated/last-broadcast.mp3',
+    url: '/audio/curated/last-broadcast-v2.mp3',
     name: 'The Last Broadcast — instrumental ambient score',
     mimeType: 'audio/mpeg',
-    durationSeconds: 30,
+    durationSeconds: 20.61,
+    playback: { mode: 'crossfade', targetDurationSeconds: 20.61, crossfadeSeconds: 3.64 },
     provenance: {
       provider: 'elevenlabs',
       model: 'music_v2',
@@ -300,10 +301,10 @@ void listenNativeMediaControls({
       await activatePreset(preset);
     });
   },
-  onActivateTransfer: async (token) => {
-    await bootPromise;
-    queueActivation(`transfer:${token}`, async () => activatePreset(await receiveActivation(token)));
-  },
+  // Reliable transfer delivery is handled by connectNativeActivationInbox,
+  // which claims the Rust inbox entry before dispatching it. Keep this legacy
+  // media listener inert so the same event cannot bypass that exactly-once gate.
+  onActivateTransfer: () => {},
   onSetMasterVolume: setMasterVolume,
   onSetMuted: setSoundMuted,
   onStart: async () => {
@@ -329,26 +330,16 @@ document.addEventListener('visibilitychange', () => {
 });
 audioPump = requestAnimationFrame(pumpAudio);
 
-// The packaged app loads this wallpaper entry point directly. Register the
-// custom-protocol listener here (not only in the website shell) so an already
-// running companion receives Display on Mac activations instead of staying on
-// the bundled Koi starter.
-void registerDeepLinks(async (activation) => {
-  await bootPromise;
-  if ('controls' in activation) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('show_native_controls_command');
-  } else if ('token' in activation) queueActivation(`transfer:${activation.token}`, async () => activatePreset(await receiveActivation(activation.token)));
-  else queueActivation(`preset:${activation.presetId}`, async () => {
-    const preset = getPreset(activation.presetId) ?? (await hydrateLibrary(), getPreset(activation.presetId));
-    if (!preset) throw new Error(`Preset “${activation.presetId}” is unavailable.`);
-    await activatePreset(preset);
-  });
-}, false);
-
 bootPromise = boot().catch((error) => {
   console.error('[vibe] wallpaper failed to start', error);
   status.textContent = error instanceof Error ? error.message : 'Wallpaper could not start.';
   status.dataset.error = 'true';
   reportPlayerStatus('error', error);
+});
+
+// Rust receives custom-protocol URLs before this script may exist. Subscribe
+// to warm events first, then atomically drain any cold-start activation.
+void connectNativeActivationInbox(async (token) => {
+  await bootPromise;
+  queueActivation(`transfer:${token}`, async () => activatePreset(await receiveActivation(token)));
 });

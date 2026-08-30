@@ -1,7 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { activationFromDeepLink } from '../src/runtime/deep-link.ts';
+import {
+  activationFromDeepLink,
+  connectNativeActivationInbox,
+  type NativeActivationBridge,
+} from '../src/runtime/deep-link.ts';
 import { clampVolume } from '../src/runtime/media.ts';
 import {
   DEFAULT_MASTER_AUDIO_PREFERENCES,
@@ -19,16 +23,9 @@ test('menu-bar clicks toggle the controls popup independently of playback', () =
   assert.match(nativeHost, /toggle_native_controls\(tray\.app_handle\(\), rect\)/);
 });
 
-test('accepts a bounded preset activation on the canonical scheme and host', () => {
-  assert.deepEqual(
-    activationFromDeepLink('vibecurator://open?preset=market-pixel-last-broadcast'),
-    { presetId: 'market-pixel-last-broadcast' },
-  );
-  assert.deepEqual(
-    activationFromDeepLink('vibecurator://open?preset=folder%2Fitem_2'),
-    undefined,
-    'encoded slash must not widen the preset-id grammar',
-  );
+test('rejects the unsupported preset deep-link path explicitly', () => {
+  assert.equal(activationFromDeepLink('vibecurator://open?preset=market-pixel-last-broadcast'), undefined);
+  assert.equal(activationFromDeepLink(`vibecurator://open?activation=not-a-token&preset=fallback`), undefined);
 });
 
 test('accepts the dedicated controls deep link without accepting arbitrary hosts', () => {
@@ -40,10 +37,9 @@ test('accepts exactly 64 lowercase hexadecimal transfer-token characters', () =>
   assert.deepEqual(activationFromDeepLink(`vibecurator://open?activation=${token}`), { token });
   assert.equal(activationFromDeepLink(`vibecurator://open?activation=${token.slice(0, -1)}`), undefined);
   assert.equal(activationFromDeepLink(`vibecurator://open?activation=${token.toUpperCase()}`), undefined);
-  assert.deepEqual(activationFromDeepLink(`vibecurator://open?activation=${token}&preset=ignored`), { token },
-    'a valid activation token takes precedence over a preset');
-  assert.deepEqual(activationFromDeepLink(`vibecurator://open?activation=not-a-token&preset=fallback`), { presetId: 'fallback' },
-    'an invalid token may fall back to a valid preset activation');
+  assert.equal(activationFromDeepLink(`vibecurator://open?activation=${token}&extra=ignored`), undefined);
+  assert.equal(activationFromDeepLink(`vibecurator://open/path?activation=${token}`), undefined);
+  assert.equal(activationFromDeepLink(`vibecurator://open?activation=${token}#fragment`), undefined);
 });
 
 test('rejects malformed, wrong-host, wrong-scheme, and unsafe activations', () => {
@@ -51,12 +47,55 @@ test('rejects malformed, wrong-host, wrong-scheme, and unsafe activations', () =
     'not a URL',
     'https://open?preset=market-pixel-last-broadcast',
     'vibecurator://other?preset=market-pixel-last-broadcast',
-    'vibecurator://open?preset=',
-    'vibecurator://open?preset=contains.dot',
-    `vibecurator://open?preset=${'x'.repeat(161)}`,
+    'vibecurator://controls?extra=1',
     'vibecurator://open?activation=not-a-token',
   ];
   for (const value of rejected) assert.equal(activationFromDeepLink(value), undefined, value);
+});
+
+test('subscribes before draining cold activations and delivers current tokens once', async () => {
+  let handler: ((value: unknown) => void | Promise<void>) | undefined;
+  let subscribedBeforeDrain = false;
+  const bridge: NativeActivationBridge = {
+    async listen(next) {
+      handler = next;
+      return () => {};
+    },
+    async claim() { return false; },
+    async takePending() {
+      subscribedBeforeDrain = Boolean(handler);
+      return [token, token, 'not-a-token'];
+    },
+  };
+  const delivered: string[] = [];
+  await connectNativeActivationInbox(async (value) => { delivered.push(value); }, bridge);
+  assert.equal(subscribedBeforeDrain, true);
+  assert.deepEqual(delivered, [token]);
+});
+
+test('claims warm activations and suppresses an event racing the cold drain', async () => {
+  const warm = `1${token.slice(1)}`;
+  let handler: ((value: unknown) => void | Promise<void>) | undefined;
+  const pending = new Set([token]);
+  const bridge: NativeActivationBridge = {
+    async listen(next) {
+      handler = next;
+      return () => {};
+    },
+    async claim(value) { return pending.delete(value); },
+    async takePending() {
+      pending.delete(token);
+      return [token];
+    },
+  };
+  const delivered: string[] = [];
+  await connectNativeActivationInbox(async (value) => { delivered.push(value); }, bridge);
+
+  await handler?.(token);
+  pending.add(warm);
+  await handler?.(warm);
+  await handler?.(warm);
+  assert.deepEqual(delivered, [token, warm]);
 });
 
 test('clamps native master volume and rejects non-numeric payloads', () => {

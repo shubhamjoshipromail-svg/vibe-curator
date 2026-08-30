@@ -1,0 +1,51 @@
+{
+  "file": "gatehouse-rain-v2.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 90,
+    "crossfadeSeconds": 8
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 8,
+    "clamped": false,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 90.04,
+    "measuredLufs": -20.6,
+    "truePeakDb": -3.5,
+    "peakDb": -3.53,
+    "leadingSilenceSeconds": 0.25,
+    "trailingSilenceSeconds": 1.3,
+    "noiseFloorDb": -86.54,
+    "trimStartSeconds": 0.25,
+    "trimEndSeconds": 6.04,
+    "contentDurationSeconds": 83.75,
+    "crossfadeSeconds": 8,
+    "seamDeltaDb": 0.93,
+    "loopStart": 0,
+    "loopEnd": 75.75,
+    "outputDurationSeconds": 75.75,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -2,
+    "gainDb": 2.2
+  },
+  "before": {
+    "durationSeconds": 90.04,
+    "lufs": -20.5,
+    "truePeakDb": -3.5,
+    "leadingSilenceSeconds": 0.25,
+    "trailingSilenceSeconds": 1.3
+  },
+  "after": {
+    "durationSeconds": 75.78,
+    "lufs": -18.4,
+    "truePeakDb": -2,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

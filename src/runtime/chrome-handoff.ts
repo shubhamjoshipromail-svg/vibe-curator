@@ -67,6 +67,7 @@ export function projectPresetForChrome(preset: ChromeVibeInput): ChromeVibePrese
     scene = { kind: 'renderer' as const, label: preset.scene.label, style: preset.scene.style };
   } else return null;
   const selectedMusic = preset.music ?? preset.baselineMusic;
+  // This is an allowlist; a preset whose URL fails it is rejected outright below.
   const trackUrl = selectedMusic?.url && /^\/audio\/curated\/[a-z0-9][a-z0-9._-]*\.mp3$/i.test(selectedMusic.url)
     ? `${origin}${selectedMusic.url}` : undefined;
   if (selectedMusic?.url && !trackUrl) return null;

@@ -10,17 +10,17 @@
     "attribution_required": false
   },
   "assets": {
-    "last_broadcast_score": { "file": "last-broadcast.mp3" },
-    "koi_pond": { "file": "koi-pond.mp3" },
-    "bioluminescent_koi": { "file": "bioluminescent-koi.mp3" },
-    "electric_garden": { "file": "electric-garden.mp3" },
-    "japanese_water_garden": { "file": "japanese-water-garden.mp3" },
-    "smiling_through_rain": { "file": "smiling-through-rain.mp3" },
-    "late_night_focus": { "file": "late-night-focus.mp3" },
-    "luminous_current": { "file": "luminous-current.mp3" },
-    "impressionist_water": { "file": "impressionist-water.mp3" },
-    "gatehouse_rain": { "file": "gatehouse-rain.mp3" },
-    "foggy_stone_shelter": { "file": "foggy-stone-shelter.mp3" },
-    "pixel_forest": { "file": "pixel-forest.mp3" }
+    "last_broadcast_score": { "file": "last-broadcast-v2.mp3" },
+    "koi_pond": { "file": "koi-pond-v2.mp3" },
+    "bioluminescent_koi": { "file": "bioluminescent-koi-v2.mp3" },
+    "electric_garden": { "file": "electric-garden-v2.mp3" },
+    "japanese_water_garden": { "file": "japanese-water-garden-v2.mp3" },
+    "smiling_through_rain": { "file": "smiling-through-rain-v2.mp3" },
+    "late_night_focus": { "file": "late-night-focus-v2.mp3" },
+    "luminous_current": { "file": "luminous-current-v2.mp3" },
+    "impressionist_water": { "file": "impressionist-water-v2.mp3" },
+    "gatehouse_rain": { "file": "gatehouse-rain-v2.mp3" },
+    "foggy_stone_shelter": { "file": "foggy-stone-shelter-v2.mp3" },
+    "pixel_forest": { "file": "pixel-forest-v2.mp3" }
   }
 }

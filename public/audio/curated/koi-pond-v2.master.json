@@ -1,0 +1,51 @@
+{
+  "file": "koi-pond-v2.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.93
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.93,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -21.1,
+    "truePeakDb": -6.9,
+    "peakDb": -6.9,
+    "leadingSilenceSeconds": 0.54,
+    "trailingSilenceSeconds": 0.4,
+    "noiseFloorDb": -125.92,
+    "trimStartSeconds": 0.54,
+    "trimEndSeconds": 3.29,
+    "contentDurationSeconds": 26.21,
+    "crossfadeSeconds": 3.93,
+    "seamDeltaDb": 2.04,
+    "loopStart": 0,
+    "loopEnd": 22.28,
+    "outputDurationSeconds": 22.28,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -5.5,
+    "gainDb": 2.7
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -21.1,
+    "truePeakDb": -6.9,
+    "leadingSilenceSeconds": 0.54,
+    "trailingSilenceSeconds": 0.4
+  },
+  "after": {
+    "durationSeconds": 22.33,
+    "lufs": -18.4,
+    "truePeakDb": -5.5,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

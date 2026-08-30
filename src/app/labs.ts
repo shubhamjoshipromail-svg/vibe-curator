@@ -1,12 +1,15 @@
 import type { AppState } from './state';
 import { audioSpecForPreset, loadPreset, reloadEffects, syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
-import { builtInEffects, forkPreset, getPreset, savePreset } from '../preset/library';
+import { MARKET_MUSIC_DIRECTION, builtInEffects, forkPreset, getPreset, savePreset } from '../preset/library';
 import { CONTROL_DEFS, newId, type Preset } from '../preset/types';
 import { generateEffect } from '../effects/generate';
 import type { EffectManifest } from '../effects/manifest';
 import { assetUrl, cachedGeneration, generationFingerprint, getAsset, rememberGeneration, storeAsset } from '../media/assets';
 import { generateMusic, generateSceneMotion, mediaCapabilities } from '../media/api';
+import { resolveMusicBrief } from '../audio/resolve';
+import { renderProviderPrompt } from '../audio/render-prompt';
+import type { MusicBrief, MusicMode, SceneAudioContext } from '../audio/brief';
 import { sourceEffect, type SourceEffectRecipe, type SourceEffectParams } from '../source-aware/types';
 import { orchestrateLivingStill } from '../living-still/orchestrator';
 import { directLivingStill } from '../living-still/api';
@@ -157,8 +160,9 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <div class="music-maker">
             <h3>Music asset</h3>
             <div id="music-current"></div>
+            <div class="vocal-mode" id="music-mode" role="group" aria-label="Kind of music"></div>
             <div class="vocal-mode" id="vocal-mode" role="group" aria-label="Voice in generated music"></div>
-            <textarea id="music-prompt" rows="3" placeholder="Fast aggressive rap vocals, tight double-time flow, heavy 808s…"></textarea>
+            <textarea id="music-prompt" rows="3" placeholder="Optional. Your own words only — what you want to hear. Leave it empty to score the card as it is."></textarea>
             <button class="primary wide" id="music-go">Generate music from this visual</button>
             <p class="fx-status" id="music-status"></p>
           </div>
@@ -765,26 +769,101 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const musicGo = host.querySelector<HTMLButtonElement>('#music-go')!;
   const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
   const vocalModeHost = host.querySelector<HTMLDivElement>('#vocal-mode')!;
+  const musicModeHost = host.querySelector<HTMLDivElement>('#music-mode')!;
   let vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto';
-  const visualPrompt = [draft.scene.provenance?.prompt, draft.description, draft.scene.style, draft.livingStill?.intent, draft.livingStill?.audio.musicDirection].filter(Boolean).join('. ');
-  musicPrompt.value = draft.music?.provenance.inputPrompt
-    ?? `Create a restrained instrumental ambient bed for this visual: ${visualPrompt}. Match its emotional valence, darkness, energy and historical atmosphere exactly. No cheerful, jaunty, triumphant or whimsical feeling. Begin fully inside the texture with no intro or fade-in. Keep a stable arrangement without a dramatic arc. End in the same unresolved musical state with no cadence, finale, fade-out or trailing silence, suitable for an invisible repeat.`;
+  let musicMode: MusicMode = draft.music?.musicBrief?.mode ?? 'ambient_score';
+
+  // The textarea holds the user's own words and nothing else. The old pre-filled
+  // paragraph, concatenated from five preset fields, is what made every card
+  // converge on one track once the server rewrote it again on top.
+  musicPrompt.value = draft.music?.provenance.inputPrompt ?? '';
   if (draft.music?.provenance.vocalMode) vocalMode = draft.music.provenance.vocalMode;
 
-  function drawVocalMode(): void {
-    vocalModeHost.innerHTML = '';
-    for (const option of [
-      { id: 'auto' as const, label: 'Auto', hint: 'follow my prompt' },
-      { id: 'vocals' as const, label: 'Vocals', hint: 'singing or rap' },
-      { id: 'instrumental' as const, label: 'Instrumental', hint: 'music only' },
-    ]) {
+  /**
+   * Choice buttons, built node by node. Nothing here may become an innerHTML
+   * template: test/release-surface.test.ts gates the build on exactly that, and
+   * these rows render preset-derived state.
+   */
+  function drawChoices<T extends string>(
+    target: HTMLDivElement,
+    options: ReadonlyArray<{ id: T; label: string; hint: string }>,
+    selected: T,
+    pick: (id: T) => void,
+  ): void {
+    target.replaceChildren();
+    for (const option of options) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `vocal-choice${vocalMode === option.id ? ' active' : ''}`;
-      button.innerHTML = `<strong>${option.label}</strong><small>${option.hint}</small>`;
-      button.addEventListener('click', () => { vocalMode = option.id; drawVocalMode(); });
-      vocalModeHost.appendChild(button);
+      button.className = `vocal-choice${selected === option.id ? ' active' : ''}`;
+      const label = document.createElement('strong');
+      label.textContent = option.label;
+      const hint = document.createElement('small');
+      hint.textContent = option.hint;
+      button.append(label, hint);
+      button.addEventListener('click', () => pick(option.id));
+      target.appendChild(button);
     }
+  }
+
+  function drawVocalMode(): void {
+    drawChoices(
+      vocalModeHost,
+      [
+        { id: 'auto' as const, label: 'Auto', hint: 'follow my prompt' },
+        { id: 'vocals' as const, label: 'Vocals', hint: 'singing or rap' },
+        { id: 'instrumental' as const, label: 'Instrumental', hint: 'music only' },
+      ],
+      vocalMode,
+      (id) => { vocalMode = id; drawVocalMode(); },
+    );
+  }
+
+  function drawMusicMode(): void {
+    drawChoices(
+      musicModeHost,
+      [
+        { id: 'soundscape' as const, label: 'Soundscape', hint: 'place, not music' },
+        { id: 'ambient_score' as const, label: 'Ambient', hint: 'a bed that repeats' },
+        { id: 'instrumental_score' as const, label: 'Score', hint: 'written, no voice' },
+        { id: 'song' as const, label: 'Song', hint: 'verses and a hook' },
+      ],
+      musicMode,
+      (id) => { musicMode = id; drawMusicMode(); },
+    );
+  }
+
+  /**
+   * The director returns sceneContext, but src/living-still/api.ts does not
+   * forward it yet and that file is outside this change. Read it tolerantly so
+   * the brief picks it up the moment that hop lands.
+   */
+  function cachedSceneContext(): SceneAudioContext | undefined {
+    return (draft.livingStill as { sceneContext?: SceneAudioContext } | undefined)?.sceneContext;
+  }
+
+  /**
+   * Card direction, the mode buttons, the vocal buttons and the user's own text,
+   * resolved by the shared precedence rules. An empty textarea is fine: the card
+   * and the scene still carry direction on their own.
+   */
+  function buildMusicBrief(): MusicBrief {
+    // A Marketplace card carries its own direction; anything else has none, and
+    // resolveMusicBrief simply falls through to the scene and the mode default.
+    // Precedence is untouched: user request > UI control > card > scene > default.
+    // presetId, not draft.id: editing a built-in forks it under a fresh id, and
+    // the direction belongs to the card that was opened.
+    const market = MARKET_MUSIC_DIRECTION[presetId];
+    return resolveMusicBrief({
+      userRequest: musicPrompt.value.trim() || undefined,
+      vocalControl: vocalMode,
+      cardDirection: {
+        ...market,
+        ...draft.music?.musicBrief,
+        music: { ...market?.music, ...draft.music?.musicBrief?.music },
+        mode: musicMode,
+      },
+      scene: cachedSceneContext(),
+    });
   }
 
   function drawMusic() {
@@ -800,7 +879,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     const name = document.createElement('strong');
     name.textContent = selectedMusic.name;
     const duration = document.createElement('span');
-    duration.textContent = `${draft.music ? 'custom track' : 'included baseline'} · ${selectedMusic.durationSeconds ?? 30}s`;
+    duration.textContent = `${draft.music ? 'custom track' : 'included baseline'}${selectedMusic.durationSeconds === undefined ? '' : ` · ${selectedMusic.durationSeconds}s`}`;
     description.append(name, duration);
     const remove = document.createElement('button');
     remove.className = 'ghost tiny';
@@ -820,12 +899,19 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     .then((caps) => {
       if (!caps.musicGeneration) {
         musicGo.disabled = true;
-        musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
+        if (!caps.elevenMusicConfigured) {
+          musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
+        } else if (!caps.musicPromptTranslatorConfigured) {
+          const promptAdapterKey = caps.pipelineVersion === 'v1' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+          musicStatus.textContent = `Add ${promptAdapterKey} to translate artist references before music generation.`;
+        } else {
+          musicStatus.textContent = 'Music generation is unavailable in this beta mode. The procedural score remains available.';
+        }
       } else {
-        musicStatus.textContent = caps.musicPromptAdaptation
-          ? 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 90-second seamless-bed generation · approximately $0.226.'
-          : 'Add ANTHROPIC_API_KEY to translate artist references before music generation.';
-        if (!caps.musicPromptAdaptation) musicGo.disabled = true;
+        // Translation required by generation happens inside /music. The
+        // separate /music-prompt endpoint may be disabled independently and
+        // must not disable a valid generation path.
+        musicStatus.textContent = 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 120-second seamless-bed generation · approximately $0.301.';
       }
     })
     .catch(() => {
@@ -834,25 +920,34 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     });
 
   musicGo.addEventListener('click', async () => {
-    const prompt = musicPrompt.value.trim();
-    if (!prompt) {
-      musicStatus.textContent = 'Describe the music first.';
-      return;
-    }
+    const userRequest = musicPrompt.value.trim();
+    const brief = buildMusicBrief();
     musicGo.disabled = true;
     musicStatus.textContent = 'Composing one track… your current music keeps playing.';
     try {
-      const generated = await generateMusic(prompt, vocalMode);
-      const savedPrompt = generated.adaptedPrompt ?? prompt;
+      const generated = await generateMusic({
+        brief,
+        userRequest,
+        vocalMode,
+        sceneContext: cachedSceneContext(),
+        // Keep rendered text for compatibility with an older server during a
+        // rolling deploy; the current route treats `brief` as authoritative.
+        prompt: userRequest || renderProviderPrompt(brief, 'elevenlabs'),
+      });
+      const savedPrompt = generated.adaptedPrompt ?? userRequest;
+      const label = userRequest || generated.adaptedPrompt || 'Generated track';
       const assetId = await storeAsset(generated.blob, 'music');
       draft.music = {
         assetId,
-        name: savedPrompt.length > 46 ? `${savedPrompt.slice(0, 43)}…` : savedPrompt,
+        name: label.length > 46 ? `${label.slice(0, 43)}…` : label,
         mimeType: generated.mimeType,
         durationSeconds: generated.durationSeconds,
+        musicBrief: brief,
+        playback: generated.playback,
+        masterReport: generated.masterReport,
         provenance: {
           prompt: savedPrompt,
-          inputPrompt: prompt,
+          inputPrompt: userRequest,
           vocalMode: generated.vocalMode,
           provider: generated.provider,
           model: generated.model,
@@ -861,10 +956,13 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
         },
       };
       const url = await assetUrl(assetId);
-      if (state.started) await state.audio.setGeneratedMusic(url);
+      if (state.started) await state.audio.setGeneratedMusic(url, draft.music?.playback);
       drawMusic();
-      musicPrompt.value = savedPrompt;
-      musicStatus.textContent = `Track saved with ${generated.vocalMode === 'vocals' ? 'vocals enabled' : 'instrumental mode'}. The box shows the name-free prompt sent to ElevenLabs.`;
+      // The box keeps the user's own words. It is their input, not a display of ours.
+      const voice = generated.vocalMode === 'vocals' ? 'vocals enabled' : 'instrumental mode';
+      musicStatus.textContent = generated.degraded
+        ? `Track saved with ${voice}, but it came back shorter than asked for.`
+        : `Track saved with ${voice}.`;
     } catch (err) {
       console.error('[vibe] music generation failed', err);
       musicStatus.textContent = err instanceof Error ? err.message : 'Music generation failed. Your current mix is unchanged.';
@@ -872,6 +970,7 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       musicGo.disabled = false;
     }
   });
+  drawMusicMode();
   drawVocalMode();
   drawMusic();
 

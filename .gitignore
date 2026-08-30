@@ -7,3 +7,4 @@ dist
 !.env.example
 .vibe-data/
 src-tauri/target/
+release-artifacts/

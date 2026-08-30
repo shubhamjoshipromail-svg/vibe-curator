@@ -1,0 +1,51 @@
+{
+  "file": "late-night-focus-v2.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.9
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.9,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -16.3,
+    "truePeakDb": -1.4,
+    "peakDb": -1.44,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.59,
+    "noiseFloorDb": -90.22,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 4.04,
+    "contentDurationSeconds": 26,
+    "crossfadeSeconds": 3.9,
+    "seamDeltaDb": 3.81,
+    "loopStart": 0,
+    "loopEnd": 22.1,
+    "outputDurationSeconds": 22.1,
+    "outputLufs": -18.7,
+    "outputTruePeakDb": -4.1,
+    "gainDb": -2.4
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -16.3,
+    "truePeakDb": -1.4,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.59
+  },
+  "after": {
+    "durationSeconds": 22.15,
+    "lufs": -18.7,
+    "truePeakDb": -4.1,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

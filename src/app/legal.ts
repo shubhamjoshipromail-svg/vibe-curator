@@ -2,9 +2,7 @@ import { authStatus, deleteMyAccount, exportMyData } from '../auth/client';
 import { navigate, type Route } from './router';
 
 const LAST_UPDATED = 'August 23, 2026';
-const NATIVE_RELEASE_TAG = 'v0.1.1-beta.3';
-const NATIVE_RELEASE_ASSET = 'Vibe-Curator-0.1.1-beta.3-arm64-unnotarized.dmg';
-const NATIVE_RELEASE_URL = `https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/download/${NATIVE_RELEASE_TAG}/${NATIVE_RELEASE_ASSET}`;
+const NATIVE_RELEASES_URL = 'https://github.com/shubhamjoshipromail-svg/vibe-curator/releases';
 
 function shell(title: string, body: string): string {
   return `<main class="legal-page">
@@ -44,12 +42,12 @@ const beta = shell('How this beta works', `
   <h2>No API-key setup</h2><p>Testers do not need to bring provider keys. The company controls the few enabled server-side features and their budget. Curated, pre-generated scenes and sounds provide the main beta experience without an unpredictable bill.</p>`);
 
 const desktop = shell('Desktop app for Mac', `
-  <p>The Mac app does not need the Mac App Store. Beta 3 includes the latest handoff, audio and menu-bar fixes, but it is ad-hoc signed rather than notarized by Apple.</p>
+  <p>The Mac app does not need the Mac App Store. The current technical beta is ad-hoc signed rather than notarized by Apple.</p>
   <h2>What the app does</h2><p>It runs a living scene behind desktop icons, adds a menu-bar control, and can be opened from the website with a <code>vibecurator://</code> link after installation. A WebSocket cannot wake a closed app; the registered deep link can.</p>
   <div class="legal-callout warning-callout"><strong>Unnotarized technical-tester build</strong><p>Gatekeeper will block the first normal launch because this Mac has no Developer ID signing certificate installed. Download it only from this page. After dragging it to Applications, try opening it once, then use Finder’s right-click → Open flow or System Settings → Privacy &amp; Security → Open Anyway. Do not weaken Gatekeeper globally.</p>
     <p><strong>Requirements:</strong> Apple-silicon Mac (M1 or newer), macOS 11 or newer.</p>
-    <a class="button-like primary" href="${NATIVE_RELEASE_URL}">Download Beta 3</a>
-    <a class="checksum-link" href="${NATIVE_RELEASE_URL}.sha256">SHA-256 checksum</a>
+    <a class="button-like primary" href="${NATIVE_RELEASES_URL}">Download latest technical beta</a>
+    <a class="checksum-link" href="${NATIVE_RELEASES_URL}">View release notes and SHA-256 checksum</a>
   </div>`);
 
 async function dataPage(): Promise<string> {

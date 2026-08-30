@@ -16,6 +16,22 @@ import {
   type CreditReservation,
 } from './credits';
 import { generationAllowed, generationDisabledMessage, generationMode } from './beta';
+import { masterTrack } from './mastering';
+import {
+  containsNamedReference,
+  translateReferences,
+  NO_LLM_CALL,
+  SANITISER_MODEL,
+  SANITISER_PROVIDER,
+} from './music-brief';
+import { musicPipelineCapabilities, type MusicPipeline } from './music-capabilities';
+import type { MasterReport, MusicBrief, PlaybackPlan } from '../src/audio/brief';
+import {
+  buildMusicProviderPrompt,
+  parseMusicGenerationRequest,
+  resolveRequestedMusicBrief,
+  type RequestedVocalMode,
+} from './music-request';
 
 const MUSIC_MODEL = 'music_v2';
 const MUSIC_PROVIDER = 'elevenlabs';
@@ -28,6 +44,12 @@ const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
 const IMAGE_COST_USD = 0.01;
 const VIDEO_COST_USD = 1.20;
 const MUSIC_COST_USD = 0.225;
+// v2 asks for two minutes instead of ninety seconds. ElevenLabs bills $0.15/min,
+// so the estimate moves with the length. CREDIT_COSTS is deliberately untouched:
+// repricing credits is a product decision, not a consequence of this flag.
+const MUSIC_COST_USD_V2 = 0.30;
+const MUSIC_LENGTH_MS = 90_000;
+const MUSIC_LENGTH_MS_V2 = 120_000;
 const MUSIC_PROMPT_COST_USD = 0.001;
 const DEFAULT_SESSION_CAP_USD = 3;
 
@@ -119,7 +141,16 @@ function stripReferences(prompt: string, references: string[]): string {
     .trim();
 }
 
-type VocalMode = 'auto' | 'vocals' | 'instrumental';
+type VocalMode = RequestedVocalMode;
+/**
+ * The playback plan the master is cut against. `targetDurationSeconds` is
+ * pinned to what we actually asked the provider for rather than the resolver's
+ * ideal length — judging a two-minute generation against a three-minute ideal
+ * would mark every song degraded for no useful reason.
+ */
+function musicPlaybackPlan(brief: MusicBrief, lengthSeconds: number): PlaybackPlan {
+  return { ...brief.playback, targetDurationSeconds: lengthSeconds };
+}
 
 function resolveVocalMode(request: string, requested: VocalMode): Exclude<VocalMode, 'auto'> {
   if (requested !== 'auto') return requested;
@@ -177,8 +208,21 @@ export function mediaPlugin(mode: string): Plugin {
       const openAiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
       const anthropicKey = env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const spendCapUsd = Number(env.MEDIA_GENERATION_CAP_USD || DEFAULT_SESSION_CAP_USD);
+      // Anything other than an explicit 'v1' runs the mastered pipeline.
+      const musicPipeline: MusicPipeline =
+        (env.VIBE_MUSIC_PIPELINE || process.env.VIBE_MUSIC_PIPELINE) === 'v1' ? 'v1' : 'v2';
+      const musicCostUsd = musicPipeline === 'v1' ? MUSIC_COST_USD : MUSIC_COST_USD_V2;
+      const musicLengthMs = musicPipeline === 'v1' ? MUSIC_LENGTH_MS : MUSIC_LENGTH_MS_V2;
+      const musicLengthSeconds = musicLengthMs / 1000;
       const gemini = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : undefined;
       const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : undefined;
+      const musicCapabilities = musicPipelineCapabilities(musicPipeline, {
+        elevenLabsConfigured: Boolean(elevenKey),
+        openAiConfigured: Boolean(openAiKey),
+        anthropicConfigured: Boolean(anthropic),
+        musicEnabled: generationAllowed('music'),
+        directionEnabled: generationAllowed('direction'),
+      });
 
       const reserve = (estimatedCost: number) => {
         if (estimatedSpendUsd + estimatedCost > spendCapUsd + 0.0001) return false;
@@ -215,8 +259,7 @@ export function mediaPlugin(mode: string): Plugin {
           sendJson(res, 200, {
             sceneGeneration: generationAllowed('image') && Boolean(openAiKey),
             motionGeneration: generationAllowed('motion') && Boolean(gemini),
-            musicGeneration: generationAllowed('music') && Boolean(elevenKey),
-            musicPromptAdaptation: generationAllowed('direction') && Boolean(anthropic),
+            ...musicCapabilities,
             generationMode: generationMode(),
             imageProvider: IMAGE_PROVIDER,
             imageModel: IMAGE_MODEL,
@@ -225,10 +268,11 @@ export function mediaPlugin(mode: string): Plugin {
             estimatedCostsUsd: {
               image: IMAGE_COST_USD,
               motionDraft: VIDEO_COST_USD,
-              music: MUSIC_COST_USD + MUSIC_PROMPT_COST_USD,
+              music: musicCostUsd + MUSIC_PROMPT_COST_USD,
             },
             estimatedSpendUsd: Number(estimatedSpendUsd.toFixed(3)),
             spendCapUsd,
+            pipelineVersion: musicPipeline,
           });
           return;
         }
@@ -415,8 +459,12 @@ export function mediaPlugin(mode: string): Plugin {
             sendJson(res, 503, { message: generationDisabledMessage() });
             return;
           }
-          if (!anthropic) {
+          if (musicPipeline === 'v1' && !anthropic) {
             sendJson(res, 503, { message: 'Artist-reference adaptation needs ANTHROPIC_API_KEY on the local server.' });
+            return;
+          }
+          if (musicPipeline === 'v2' && !openAiKey) {
+            sendJson(res, 503, { message: 'Artist-reference adaptation needs OPENAI_API_KEY on the local server.' });
             return;
           }
           let reservation: CreditReservation | undefined;
@@ -432,13 +480,22 @@ export function mediaPlugin(mode: string): Plugin {
               sendJson(res, 402, { message: 'You do not have enough Vibe Credits for music direction.' });
               return;
             }
-            const adapted = await adaptMusicPrompt(anthropic, request, body.vocalMode ?? 'auto');
+            const adapted = musicPipeline === 'v1'
+              ? await adaptMusicPrompt(anthropic!, request, body.vocalMode ?? 'auto')
+              : await (async () => {
+                const vocalMode = resolveVocalMode(request, body.vocalMode ?? 'auto');
+                if (!containsNamedReference(request)) {
+                  return { prompt: request, removedReferences: [], vocalMode, provider: NO_LLM_CALL, model: NO_LLM_CALL };
+                }
+                const translated = await translateReferences(request, openAiKey);
+                return { ...translated, vocalMode, provider: SANITISER_PROVIDER, model: SANITISER_MODEL };
+              })();
             await completeReservation(reservation);
             reservation = undefined;
             sendJson(res, 200, {
               ...adapted,
-              provider: MUSIC_PROMPT_PROVIDER,
-              model: MUSIC_PROMPT_MODEL,
+              provider: 'provider' in adapted ? adapted.provider : MUSIC_PROMPT_PROVIDER,
+              model: 'model' in adapted ? adapted.model : MUSIC_PROMPT_MODEL,
             });
           } catch (err) {
             await fail(reservation, MUSIC_PROMPT_COST_USD, 'music_direction_failed');
@@ -464,21 +521,34 @@ export function mediaPlugin(mode: string): Plugin {
           });
           return;
         }
-        if (!anthropic) {
+        // v1 translates references with Anthropic; v2 with Luna. Either way the
+        // route refuses to run without a translator, because the alternative is
+        // forwarding a name to the generator.
+        if (musicPipeline === 'v1' && !anthropic) {
           sendJson(res, 503, {
             message: 'Music generation needs ANTHROPIC_API_KEY to translate artist references before sending them to ElevenLabs.',
           });
           return;
         }
-        const totalMusicCostUsd = MUSIC_COST_USD + MUSIC_PROMPT_COST_USD;
+        if (musicPipeline === 'v2' && !openAiKey) {
+          sendJson(res, 503, {
+            message: 'Music generation needs OPENAI_API_KEY to translate artist references before sending them to ElevenLabs.',
+          });
+          return;
+        }
+        const totalMusicCostUsd = musicCostUsd + MUSIC_PROMPT_COST_USD;
         let reservation: CreditReservation | undefined;
         try {
-          const body = JSON.parse(await readBody(req)) as { prompt?: string; vocalMode?: VocalMode };
-          const prompt = body.prompt?.trim();
-          if (!prompt) {
-            sendJson(res, 400, { message: 'Describe the music first.' });
+          let body: ReturnType<typeof parseMusicGenerationRequest>;
+          try {
+            body = parseMusicGenerationRequest(JSON.parse(await readBody(req)));
+          } catch (err) {
+            sendJson(res, String(err).includes('too large') ? 413 : 400, {
+              message: String(err).includes('too large') ? 'The music request is too large.' : 'The music request is invalid.',
+            });
             return;
           }
+          const prompt = body.prompt;
 
           reservation = await authorize(viewer.id, 'music', totalMusicCostUsd, MUSIC_PROVIDER, idempotencyKey);
           if (!reservation) {
@@ -486,7 +556,53 @@ export function mediaPlugin(mode: string): Plugin {
             return;
           }
 
-          const adapted = await adaptMusicPrompt(anthropic, prompt, body.vocalMode ?? 'auto');
+          let musicPrompt: string;
+          let musicVocalMode: Exclude<VocalMode, 'auto'>;
+          let promptProvider: string;
+          let promptModel: string;
+          const resolvedBrief = resolveRequestedMusicBrief(body);
+          const resolvedVocalMode: Exclude<VocalMode, 'auto'> = resolvedBrief.vocals === 'required' ? 'vocals' : 'instrumental';
+          // A structured brief has already captured card/mode defaults. Only
+          // the user's own words belong after it; sending a rendered fallback
+          // again would duplicate and can override that direction.
+          const requestText = body.userRequest || (body.brief ? '' : prompt);
+          const providerPrompt = buildMusicProviderPrompt(resolvedBrief, requestText);
+
+          if (musicPipeline === 'v1') {
+            const adapted = await adaptMusicPrompt(
+              anthropic!,
+              providerPrompt.prompt,
+              resolvedVocalMode,
+            );
+            musicPrompt = adapted.prompt;
+            musicVocalMode = adapted.vocalMode;
+            promptProvider = MUSIC_PROMPT_PROVIDER;
+            promptModel = MUSIC_PROMPT_MODEL;
+          } else {
+            // The shared resolver applies the documented precedence: the UI
+            // control wins, then explicit user words, then the submitted card
+            // brief. Its result must also drive ElevenLabs' vocal flags.
+            musicVocalMode = resolvedVocalMode;
+
+            // The LLM runs only when the request may carry a name. Everything
+            // else reaches the generator in the user's own words.
+            let sanitisedPrompt = providerPrompt.prompt;
+            let removedReferences: string[] = [];
+            promptProvider = NO_LLM_CALL;
+            promptModel = NO_LLM_CALL;
+
+            if (providerPrompt.needsReferenceTranslation) {
+              const translated = await translateReferences(providerPrompt.prompt, openAiKey);
+              sanitisedPrompt = translated.prompt;
+              removedReferences = translated.removedReferences;
+              promptProvider = SANITISER_PROVIDER;
+              promptModel = SANITISER_MODEL;
+            }
+
+            // Defence in depth: the regex pass runs on every request, including
+            // the ones no model ever saw. It costs nothing.
+            musicPrompt = stripReferences(sanitisedPrompt, removedReferences);
+          }
 
           const upstream = await fetch(
             'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
@@ -495,11 +611,11 @@ export function mediaPlugin(mode: string): Plugin {
             headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
             body: JSON.stringify({
               model_id: MUSIC_MODEL,
-              prompt: adapted.vocalMode === 'vocals'
-                ? `Song with prominent vocals. ${adapted.prompt}`
-                : `Instrumental music with no vocals. ${adapted.prompt}`,
-              music_length_ms: 90_000,
-              force_instrumental: adapted.vocalMode === 'instrumental',
+              prompt: musicVocalMode === 'vocals'
+                ? `Song with prominent vocals. ${musicPrompt}`
+                : `Instrumental music with no vocals. ${musicPrompt}`,
+              music_length_ms: musicLengthMs,
+              force_instrumental: musicVocalMode === 'instrumental',
             }),
             },
           );
@@ -521,20 +637,53 @@ export function mediaPlugin(mode: string): Plugin {
             throw new Error('Eleven Music response contained no audio bytes.');
           }
 
-          await completeReservation(reservation, upstream.headers.get('song-id') ?? undefined);
+          const songId = upstream.headers.get('song-id') ?? undefined;
+          const upstreamMimeType = upstream.headers.get('content-type') ?? 'audio/mpeg';
+
+          // The provider has generated and billed the track. Settle here, before
+          // any post-processing, so nothing downstream can refund spent money.
+          await completeReservation(reservation, songId);
           reservation = undefined;
+
+          let audioOut: Buffer = audio;
+          let mimeTypeOut = upstreamMimeType;
+          let durationSecondsOut: number = musicLengthSeconds;
+          let extras: { masterReport: MasterReport; playback: PlaybackPlan; degraded: boolean } | undefined;
+
+          if (musicPipeline === 'v2') {
+            const playback = musicPlaybackPlan(resolvedBrief, musicLengthSeconds);
+            let masterReport: MasterReport = { ok: false };
+            try {
+              const mastered = await masterTrack(audio, playback);
+              audioOut = mastered.audio;
+              // masterTrack falls back to the raw input on a total failure; the
+              // upstream type is more accurate than its generic placeholder.
+              mimeTypeOut = mastered.mimeType === 'application/octet-stream' ? upstreamMimeType : mastered.mimeType;
+              masterReport = mastered.report;
+              durationSecondsOut = mastered.report.outputDurationSeconds ?? musicLengthSeconds;
+            } catch (masteringErr) {
+              // Deliberately swallowed. Reaching the outer catch would call fail()
+              // and refund credits for audio the provider already delivered, so a
+              // mastering fault degrades to the unmastered track instead.
+              masterReport = { ok: false, reason: `Mastering unavailable: ${String(masteringErr)}`.slice(0, 500) };
+              server.config.logger.error(`[vibe] music mastering failed, returning unmastered audio: ${String(masteringErr)}`);
+            }
+            extras = { masterReport, playback, degraded: masterReport.degraded === true };
+          }
+
           sendJson(res, 200, {
-            data: audio.toString('base64'),
-            mimeType: upstream.headers.get('content-type') ?? 'audio/mpeg',
+            data: audioOut.toString('base64'),
+            mimeType: mimeTypeOut,
             provider: MUSIC_PROVIDER,
             model: MUSIC_MODEL,
-            durationSeconds: 90,
-            songId: upstream.headers.get('song-id') ?? undefined,
-            adaptedPrompt: adapted.prompt,
-            vocalMode: adapted.vocalMode,
-            promptProvider: MUSIC_PROMPT_PROVIDER,
-            promptModel: MUSIC_PROMPT_MODEL,
+            durationSeconds: durationSecondsOut,
+            songId,
+            adaptedPrompt: musicPrompt,
+            vocalMode: musicVocalMode,
+            promptProvider,
+            promptModel,
             estimatedCostUsd: totalMusicCostUsd,
+            ...extras,
           });
         } catch (err) {
           await fail(reservation, totalMusicCostUsd, 'music_failed');

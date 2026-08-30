@@ -103,7 +103,9 @@ export async function syncGeneratedMusic(state: AppState, preset: Preset): Promi
   const selected = preset.music ?? preset.baselineMusic;
   const url = selected?.url ?? (selected ? await assetUrl(selected.assetId) : undefined);
   if (selected && !url) console.warn(`[vibe] music asset missing: ${selected.assetId}`);
-  await state.audio.setGeneratedMusic(url);
+  // Undefined for un-mastered assets, which is what puts the engine on its
+  // legacy trim path. Mastered assets carry a plan and skip that DSP entirely.
+  await state.audio.setGeneratedMusic(url, selected?.playback);
 }
 
 export function syncAudioLayers(state: AppState, preset: Preset): void {

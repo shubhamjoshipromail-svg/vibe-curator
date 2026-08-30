@@ -14,6 +14,7 @@ import builtinEffects from '../effects/builtin.json';
 import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
 import { migrateAssets } from '../media/assets';
 import { orchestrateLivingStill } from '../living-still/orchestrator';
+import type { MusicBriefDirection, MusicDirection, MusicMode, PlaybackPlan } from '../audio/brief';
 
 /**
  * The Library: what Explore browses and what Save writes to.
@@ -315,51 +316,79 @@ function seedPresets(): Preset[] {
       { mood: 0.92, motion: 0.58, depth: 0.66, glow: 0.82, atmosphere: 0.52, intensity: 0.62 }, ['builtin_drifting-motes', 'builtin_volumetric-shaft'])),
   );
 
+  /**
+   * Post-master playback plans, one per FILE.
+   *
+   * Read from the .master.json reports the backfill wrote beside each track, so
+   * these are measured output lengths and the crossfade actually baked in — not
+   * the old hardcoded 30/90, which stopped being true the moment the fades were
+   * trimmed.
+   *
+   * Keyed by file, not by card, because one file still serves several cards:
+   * electric-garden-v2.mp3 backs five of them. A per-card mode from
+   * MARKET_MUSIC_DIRECTION cannot apply until each card owns its own track —
+   * until then it would claim a plan the shared bytes do not have.
+   */
+  const CURATED_PLAYBACK: Record<string, PlaybackPlan> = {
+    'bioluminescent-koi-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.4, crossfadeSeconds: 3.78 },
+    'electric-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.31, crossfadeSeconds: 3.94 },
+    'foggy-stone-shelter-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 70.51, crossfadeSeconds: 8 },
+    'gatehouse-rain-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 75.75, crossfadeSeconds: 8 },
+    'impressionist-water-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.29, crossfadeSeconds: 3.93 },
+    'japanese-water-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 23, crossfadeSeconds: 4.06 },
+    'koi-pond-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.28, crossfadeSeconds: 3.93 },
+    'last-broadcast-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 20.61, crossfadeSeconds: 3.64 },
+    'late-night-focus-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.1, crossfadeSeconds: 3.9 },
+    'luminous-current-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.56, crossfadeSeconds: 3.8 },
+    'pixel-forest-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 76, crossfadeSeconds: 8 },
+    'smiling-through-rain-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.68, crossfadeSeconds: 3.82 },
+  };
+
   const curatedMusic = (
     assetId: string,
     file: string,
     name: string,
-    durationSeconds: number,
     createdAt: string,
   ): MusicAsset => ({
     assetId,
     url: `/audio/curated/${file}`,
     name,
     mimeType: 'audio/mpeg',
-    durationSeconds,
+    durationSeconds: CURATED_PLAYBACK[file].targetDurationSeconds,
+    playback: CURATED_PLAYBACK[file],
     provenance: { provider: 'elevenlabs', model: 'music_v2', vocalMode: 'instrumental', createdAt },
   });
   const marketScores: Record<string, MusicAsset> = {
-    'market-pixel-last-broadcast': curatedMusic('builtin_last_broadcast_score', 'last-broadcast.mp3', 'Moonlit signal', 30, '2026-08-13T22:18:47.735Z'),
-    'market-pixel-midnight-shrine': curatedMusic('builtin_pixel_forest_score', 'pixel-forest.mp3', 'Pixel forest nocturne', 90, '2026-08-15T12:08:00.000Z'),
-    'market-pixel-lantern-save': curatedMusic('builtin_japanese_water_garden', 'japanese-water-garden.mp3', 'Japanese water garden', 30, '2026-08-11T20:27:00.000Z'),
-    'market-cozy-gatehouse-rest': curatedMusic('builtin_gatehouse_rain', 'gatehouse-rain.mp3', 'Gatehouse rain', 90, '2026-08-15T00:51:00.000Z'),
-    'market-living-ember-throne': curatedMusic('builtin_ember_throne_score', 'foggy-stone-shelter.mp3', 'Ember throne vigil', 90, '2026-08-15T00:53:00.000Z'),
-    'market-sketch-rain-table': curatedMusic('builtin_smiling_through_rain', 'smiling-through-rain.mp3', 'Smiling through rain', 30, '2026-08-11T20:57:00.000Z'),
-    'market-sketch-green-note': curatedMusic('builtin_green_note_score', 'late-night-focus.mp3', 'Green note study', 30, '2026-08-11T21:02:00.000Z'),
-    'market-aurora-stillwater': curatedMusic('builtin_impressionist_water', 'impressionist-water.mp3', 'Impressionist water', 30, '2026-08-12T22:30:00.000Z'),
-    'market-aurora-night-current': curatedMusic('builtin_luminous_current', 'luminous-current.mp3', 'Luminous current', 30, '2026-08-11T21:40:00.000Z'),
-    'market-japandi-blue-hour': curatedMusic('builtin_late_night_focus', 'late-night-focus.mp3', 'Late-night focus', 30, '2026-08-11T21:02:00.000Z'),
-    'market-japandi-warm-stillness': curatedMusic('builtin_warm_stillness_score', 'japanese-water-garden.mp3', 'Warm stillness', 30, '2026-08-11T20:27:00.000Z'),
-    'market-western-moon-ritual': curatedMusic('builtin_foggy_stone_shelter', 'foggy-stone-shelter.mp3', 'Foggy stone shelter', 90, '2026-08-15T00:53:00.000Z'),
-    'market-western-dust-signal': curatedMusic('builtin_dust_signal_score', 'last-broadcast.mp3', 'Dust signal transmission', 30, '2026-08-13T22:18:47.735Z'),
-    'market-deco-emerald-midnight': curatedMusic('builtin_emerald_midnight_score', 'late-night-focus.mp3', 'Emerald after-hours', 30, '2026-08-11T21:02:00.000Z'),
-    'market-deco-golden-hour': curatedMusic('builtin_golden_afterglow_score', 'electric-garden.mp3', 'Golden lounge pulse', 30, '2026-08-11T20:51:00.000Z'),
-    'market-synthwave-observatory': curatedMusic('builtin_night_observatory_score', 'luminous-current.mp3', 'Night observatory pulse', 30, '2026-08-11T21:40:00.000Z'),
-    'market-synthwave-coastal-drive': curatedMusic('builtin_coastal_drive_score', 'electric-garden.mp3', 'Coastal drive pulse', 30, '2026-08-11T20:51:00.000Z'),
-    'market-bauhaus-pavilion': curatedMusic('builtin_primary_pavilion_score', 'last-broadcast.mp3', 'Primary geometry', 30, '2026-08-13T22:18:47.735Z'),
-    'market-art-nouveau-conservatory': curatedMusic('builtin_moon_conservatory_score', 'japanese-water-garden.mp3', 'Moon conservatory', 30, '2026-08-11T20:27:00.000Z'),
-    'market-wabi-sabi-rain-bowl': curatedMusic('builtin_rain_bowl_score', 'smiling-through-rain.mp3', 'Rain bowl stillness', 30, '2026-08-11T20:57:00.000Z'),
-    'market-neo-brutalist-playground': curatedMusic('builtin_raw_playground_score', 'electric-garden.mp3', 'Raw playground rhythm', 30, '2026-08-11T20:51:00.000Z'),
-    'market-risograph-hill-ride': curatedMusic('builtin_hill_ride_score', 'electric-garden.mp3', 'Hill ride print rhythm', 30, '2026-08-11T20:51:00.000Z'),
-    'market-paper-cut-fox-valley': curatedMusic('builtin_fox_valley_score', 'pixel-forest.mp3', 'Fox valley nocturne', 90, '2026-08-15T12:08:00.000Z'),
-    'market-cyanotype-coast': curatedMusic('builtin_botanical_coast_score', 'impressionist-water.mp3', 'Botanical coast', 30, '2026-08-12T22:30:00.000Z'),
-    'market-stained-glass-heron': curatedMusic('builtin_heron_sunrise_score', 'luminous-current.mp3', 'Heron sunrise', 30, '2026-08-11T21:40:00.000Z'),
-    'market-surreal-collage-door': curatedMusic('builtin_ocean_door_score', 'foggy-stone-shelter.mp3', 'Ocean door dream', 90, '2026-08-15T00:53:00.000Z'),
-    'market-mid-century-lake-house': curatedMusic('builtin_lake_house_score', 'japanese-water-garden.mp3', 'Lake house morning', 30, '2026-08-11T20:27:00.000Z'),
-    'market-living-color-orbit': curatedMusic('builtin_electric_garden', 'electric-garden.mp3', 'Electric garden improvisation', 30, '2026-08-11T20:51:00.000Z'),
-    'market-living-midnight-haze': curatedMusic('builtin_koi_pond', 'koi-pond.mp3', 'Midnight koi pond', 30, '2026-08-11T20:27:00.000Z'),
-    'market-living-neon-koi': curatedMusic('builtin_bioluminescent_koi', 'bioluminescent-koi.mp3', 'Bioluminescent current', 30, '2026-08-11T20:20:00.000Z'),
+    'market-pixel-last-broadcast': curatedMusic('builtin_last_broadcast_score', 'last-broadcast-v2.mp3', 'Moonlit signal', '2026-08-13T22:18:47.735Z'),
+    'market-pixel-midnight-shrine': curatedMusic('builtin_pixel_forest_score', 'pixel-forest-v2.mp3', 'Pixel forest nocturne', '2026-08-15T12:08:00.000Z'),
+    'market-pixel-lantern-save': curatedMusic('builtin_japanese_water_garden', 'japanese-water-garden-v2.mp3', 'Japanese water garden', '2026-08-11T20:27:00.000Z'),
+    'market-cozy-gatehouse-rest': curatedMusic('builtin_gatehouse_rain', 'gatehouse-rain-v2.mp3', 'Gatehouse rain', '2026-08-15T00:51:00.000Z'),
+    'market-living-ember-throne': curatedMusic('builtin_ember_throne_score', 'foggy-stone-shelter-v2.mp3', 'Ember throne vigil', '2026-08-15T00:53:00.000Z'),
+    'market-sketch-rain-table': curatedMusic('builtin_smiling_through_rain', 'smiling-through-rain-v2.mp3', 'Smiling through rain', '2026-08-11T20:57:00.000Z'),
+    'market-sketch-green-note': curatedMusic('builtin_green_note_score', 'late-night-focus-v2.mp3', 'Green note study', '2026-08-11T21:02:00.000Z'),
+    'market-aurora-stillwater': curatedMusic('builtin_impressionist_water', 'impressionist-water-v2.mp3', 'Impressionist water', '2026-08-12T22:30:00.000Z'),
+    'market-aurora-night-current': curatedMusic('builtin_luminous_current', 'luminous-current-v2.mp3', 'Luminous current', '2026-08-11T21:40:00.000Z'),
+    'market-japandi-blue-hour': curatedMusic('builtin_late_night_focus', 'late-night-focus-v2.mp3', 'Late-night focus', '2026-08-11T21:02:00.000Z'),
+    'market-japandi-warm-stillness': curatedMusic('builtin_warm_stillness_score', 'japanese-water-garden-v2.mp3', 'Warm stillness', '2026-08-11T20:27:00.000Z'),
+    'market-western-moon-ritual': curatedMusic('builtin_foggy_stone_shelter', 'foggy-stone-shelter-v2.mp3', 'Foggy stone shelter', '2026-08-15T00:53:00.000Z'),
+    'market-western-dust-signal': curatedMusic('builtin_dust_signal_score', 'last-broadcast-v2.mp3', 'Dust signal transmission', '2026-08-13T22:18:47.735Z'),
+    'market-deco-emerald-midnight': curatedMusic('builtin_emerald_midnight_score', 'late-night-focus-v2.mp3', 'Emerald after-hours', '2026-08-11T21:02:00.000Z'),
+    'market-deco-golden-hour': curatedMusic('builtin_golden_afterglow_score', 'electric-garden-v2.mp3', 'Golden lounge pulse', '2026-08-11T20:51:00.000Z'),
+    'market-synthwave-observatory': curatedMusic('builtin_night_observatory_score', 'luminous-current-v2.mp3', 'Night observatory pulse', '2026-08-11T21:40:00.000Z'),
+    'market-synthwave-coastal-drive': curatedMusic('builtin_coastal_drive_score', 'electric-garden-v2.mp3', 'Coastal drive pulse', '2026-08-11T20:51:00.000Z'),
+    'market-bauhaus-pavilion': curatedMusic('builtin_primary_pavilion_score', 'last-broadcast-v2.mp3', 'Primary geometry', '2026-08-13T22:18:47.735Z'),
+    'market-art-nouveau-conservatory': curatedMusic('builtin_moon_conservatory_score', 'japanese-water-garden-v2.mp3', 'Moon conservatory', '2026-08-11T20:27:00.000Z'),
+    'market-wabi-sabi-rain-bowl': curatedMusic('builtin_rain_bowl_score', 'smiling-through-rain-v2.mp3', 'Rain bowl stillness', '2026-08-11T20:57:00.000Z'),
+    'market-neo-brutalist-playground': curatedMusic('builtin_raw_playground_score', 'electric-garden-v2.mp3', 'Raw playground rhythm', '2026-08-11T20:51:00.000Z'),
+    'market-risograph-hill-ride': curatedMusic('builtin_hill_ride_score', 'electric-garden-v2.mp3', 'Hill ride print rhythm', '2026-08-11T20:51:00.000Z'),
+    'market-paper-cut-fox-valley': curatedMusic('builtin_fox_valley_score', 'pixel-forest-v2.mp3', 'Fox valley nocturne', '2026-08-15T12:08:00.000Z'),
+    'market-cyanotype-coast': curatedMusic('builtin_botanical_coast_score', 'impressionist-water-v2.mp3', 'Botanical coast', '2026-08-12T22:30:00.000Z'),
+    'market-stained-glass-heron': curatedMusic('builtin_heron_sunrise_score', 'luminous-current-v2.mp3', 'Heron sunrise', '2026-08-11T21:40:00.000Z'),
+    'market-surreal-collage-door': curatedMusic('builtin_ocean_door_score', 'foggy-stone-shelter-v2.mp3', 'Ocean door dream', '2026-08-15T00:53:00.000Z'),
+    'market-mid-century-lake-house': curatedMusic('builtin_lake_house_score', 'japanese-water-garden-v2.mp3', 'Lake house morning', '2026-08-11T20:27:00.000Z'),
+    'market-living-color-orbit': curatedMusic('builtin_electric_garden', 'electric-garden-v2.mp3', 'Electric garden improvisation', '2026-08-11T20:51:00.000Z'),
+    'market-living-midnight-haze': curatedMusic('builtin_koi_pond', 'koi-pond-v2.mp3', 'Midnight koi pond', '2026-08-11T20:27:00.000Z'),
+    'market-living-neon-koi': curatedMusic('builtin_bioluminescent_koi', 'bioluminescent-koi-v2.mp3', 'Bioluminescent current', '2026-08-11T20:20:00.000Z'),
   };
   for (const preset of rooms) {
     const score = marketScores[preset.id];
@@ -368,6 +397,64 @@ function seedPresets(): Preset[] {
 
   return rooms;
 }
+
+/**
+ * Per-card music direction.
+ *
+ * Twelve audio files currently serve thirty Marketplace cards — electric-garden
+ * alone covers five of them — so the cards are musically indistinguishable no
+ * matter how different they look. This map is the missing half: one distinct
+ * direction per card id, which is what a future pass would need before it could
+ * generate thirty separate tracks.
+ *
+ * Metadata only. Nothing here generates, plays or overwrites audio, and every
+ * entry is a Partial: it directs, it does not dictate. A card with no entry
+ * resolves exactly as it does today.
+ */
+const direction = (
+  mode: MusicMode,
+  mood: string[],
+  instrumentation: string[],
+  extra: Partial<MusicDirection> = {},
+  ambience?: string[],
+): MusicBriefDirection => ({
+  mode,
+  music: { mood, instrumentation, ...extra },
+  ...(ambience ? { ambience: { enabled: true, elements: ambience } } : {}),
+});
+
+export const MARKET_MUSIC_DIRECTION: Record<string, MusicBriefDirection> = {
+  'market-pixel-last-broadcast': direction('ambient_score', ['lonely', 'nocturnal', 'maritime'], ['soft synth pad', 'distant bell'], { tempo: 'slow', density: 'sparse' }, ['surf']),
+  'market-pixel-midnight-shrine': direction('ambient_score', ['still', 'reverent', 'nocturnal'], ['bell-toned synth', 'soft square-wave pad'], { tempo: 'slow', density: 'sparse' }),
+  'market-pixel-lantern-save': direction('ambient_score', ['warm', 'nostalgic', 'safe'], ['warm square-wave pad', 'soft arpeggio'], { tempo: 'moderate' }),
+  'market-cozy-gatehouse-rest': direction('ambient_score', ['sheltered', 'tender', 'weary'], ['felt piano', 'low strings'], { tempo: 'slow', density: 'sparse' }, ['rain', 'fire']),
+  'market-sketch-rain-table': direction('ambient_score', ['contemplative', 'intimate', 'muted'], ['upright piano'], { tempo: 'slow', density: 'sparse' }, ['rain']),
+  'market-sketch-green-note': direction('instrumental_score', ['focused', 'dry', 'understated'], ['muted piano', 'upright bass'], { tempo: 'moderate' }),
+  'market-aurora-stillwater': direction('ambient_score', ['vast', 'luminous', 'serene'], ['wide synth pad', 'glass harmonics'], { tempo: 'slow', density: 'spacious' }),
+  'market-aurora-night-current': direction('ambient_score', ['cold', 'submerged', 'drifting'], ['deep pad', 'filtered noise'], { tempo: 'slow', density: 'dense' }, ['rain']),
+  'market-japandi-blue-hour': direction('ambient_score', ['quiet', 'spare', 'focused'], ['felt piano'], { tempo: 'slow', density: 'sparse' }),
+  'market-japandi-warm-stillness': direction('ambient_score', ['warm', 'calm', 'unhurried'], ['felt piano', 'soft strings'], { tempo: 'slow', density: 'sparse' }),
+  'market-western-moon-ritual': direction('ambient_score', ['arid', 'ceremonial', 'vast'], ['bowed bass drone', 'distant metallic resonance'], { tempo: 'slow' }),
+  'market-western-dust-signal': direction('ambient_score', ['degraded', 'nocturnal', 'uneasy'], ['detuned drone', 'tape hiss'], { tempo: 'slow' }),
+  'market-deco-emerald-midnight': direction('instrumental_score', ['sophisticated', 'nocturnal', 'smoky'], ['muted trumpet', 'brushed drums', 'upright bass'], { tempo: 'moderate' }),
+  'market-deco-golden-hour': direction('instrumental_score', ['warm', 'languid', 'golden'], ['vibraphone', 'brushed drums', 'upright bass'], { tempo: 'slow' }),
+  'market-synthwave-observatory': direction('instrumental_score', ['retro', 'expansive', 'nocturnal'], ['analog synth', 'gated pad', 'electronic drums'], { tempo: 'moderate' }),
+  'market-synthwave-coastal-drive': direction('instrumental_score', ['propulsive', 'bright', 'nostalgic'], ['arpeggiated synth', 'electronic drums'], { tempo: 'fast' }),
+  'market-bauhaus-pavilion': direction('instrumental_score', ['precise', 'open', 'rational'], ['marimba', 'clarinet'], { tempo: 'moderate', density: 'sparse' }),
+  'market-art-nouveau-conservatory': direction('instrumental_score', ['ornate', 'nocturnal', 'botanical'], ['harp', 'flute', 'strings'], { tempo: 'slow' }),
+  'market-wabi-sabi-rain-bowl': direction('soundscape', ['still', 'imperfect', 'quiet'], [], { density: 'sparse' }, ['rain']),
+  'market-neo-brutalist-playground': direction('instrumental_score', ['blunt', 'rhythmic', 'graphic'], ['percussion', 'detuned synth bass'], { tempo: 'moderate', density: 'dense' }),
+  'market-risograph-hill-ride': direction('instrumental_score', ['buoyant', 'kinetic', 'printed'], ['marimba', 'muted guitar'], { tempo: 'moderate' }),
+  'market-paper-cut-fox-valley': direction('ambient_score', ['storybook', 'nocturnal', 'hushed'], ['celesta', 'soft strings'], { tempo: 'slow' }),
+  'market-cyanotype-coast': direction('ambient_score', ['cool', 'archival', 'still'], ['bowed vibraphone', 'glass harmonics'], { tempo: 'slow', density: 'sparse' }, ['surf']),
+  'market-stained-glass-heron': direction('ambient_score', ['radiant', 'sacred', 'still'], ['wordless choir', 'bells', 'organ'], { tempo: 'slow' }),
+  'market-surreal-collage-door': direction('ambient_score', ['dreamlike', 'displaced', 'uncanny'], ['processed piano', 'reversed textures'], { tempo: 'slow' }, ['surf']),
+  'market-mid-century-lake-house': direction('instrumental_score', ['optimistic', 'breezy', 'warm'], ['vibraphone', 'brushed drums', 'flute'], { tempo: 'moderate' }),
+  'market-living-color-orbit': direction('instrumental_score', ['kaleidoscopic', 'euphoric', 'kinetic'], ['arpeggiated synth', 'electronic percussion'], { tempo: 'fast', density: 'dense' }),
+  'market-living-midnight-haze': direction('ambient_score', ['hazy', 'suspended', 'violet'], ['deep pad', 'filtered noise'], { tempo: 'slow', density: 'dense' }, ['rain']),
+  'market-living-neon-koi': direction('instrumental_score', ['fluid', 'electric', 'luminous'], ['plucked synth', 'sub bass'], { tempo: 'moderate' }),
+  'market-living-ember-throne': direction('ambient_score', ['solemn', 'vast', 'embered'], ['low strings', 'wordless choir', 'drone'], { tempo: 'slow' }, ['fire']),
+};
 
 // --- persistence -------------------------------------------------------------
 

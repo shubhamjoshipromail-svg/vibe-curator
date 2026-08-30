@@ -1,0 +1,51 @@
+{
+  "file": "bioluminescent-koi-v2.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 30,
+    "crossfadeSeconds": 3.78
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 3.78,
+    "clamped": true,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 30.04,
+    "measuredLufs": -19.8,
+    "truePeakDb": -5.9,
+    "peakDb": -5.88,
+    "leadingSilenceSeconds": 1.32,
+    "trailingSilenceSeconds": 0.81,
+    "noiseFloorDb": -135.7,
+    "trimStartSeconds": 1.32,
+    "trimEndSeconds": 3.54,
+    "contentDurationSeconds": 25.18,
+    "crossfadeSeconds": 3.78,
+    "seamDeltaDb": 0.08,
+    "loopStart": 0,
+    "loopEnd": 21.4,
+    "outputDurationSeconds": 21.4,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -6.7,
+    "gainDb": 1.4
+  },
+  "before": {
+    "durationSeconds": 30.04,
+    "lufs": -19.8,
+    "truePeakDb": -5.9,
+    "leadingSilenceSeconds": 1.32,
+    "trailingSilenceSeconds": 0.81
+  },
+  "after": {
+    "durationSeconds": 21.45,
+    "lufs": -18.4,
+    "truePeakDb": -6.7,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

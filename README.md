@@ -10,7 +10,7 @@
 |---|---|---|
 | Web and API | `0.1.1` live | [Railway production](https://vibe-curator-production.up.railway.app) |
 | Chrome extension | `0.1.1` published | [Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) |
-| macOS app | `0.1.1` Beta 3, Apple silicon | [GitHub prerelease](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.3) |
+| macOS app | next technical tester: `0.1.1-beta.4`, Apple silicon | [GitHub Releases](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases) |
 
 The web beta and extension are public. The macOS DMG is an ad-hoc-signed,
 unnotarized technical-tester build: Gatekeeper blocks a normal first launch, so
@@ -140,7 +140,7 @@ After `npm --prefix chrome-extension ci`, run `npm run verify:chrome` and `npm r
 | Performance-aware rendering | Working | 15 fps Explore, 30 fps Labs, 60 fps Player; hidden-tab suspension |
 | Railway web deployment | Shipped | Production app at `vibe-curator-production.up.railway.app` |
 | Chrome extension | Shipped | Web Store `0.1.1`, MV3, stable production item ID |
-| Native application | Published technical beta | Tauri 2 Apple-silicon Beta 3, wallpaper window, tray controls, hosted editor |
+| Native application | Technical-tester release channel | Tauri 2 Apple-silicon `0.1.1-beta.4` artifact prepared before publication, wallpaper window, tray controls, hosted editor |
 | Cloud accounts and credits | Working beta | Better Auth guests, Google-ready account linking, Postgres credit ledger |
 
 ## System architecture
@@ -314,7 +314,7 @@ The native layer currently owns:
 - the boundary between an offline starter scene and the hosted account surface;
 - an autostart plugin foundation, without silently enabling login launch.
 
-The current Apple-silicon DMG is published as [`v0.1.1-beta.3`](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases/tag/v0.1.1-beta.3). It uses an ad-hoc signature and hardened runtime, includes a SHA-256 checksum, and is explicitly limited to technically informed testers. Developer ID signing, notarization, automatic updates, multi-display selection, and user-facing launch-at-login controls remain release work. Secure credential storage and filesystem import/export should be added only when a native feature genuinely requires them; provider secrets remain server-side.
+The next Apple-silicon technical-tester DMG is `v0.1.1-beta.4`. Package it from a successful arm64 Tauri build with `npm run package:native-beta`; the script checks all three core-version sources, mounts the input DMG read-only, verifies the embedded app version, arm64-only executable, and code signature, then writes the named DMG and SHA-256 file to gitignored `release-artifacts/`. Create and verify the GitHub prerelease before deploying the frontend, whose stable [GitHub Releases](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases) CTA avoids stale version-specific asset URLs. The build uses an ad-hoc signature and hardened runtime and is explicitly limited to technically informed testers; it is not notarized. Developer ID signing, notarization, automatic updates, multi-display selection, and user-facing launch-at-login controls remain release work. Secure credential storage and filesystem import/export should be added only when a native feature genuinely requires them; provider secrets remain server-side.
 
 The `Scene` interface remains the rendering boundary. A Rust/WGPU rewrite should happen only if measurements show WebView/WebGL is the remaining constraint—not because “native” automatically implies rewriting a working renderer.
 
@@ -410,6 +410,7 @@ Never prefix secrets with `VITE_`; Vite exposes those variables to the browser b
 
 ```bash
 npm run build                 # licenses + release tests + TypeScript + production bundle
+npm run preflight:beta        # full web/Chrome/audio gate + native contracts + Cargo check
 npm run test:release          # release-surface and consent invariants
 npm run verify:chrome         # extension typecheck, tests, build, and MV3 inspection
 npm run package:chrome        # versioned Chrome Web Store ZIP
@@ -419,6 +420,11 @@ npm run check:licenses        # validate every declared content asset
 npm run report:effect-costs   # offline report from recorded shader usage
 npm run gen:fixtures          # regenerate development art/audio fixtures
 ```
+
+Music mastering uses an operating-system `ffmpeg` executable. Railway installs
+the Debian package through `railpack.json`; production runs `npm run
+check:ffmpeg` before migrations and refuses nonredistributable `--enable-nonfree`
+builds. Local mastering can set `FFMPEG_PATH` to a verified executable.
 
 Preview the production build:
 
@@ -474,7 +480,7 @@ ComfyUI is intentionally deferred. It becomes valuable when a single authored wo
 - Generated media has estimated rather than provider-reconciled per-request billing.
 - The repository has build/type/license validation but does not yet have a full automated browser performance suite.
 - Some visual content remains deliberately procedural or fixture-based while the product loop is validated.
-- The macOS Beta 3 DMG is ad-hoc signed and published for technical testers, but it is not Developer ID signed, notarized, or distributed through an updater.
+- The macOS `0.1.1-beta.4` DMG is prepared for technical testers, but must be published as a prerelease only after its checksum is verified; it is ad-hoc signed, not Developer ID signed, not notarized, and not distributed through an updater.
 
 ## What this project demonstrates
 

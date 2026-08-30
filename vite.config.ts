@@ -9,6 +9,7 @@ import { stripePlugin } from './server/stripe';
 import { securityPlugin } from './server/security';
 import { privacyPlugin } from './server/privacy';
 import { nativeActivationPlugin } from './server/native';
+import { legacyCuratedAudioPlugin } from './server/legacy-audio';
 
 function previewApiBridge(apiPlugins: Plugin[]): Plugin {
   return {
@@ -36,6 +37,7 @@ export default defineConfig(({ mode }) => {
   const allowedHosts = [...new Set(['localhost', '127.0.0.1', ...(publicHost ? [publicHost] : [])])];
   const apiPlugins = [
     securityPlugin(),
+    legacyCuratedAudioPlugin(),
     authPlugin(),
     privacyPlugin(),
     nativeActivationPlugin(),

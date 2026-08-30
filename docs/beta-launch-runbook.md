@@ -18,17 +18,19 @@ Current distribution:
 
 - Web/API `0.1.1`: Railway production.
 - Chrome `0.1.1`: approved and published under item `niamjnjkmfnlpcejieffodipboacfdnm`.
-- macOS `0.1.1` Beta 3: published for technical testers, ad-hoc signed and unnotarized.
+- macOS `0.1.1-beta.4`: next technical-tester artifact, ad-hoc signed and unnotarized; it is not published until the native release steps below complete.
 
 ## Release order
 
 1. Run the web, Chrome, and native release checks from a clean release worktree.
-2. Fast-forward or merge the stabilized beta branch to `main` only after the checks pass.
-3. Deploy the exact merged worktree with `railway up --detach -y --service vibe-curator --environment production --message "<release>"`. This project currently uses CLI uploads rather than GitHub auto-deploy.
-4. Wait for Railway status `SUCCESS`; confirm the Better Auth migration and product schema complete in pre-deploy.
-5. Verify `/api/health`, `/`, and `/desktop`, then inspect the served bundle for the expected release links.
-6. Confirm the Chrome Web Store public listing version and the GitHub native asset/checksum URLs.
-7. Run the smoke matrix below with a fresh anonymous browser and one Google test account.
+2. Build and checksum the native technical-tester DMG: run `npm run build:native`, then `npm run package:native-beta`. Confirm that `release-artifacts/Vibe-Curator-0.1.1-beta.4-arm64-technical-tester-unnotarized.dmg` and its `.sha256` exist.
+3. Create the GitHub prerelease and upload both native files. Use tag `v0.1.1-beta.4`, mark it as a prerelease, and describe it only as an ad-hoc-signed, unnotarized technical-tester build. Do not create the release before the checksum has been generated.
+4. Verify the uploaded DMG and checksum from the GitHub release page: download both into the same empty directory, run `shasum -a 256 -c <checksum-file>` from that directory, and confirm the asset name, architecture, and Gatekeeper wording.
+5. Deploy the frontend only after that verification. Fast-forward or merge the stabilized beta branch to `main`, then deploy the exact merged worktree with `railway up --detach -y --service vibe-curator --environment production --message "<release>"`. This project currently uses CLI uploads rather than GitHub auto-deploy.
+6. Wait for Railway status `SUCCESS`; confirm the Better Auth migration and product schema complete in pre-deploy.
+7. Verify `/api/health`, `/`, and `/desktop`, including that the desktop CTA points to the stable GitHub Releases page rather than a versioned asset URL.
+8. Confirm the Chrome Web Store public listing version and the GitHub native asset/checksum URLs.
+9. Run the smoke matrix below with a fresh anonymous browser and one Google test account.
 
 Initial environment setup, when needed:
 

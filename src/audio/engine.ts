@@ -2,6 +2,10 @@ import type * as Tone from 'tone';
 import type { AudioSpec } from '../types';
 import { loadAudioPack, refineLoopPoints, type AudioPack, type AudioTexture } from './pack';
 import type { AmbientEvent } from '../living-still/types';
+import type { PlaybackPlan } from './brief';
+
+/** Silence between plays of a one-shot song, so it reads as a return, not a restart. */
+const SONG_REPLAY_PAUSE_SECONDS = 30;
 
 /**
  * Generative ambient audio.
@@ -61,6 +65,7 @@ export class AudioEngine {
   private buses: Partial<Record<'ambience' | 'music', Tone.Gain>> = {};
   private proceduralMusic?: Tone.Gain;
   private generatedMusic?: Tone.Player;
+  private generatedMusicReplay?: ReturnType<typeof setTimeout>;
   private layerState = {
     ambience: { gain: 0.8, muted: false },
     music: { gain: 0.65, muted: false },
@@ -156,8 +161,18 @@ export class AudioEngine {
     return { ...this.layerState[layer] };
   }
 
-  /** Play one persisted authored track under the Music bus; never generates here. */
-  async setGeneratedMusic(url?: string): Promise<void> {
+  /**
+   * Play one persisted authored track under the Music bus; never generates here.
+   *
+   * `plan` marks a mastered asset. Mastering already trimmed the fade and baked
+   * an equal-power crossfade into the file, so the loop seam in the bytes is
+   * correct and the runtime must not touch it — the trimming below cuts straight
+   * into that seam and undoes the work. Without a plan the asset is un-mastered
+   * (an IndexedDB track saved before this existed) and still needs the old
+   * treatment, which is why that code stays exactly as it was.
+   */
+  async setGeneratedMusic(url?: string, plan?: PlaybackPlan): Promise<void> {
+    this.clearGeneratedMusicReplay();
     if (this.generatedMusic) {
       try {
         this.generatedMusic.stop();
@@ -174,9 +189,21 @@ export class AudioEngine {
     }
 
     this.proceduralMusic?.gain.rampTo(0, 0.3);
-    const player = this.track(new (tone().Player)({ loop: true })).connect(this.buses.music);
+    // A song plays to its end; everything else repeats.
+    const shouldLoop = plan ? plan.mode !== 'once' : true;
+    const player = this.track(new (tone().Player)({ loop: shouldLoop })).connect(this.buses.music);
     this.generatedMusic = player;
     await player.load(url);
+
+    if (plan) {
+      // Mastered: trust the file. No silence trim, no zero-crossing search, no
+      // loop-point adjustment.
+      if (plan.mode === 'once') this.scheduleSongReplay(player);
+      player.start();
+      return;
+    }
+
+    // --- compatibility path: un-mastered audio only -------------------------
     const buffer = player.buffer;
     const channel = buffer.getChannelData(0);
     const sampleRate = buffer.sampleRate;
@@ -206,6 +233,33 @@ export class AudioEngine {
       }
     }
     player.start();
+  }
+
+  private clearGeneratedMusicReplay(): void {
+    if (this.generatedMusicReplay === undefined) return;
+    clearTimeout(this.generatedMusicReplay);
+    this.generatedMusicReplay = undefined;
+  }
+
+  /**
+   * A one-shot song returns after a pause rather than looping. Forcing a song
+   * into a short repeat is exactly the restart this mode exists to avoid, so the
+   * gap is deliberate silence, and the timer stands down the moment another
+   * track replaces this one.
+   */
+  private scheduleSongReplay(player: Tone.Player): void {
+    const duration = player.buffer?.duration;
+    if (!duration || !Number.isFinite(duration)) return;
+    this.generatedMusicReplay = setTimeout(() => {
+      this.generatedMusicReplay = undefined;
+      if (this.generatedMusic !== player) return;
+      try {
+        player.start();
+        this.scheduleSongReplay(player);
+      } catch {
+        /* disposed between the timer firing and this call */
+      }
+    }, (duration + SONG_REPLAY_PAUSE_SECONDS) * 1000);
   }
 
   private applyLayerGains(): void {
@@ -250,6 +304,7 @@ export class AudioEngine {
   }
 
   private teardown(): void {
+    this.clearGeneratedMusicReplay();
     if (toneRuntime) for (const id of this.scheduled) toneRuntime.getTransport().clear(id);
     this.scheduled = [];
     this.pending = [];

@@ -56,8 +56,13 @@ async function applyAudio(state: ExtensionState): Promise<void> {
     return;
   }
   await startSynth(effectiveLayerVolume(state, 'ambience'));
-  if (state.preset.trackUrl) await startTrack(state.preset.trackUrl, effectiveLayerVolume(state, 'music'));
-  else pauseTrack();
+  if (state.preset.trackUrl) {
+    try {
+      await startTrack(state.preset.trackUrl, effectiveLayerVolume(state, 'music'));
+    } catch (error) {
+      console.warn('Unable to play curated track; continuing with ambience.', error);
+    }
+  } else pauseTrack();
 }
 
 chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {

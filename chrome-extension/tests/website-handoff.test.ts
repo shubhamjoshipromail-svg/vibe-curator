@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { projectPresetForChrome } from '../../src/runtime/chrome-handoff';
-import { DEFAULT_PRESET } from '../src/core';
+import { DEFAULT_PRESET, validatePreset } from '../src/core';
 
 function websitePreset(scene: Record<string, unknown>) {
   return {
@@ -37,11 +37,27 @@ describe('website safe projection', () => {
     const value = websitePreset({ kind: 'renderer', label: 'Room', style: 'procedural' });
     value.audio.ambience.gain = 0.31;
     value.audio.music.gain = 0.72;
-    (value as unknown as { music: { url: string } }).music = { url: '/audio/curated/last-broadcast.mp3' };
+    (value as unknown as { music: { url: string } }).music = { url: '/audio/curated/last-broadcast-v2.mp3' };
     const projected = projectPresetForChrome(value as never);
     expect(projected?.audio.ambience.gain).toBe(0.31);
     expect(projected?.audio.music.gain).toBe(0.72);
-    expect(projected?.trackUrl).toBe('https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast.mp3');
+    expect(projected?.trackUrl).toBe('https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast-v2.mp3');
+  });
+
+  it('hands the real mastered filename through both contracts while rejecting its query form', () => {
+    const value = websitePreset({ kind: 'renderer', label: 'Room', style: 'procedural' });
+    (value as unknown as { music: { url: string } }).music = { url: '/audio/curated/last-broadcast-v2.mp3' };
+    const projected = projectPresetForChrome(value as never);
+    expect(validatePreset(projected).trackUrl).toBe(
+      'https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast-v2.mp3',
+    );
+
+    (value as unknown as { music: { url: string } }).music = { url: '/audio/curated/last-broadcast-v2.mp3?v=2' };
+    expect(projectPresetForChrome(value as never)).toBeNull();
+
+    const extensionPreset = structuredClone(DEFAULT_PRESET);
+    extensionPreset.trackUrl = 'https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast-v2.mp3?v=2';
+    expect(() => validatePreset(extensionPreset)).toThrow(/not an approved Vibe Curator asset/);
   });
 
   it('rejects private image identifiers and arbitrary authored tracks', () => {

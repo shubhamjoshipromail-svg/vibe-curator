@@ -1,0 +1,51 @@
+{
+  "file": "foggy-stone-shelter-v2.mp3",
+  "plan": {
+    "mode": "crossfade",
+    "targetDurationSeconds": 90,
+    "crossfadeSeconds": 8
+  },
+  "crossfade": {
+    "configured": 8,
+    "effective": 8,
+    "clamped": false,
+    "maxFraction": 0.15
+  },
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 90.04,
+    "measuredLufs": -18.4,
+    "truePeakDb": -4.9,
+    "peakDb": -4.97,
+    "leadingSilenceSeconds": 0.49,
+    "trailingSilenceSeconds": 1.14,
+    "noiseFloorDb": -91.59,
+    "trimStartSeconds": 0.49,
+    "trimEndSeconds": 11.04,
+    "contentDurationSeconds": 78.51,
+    "crossfadeSeconds": 8,
+    "seamDeltaDb": 0.05,
+    "loopStart": 0,
+    "loopEnd": 70.51,
+    "outputDurationSeconds": 70.51,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -5.1,
+    "gainDb": 0
+  },
+  "before": {
+    "durationSeconds": 90.04,
+    "lufs": -18.4,
+    "truePeakDb": -4.9,
+    "leadingSilenceSeconds": 0.49,
+    "trailingSilenceSeconds": 1.14
+  },
+  "after": {
+    "durationSeconds": 70.56,
+    "lufs": -18.4,
+    "truePeakDb": -5.1,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0
+  }
+}

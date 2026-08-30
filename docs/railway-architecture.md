@@ -95,6 +95,9 @@ bounded manifest; trusted runtime recipes render the motion locally.
 ### Phase 1 — durable Railway beta (implemented in this repository)
 
 - Railpack builds the Vite bundle and starts the preview host with API middleware.
+- `railpack.json` installs Debian's redistributable FFmpeg package in both build
+  and runtime layers. The production predeploy gate rejects `--enable-nonfree`
+  builds and verifies the mastering filters and MP3 encoder before migrations.
 - `/api/health` supports Railway health checks.
 - Attach one volume at `/data` and set `VIBE_DATA_DIR=/data`.
 - Run exactly one replica while binary assets remain on the attached volume.
@@ -142,6 +145,7 @@ npm run build
 npm run verify:chrome
 npm run test:native
 npm run check:native
+node scripts/check-ffmpeg.mjs
 railway up --detach -y --service vibe-curator --environment production --message "<release>"
 railway deployment list --limit 1
 ```

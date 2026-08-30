@@ -2,6 +2,7 @@ import type { Palette } from '../types';
 import type { EffectManifest } from '../effects/manifest';
 import type { DemoSourceId, SourceEffectRecipe, SourceMotion } from '../source-aware/types';
 import type { LivingStillManifest } from '../living-still/types';
+import type { MasterReport, MusicBrief, PlaybackPlan } from '../audio/brief';
 
 /**
  * A Preset is the composed document the whole product revolves around:
@@ -119,6 +120,15 @@ export interface MusicAsset {
   name: string;
   mimeType: string;
   durationSeconds?: number;
+  /**
+   * Structured direction this track came from, and what mastering made of it.
+   * All three are absent on every preset saved before the brief split, and on
+   * every bundled baseline. Read them defensively and never backfill them: a
+   * saved preset is the user's document, not ours to rewrite in place.
+   */
+  musicBrief?: MusicBrief;
+  playback?: PlaybackPlan;
+  masterReport?: MasterReport;
   provenance: MediaProvenance;
 }
 

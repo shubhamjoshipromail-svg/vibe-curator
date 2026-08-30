@@ -15,7 +15,7 @@ describe('preset validation', () => {
       kind: 'image', label: 'Broadcast', style: 'Pixel Art',
       url: 'https://vibe-curator-production.up.railway.app/market/styles/pixel-last-broadcast.png',
     };
-    value.trackUrl = 'https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast.mp3';
+    value.trackUrl = 'https://vibe-curator-production.up.railway.app/audio/curated/last-broadcast-v2.mp3';
     expect(validatePreset(value).scene.kind).toBe('image');
   });
 

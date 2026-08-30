@@ -5,6 +5,7 @@ import type { IncomingMessage } from 'node:http';
 import type { Plugin } from 'vite';
 import { viewerFor } from './auth';
 import { ownerAssetDir } from './storage';
+import { canonicalizeActivationPreset } from './legacy-audio';
 
 const ACTIVATION_TTL_MS = 10 * 60 * 1000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -116,11 +117,12 @@ export function nativeActivationPlugin(): Plugin {
             }
             const raw = await readRequest(req, MAX_BODY_BYTES);
             const body = JSON.parse(raw.toString('utf8')) as { preset?: Record<string, unknown> };
-            const preset = body.preset;
-            if (!preset || typeof preset.id !== 'string' || !ID_PATTERN.test(preset.id)) {
+            const receivedPreset = body.preset;
+            if (!receivedPreset || typeof receivedPreset.id !== 'string' || !ID_PATTERN.test(receivedPreset.id)) {
               json(res, 400, { message: 'A valid preset is required.' });
               return;
             }
+            const preset = canonicalizeActivationPreset(receivedPreset);
             const token = randomBytes(32).toString('hex');
             activations.set(token, {
               ownerId: viewer.id,

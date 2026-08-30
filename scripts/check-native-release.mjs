@@ -27,12 +27,15 @@ function checkSourceContracts() {
   const config = JSON.parse(read('src-tauri/tauri.conf.json'));
   assert.equal(config.identifier, BUNDLE_ID, 'Tauri bundle identifier changed unexpectedly');
   assert.deepEqual(config.plugins?.['deep-link']?.desktop?.schemes, [SCHEME], 'deep-link scheme must stay canonical');
+  assert.equal(config.bundle?.macOS?.minimumSystemVersion, '11.0', 'native minimum must match the macOS 11+ product claim');
 
   const source = read('src/runtime/deep-link.ts');
   assert.match(source, /url\.protocol !== 'vibecurator:'/);
   assert.match(source, /url\.hostname !== 'open'/);
   assert.match(source, /\^\[a-f0-9\]\{64\}\$/);
-  assert.match(source, /\^\[a-zA-Z0-9_-\]\{1,160\}\$/);
+  assert.doesNotMatch(source, /presetId/, 'unsupported preset deep links must not be reintroduced');
+  assert.match(source, /claim_native_activation/);
+  assert.match(source, /take_pending_native_activations/);
   console.log(`Native contract: ${BUNDLE_ID} / ${SCHEME}://open (OK)`);
 }
 

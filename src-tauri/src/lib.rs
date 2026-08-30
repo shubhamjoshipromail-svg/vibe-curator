@@ -1,14 +1,16 @@
+use serde::{Deserialize, Serialize};
+use std::collections::{HashSet, VecDeque};
+use std::process::Command;
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, PhysicalPosition, Rect, Url, WebviewWindow,
 };
-use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use std::process::Command;
 use tauri_plugin_autostart::ManagerExt;
 
 const DEFAULT_APP_URL: &str = "https://vibe-curator-production.up.railway.app";
+const ACTIVATION_HISTORY_LIMIT: usize = 256;
 
 /// The part of the status popover that belongs to the native host. Playback
 /// details are deliberately owned by the wallpaper renderer and arrive over
@@ -22,6 +24,61 @@ struct NativeControlsSnapshot {
 }
 
 struct NativeControlsState(Mutex<NativeControlsSnapshot>);
+
+/// Native activation delivery cannot rely on a webview listener already being
+/// registered. Tokens enter this inbox before the best-effort event is sent.
+/// The renderer subscribes first, then drains pending tokens; a warm event
+/// atomically claims its token. `known` suppresses duplicate LaunchServices,
+/// single-instance, and deep-link-plugin delivery for a bounded history.
+#[derive(Default)]
+struct ActivationInbox {
+    pending: VecDeque<String>,
+    known: HashSet<String>,
+    claimed: VecDeque<String>,
+}
+
+impl ActivationInbox {
+    fn enqueue(&mut self, token: String) -> bool {
+        if !self.known.insert(token.clone()) {
+            return false;
+        }
+        self.pending.push_back(token);
+        true
+    }
+
+    fn claim(&mut self, token: &str) -> bool {
+        let Some(index) = self.pending.iter().position(|pending| pending == token) else {
+            return false;
+        };
+        let token = self
+            .pending
+            .remove(index)
+            .expect("pending index disappeared");
+        self.remember_claim(token);
+        true
+    }
+
+    fn take_pending(&mut self) -> Vec<String> {
+        let tokens = self.pending.drain(..).collect::<Vec<_>>();
+        for token in &tokens {
+            self.remember_claim(token.clone());
+        }
+        tokens
+    }
+
+    fn remember_claim(&mut self, token: String) {
+        self.claimed.push_back(token);
+        while self.claimed.len() > ACTIVATION_HISTORY_LIMIT {
+            if let Some(expired) = self.claimed.pop_front() {
+                if !self.pending.contains(&expired) {
+                    self.known.remove(&expired);
+                }
+            }
+        }
+    }
+}
+
+struct NativeActivationState(Mutex<ActivationInbox>);
 
 /// Commands accepted by the small native-controls webview.
 ///
@@ -121,7 +178,11 @@ mod macos {
             // This only changes our surface's stacking order. Finder and every
             // file on the Desktop remain untouched.
             let icon_level = CGWindowLevelForKey(DESKTOP_ICON_WINDOW_LEVEL_KEY);
-            let level = if hidden { icon_level + 1 } else { icon_level - 1 };
+            let level = if hidden {
+                icon_level + 1
+            } else {
+                icon_level - 1
+            };
             let _: () = msg_send![native, setLevel: level as isize];
             let _: () = msg_send![native, orderFrontRegardless];
         }
@@ -134,7 +195,10 @@ fn window_for_command(window: WebviewWindow) -> WebviewWindow {
 }
 
 fn size_to_current_monitor(window: &WebviewWindow) -> Result<(), String> {
-    if let Some(monitor) = window.current_monitor().map_err(|error| error.to_string())? {
+    if let Some(monitor) = window
+        .current_monitor()
+        .map_err(|error| error.to_string())?
+    {
         window
             .set_position(*monitor.position())
             .map_err(|error| error.to_string())?;
@@ -145,32 +209,53 @@ fn size_to_current_monitor(window: &WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
-fn activation_token_from_args(args: &[String]) -> Option<String> {
-    args.iter().find_map(|value| {
-        let url = Url::parse(value).ok()?;
-        if url.scheme() != "vibecurator" || url.host_str() != Some("open") {
-            return None;
-        }
-        let token = url
-            .query_pairs()
-            .find(|(key, _)| key == "activation")?
-            .1
-            .into_owned();
-        (token.len() == 64 && token.chars().all(|character| character.is_ascii_hexdigit()))
-            .then_some(token.to_ascii_lowercase())
-    })
+fn valid_activation_token(token: &str) -> bool {
+    token.len() == 64
+        && token
+            .bytes()
+            .all(|character| character.is_ascii_digit() || (b'a'..=b'f').contains(&character))
 }
 
-fn controls_requested_from_args(args: &[String]) -> bool {
-    args.iter().any(|value| {
-        Url::parse(value)
-            .map(|url| url.scheme() == "vibecurator" && url.host_str() == Some("controls"))
-            .unwrap_or(false)
-    })
+#[derive(Debug, PartialEq, Eq)]
+enum NativeDeepLink {
+    Transfer(String),
+    Controls,
+}
+
+fn native_deep_link(value: &str) -> Option<NativeDeepLink> {
+    let url = Url::parse(value).ok()?;
+    if url.scheme() != "vibecurator"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.port().is_some()
+        || !url.path().is_empty()
+        || url.fragment().is_some()
+    {
+        return None;
+    }
+
+    match url.host_str()? {
+        "open" => {
+            let pairs = url.query_pairs().collect::<Vec<_>>();
+            if pairs.len() != 1 || pairs[0].0 != "activation" {
+                return None;
+            }
+            let token = pairs[0].1.as_ref();
+            valid_activation_token(token).then(|| NativeDeepLink::Transfer(token.to_string()))
+        }
+        "controls" if url.query().is_none() => Some(NativeDeepLink::Controls),
+        _ => None,
+    }
+}
+
+fn native_deep_link_from_args(args: &[String]) -> Option<NativeDeepLink> {
+    args.iter().find_map(|value| native_deep_link(value))
 }
 
 fn prepare_wallpaper_activation(window: &WebviewWindow) -> Result<(), String> {
-    window.set_decorations(false).map_err(|error| error.to_string())?;
+    window
+        .set_decorations(false)
+        .map_err(|error| error.to_string())?;
     window
         .set_simple_fullscreen(false)
         .map_err(|error| error.to_string())?;
@@ -182,26 +267,37 @@ fn prepare_wallpaper_activation(window: &WebviewWindow) -> Result<(), String> {
         macos::set_desktop_level(window, true)?;
         macos::set_click_through(window, false)?;
     }
-    window.set_focusable(true).map_err(|error| error.to_string())?;
+    window
+        .set_focusable(true)
+        .map_err(|error| error.to_string())?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())?;
     Ok(())
 }
 
-fn activate_transfer_for_app(app: &AppHandle, token: &str) -> Result<(), String> {
-    if token.len() != 64 || !token.chars().all(|character| character.is_ascii_hexdigit()) {
+fn queue_transfer_for_app(app: &AppHandle, token: &str) -> Result<(), String> {
+    if !valid_activation_token(token) {
         return Err("Invalid native activation".into());
     }
+    let inserted = app
+        .state::<NativeActivationState>()
+        .0
+        .lock()
+        .map_err(|_| "Native activation state is unavailable".to_string())?
+        .enqueue(token.to_string());
     let window = app
         .get_webview_window("wallpaper")
         .ok_or_else(|| "Wallpaper window is unavailable".to_string())?;
     prepare_wallpaper_activation(&window)?;
-    app.emit_to(
-        "wallpaper",
-        "vibe://activate-transfer",
-        serde_json::json!({ "token": token.to_ascii_lowercase() }),
-    )
-    .map_err(|error| error.to_string())
+    if inserted {
+        app.emit_to(
+            "wallpaper",
+            "vibe://activate-transfer",
+            serde_json::json!({ "token": token }),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 fn open_web_editor() -> Result<(), String> {
@@ -216,7 +312,10 @@ fn open_web_editor() -> Result<(), String> {
     };
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     let mut command = Command::new("xdg-open");
-    command.arg(url).spawn().map_err(|error| error.to_string())?;
+    command
+        .arg(url)
+        .spawn()
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -240,7 +339,8 @@ fn status_item_icon() -> tauri::image::Image<'static> {
 }
 
 fn native_controls_snapshot(app: &AppHandle) -> Result<NativeControlsSnapshot, String> {
-    let mut snapshot = app.state::<NativeControlsState>()
+    let mut snapshot = app
+        .state::<NativeControlsState>()
         .0
         .lock()
         .map_err(|_| "Native controls state is unavailable".to_string())
@@ -251,8 +351,12 @@ fn native_controls_snapshot(app: &AppHandle) -> Result<NativeControlsSnapshot, S
 
 fn emit_native_controls_snapshot(app: &AppHandle) -> Result<(), String> {
     let snapshot = native_controls_snapshot(app)?;
-    app.emit_to("native-controls", "vibe://native-controls/snapshot", snapshot)
-        .map_err(|error| error.to_string())
+    app.emit_to(
+        "native-controls",
+        "vibe://native-controls/snapshot",
+        snapshot,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn show_native_controls(app: &AppHandle, anchor: Option<Rect>) -> Result<(), String> {
@@ -270,7 +374,10 @@ fn show_native_controls(app: &AppHandle, anchor: Option<Rect>) -> Result<(), Str
         window
             .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
             .map_err(|error| error.to_string())?;
-    } else if let Some(monitor) = window.primary_monitor().map_err(|error| error.to_string())? {
+    } else if let Some(monitor) = window
+        .primary_monitor()
+        .map_err(|error| error.to_string())?
+    {
         let monitor_position = monitor.position();
         let monitor_size = monitor.size();
         let size = window.outer_size().map_err(|error| error.to_string())?;
@@ -373,9 +480,13 @@ fn native_controls_dispatch(app: AppHandle, action: NativeControlsAction) -> Res
         }
         NativeControlsAction::SetLaunchAtLogin { enabled } => {
             if enabled {
-                app.autolaunch().enable().map_err(|error| error.to_string())?;
+                app.autolaunch()
+                    .enable()
+                    .map_err(|error| error.to_string())?;
             } else {
-                app.autolaunch().disable().map_err(|error| error.to_string())?;
+                app.autolaunch()
+                    .disable()
+                    .map_err(|error| error.to_string())?;
             }
             emit_native_controls_snapshot(&app)
         }
@@ -457,7 +568,28 @@ fn activate_preset(app: AppHandle, preset_id: String) -> Result<(), String> {
 
 #[tauri::command]
 fn activate_transfer(app: AppHandle, token: String) -> Result<(), String> {
-    activate_transfer_for_app(&app, &token)
+    queue_transfer_for_app(&app, &token)
+}
+
+#[tauri::command]
+fn claim_native_activation(app: AppHandle, token: String) -> Result<bool, String> {
+    if !valid_activation_token(&token) {
+        return Ok(false);
+    }
+    app.state::<NativeActivationState>()
+        .0
+        .lock()
+        .map_err(|_| "Native activation state is unavailable".to_string())
+        .map(|mut inbox| inbox.claim(&token))
+}
+
+#[tauri::command]
+fn take_pending_native_activations(app: AppHandle) -> Result<Vec<String>, String> {
+    app.state::<NativeActivationState>()
+        .0
+        .lock()
+        .map_err(|_| "Native activation state is unavailable".to_string())
+        .map(|mut inbox| inbox.take_pending())
 }
 
 #[tauri::command]
@@ -478,12 +610,16 @@ fn enable_wallpaper_controls(app: AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            if let Some(token) = activation_token_from_args(&args) {
-                let _ = activate_transfer_for_app(app, &token);
-            } else if controls_requested_from_args(&args) {
-                let _ = show_native_controls(app, None);
-            } else {
-                let _ = open_web_editor();
+            match native_deep_link_from_args(&args) {
+                Some(NativeDeepLink::Transfer(token)) => {
+                    let _ = queue_transfer_for_app(app, &token);
+                }
+                Some(NativeDeepLink::Controls) => {
+                    let _ = show_native_controls(app, None);
+                }
+                None => {
+                    let _ = open_web_editor();
+                }
             }
         }))
         .plugin(tauri_plugin_deep_link::init())
@@ -494,6 +630,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             activate_preset,
             activate_transfer,
+            claim_native_activation,
+            take_pending_native_activations,
             enable_wallpaper_controls,
             enter_wallpaper_mode,
             leave_wallpaper_mode,
@@ -511,8 +649,12 @@ pub fn run() {
                 desktop_icons_visible: true,
                 launch_at_login: app.autolaunch().is_enabled().unwrap_or(false),
             })));
+            app.manage(NativeActivationState(
+                Mutex::new(ActivationInbox::default()),
+            ));
 
-            let editor = MenuItem::with_id(app, "editor", "Open website editor", true, None::<&str>)?;
+            let editor =
+                MenuItem::with_id(app, "editor", "Open website editor", true, None::<&str>)?;
             let controls = MenuItem::with_id(
                 app,
                 "controls",
@@ -520,8 +662,10 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let mute_sound = MenuItem::with_id(app, "mute-sound", "Mute sound", true, None::<&str>)?;
-            let resume_sound = MenuItem::with_id(app, "resume-sound", "Resume sound", true, None::<&str>)?;
+            let mute_sound =
+                MenuItem::with_id(app, "mute-sound", "Mute sound", true, None::<&str>)?;
+            let resume_sound =
+                MenuItem::with_id(app, "resume-sound", "Resume sound", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show wallpaper", true, None::<&str>)?;
             let pause = MenuItem::with_id(app, "pause", "Hide wallpaper", true, None::<&str>)?;
             let clean_desktop = MenuItem::with_id(
@@ -531,17 +675,22 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let show_icons = MenuItem::with_id(
-                app,
-                "show-icons",
-                "Show desktop icons",
-                true,
-                None::<&str>,
-            )?;
+            let show_icons =
+                MenuItem::with_id(app, "show-icons", "Show desktop icons", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit Vibe Curator", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
-                &[&editor, &controls, &mute_sound, &resume_sound, &show, &pause, &clean_desktop, &show_icons, &quit],
+                &[
+                    &editor,
+                    &controls,
+                    &mute_sound,
+                    &resume_sound,
+                    &show,
+                    &pause,
+                    &clean_desktop,
+                    &show_icons,
+                    &quit,
+                ],
             )?;
 
             let tray = TrayIconBuilder::with_id("vibe-curator")
@@ -552,84 +701,89 @@ pub fn run() {
                 // Keep the standard context menu as a right-click fallback;
                 // left click is reserved for the anchored status popover.
                 .show_menu_on_left_click(false);
-            let tray_handle = tray.on_menu_event(|app, event| match event.id.as_ref() {
-                "editor" => {
-                    let _ = open_web_editor();
-                }
-                "controls" => {
-                    let _ = show_native_controls(app, None);
-                }
-                "mute-sound" => {
-                    let _ = app.emit_to("wallpaper", "vibe://audio/set-muted", true);
-                    let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", true);
-                }
-                "resume-sound" => {
-                    let _ = app.emit_to("wallpaper", "vibe://audio/set-muted", false);
-                    let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", false);
-                    let _ = enable_wallpaper_controls(app.clone());
-                }
-                "show" => {
-                    if let Some(window) = app.get_webview_window("wallpaper") {
-                        let _ = window.show();
-                        if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
-                            state.wallpaper_visible = true;
-                        }
-                        let _ = emit_native_controls_snapshot(app);
+            let tray_handle = tray
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "editor" => {
+                        let _ = open_web_editor();
                     }
-                }
-                "pause" => {
-                    if let Some(window) = app.get_webview_window("wallpaper") {
-                        let _ = window.hide();
-                        if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
-                            state.wallpaper_visible = false;
-                        }
-                        let _ = emit_native_controls_snapshot(app);
+                    "controls" => {
+                        let _ = show_native_controls(app, None);
                     }
-                }
-                "clean-desktop" => {
-                    if let Some(window) = app.get_webview_window("wallpaper") {
-                        #[cfg(target_os = "macos")]
-                        let _ = macos::set_desktop_icons_hidden(&window, true);
-                        if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
-                            state.desktop_icons_visible = false;
-                        }
-                        let _ = emit_native_controls_snapshot(app);
+                    "mute-sound" => {
+                        let _ = app.emit_to("wallpaper", "vibe://audio/set-muted", true);
+                        let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", true);
                     }
-                }
-                "show-icons" => {
-                    if let Some(window) = app.get_webview_window("wallpaper") {
-                        #[cfg(target_os = "macos")]
-                        let _ = macos::set_desktop_icons_hidden(&window, false);
-                        if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
-                            state.desktop_icons_visible = true;
-                        }
-                        let _ = emit_native_controls_snapshot(app);
+                    "resume-sound" => {
+                        let _ = app.emit_to("wallpaper", "vibe://audio/set-muted", false);
+                        let _ = app.emit_to("wallpaper", "vibe://set-sound-muted", false);
+                        let _ = enable_wallpaper_controls(app.clone());
                     }
-                }
-                "quit" => app.exit(0),
-                _ => {}
-            })
-            .on_tray_icon_event(|tray, event| {
-                if let TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    rect,
-                    ..
-                } = event
-                {
-                    let _ = toggle_native_controls(tray.app_handle(), rect);
-                }
-            })
-            .build(app)?;
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("wallpaper") {
+                            let _ = window.show();
+                            if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
+                                state.wallpaper_visible = true;
+                            }
+                            let _ = emit_native_controls_snapshot(app);
+                        }
+                    }
+                    "pause" => {
+                        if let Some(window) = app.get_webview_window("wallpaper") {
+                            let _ = window.hide();
+                            if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
+                                state.wallpaper_visible = false;
+                            }
+                            let _ = emit_native_controls_snapshot(app);
+                        }
+                    }
+                    "clean-desktop" => {
+                        if let Some(window) = app.get_webview_window("wallpaper") {
+                            #[cfg(target_os = "macos")]
+                            let _ = macos::set_desktop_icons_hidden(&window, true);
+                            if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
+                                state.desktop_icons_visible = false;
+                            }
+                            let _ = emit_native_controls_snapshot(app);
+                        }
+                    }
+                    "show-icons" => {
+                        if let Some(window) = app.get_webview_window("wallpaper") {
+                            #[cfg(target_os = "macos")]
+                            let _ = macos::set_desktop_icons_hidden(&window, false);
+                            if let Ok(mut state) = app.state::<NativeControlsState>().0.lock() {
+                                state.desktop_icons_visible = true;
+                            }
+                            let _ = emit_native_controls_snapshot(app);
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        rect,
+                        ..
+                    } = event
+                    {
+                        let _ = toggle_native_controls(tray.app_handle(), rect);
+                    }
+                })
+                .build(app)?;
 
             // Keep an explicit strong application-managed handle. This avoids
             // an accidental tray teardown when setup's local scope ends.
             app.manage(tray_handle);
 
-            if let Some(token) = activation_token_from_args(&std::env::args().collect::<Vec<_>>()) {
-                activate_transfer_for_app(app.handle(), &token).map_err(std::io::Error::other)?;
-            } else if controls_requested_from_args(&std::env::args().collect::<Vec<_>>()) {
-                show_native_controls(app.handle(), None).map_err(std::io::Error::other)?;
+            match native_deep_link_from_args(&std::env::args().collect::<Vec<_>>()) {
+                Some(NativeDeepLink::Transfer(token)) => {
+                    queue_transfer_for_app(app.handle(), &token).map_err(std::io::Error::other)?;
+                }
+                Some(NativeDeepLink::Controls) => {
+                    show_native_controls(app.handle(), None).map_err(std::io::Error::other)?;
+                }
+                None => {}
             }
 
             Ok(())
@@ -642,12 +796,73 @@ pub fn run() {
             // not depend on whichever webview page is currently loaded.
             if let tauri::RunEvent::Opened { urls } = event {
                 for url in urls {
-                    if let Some(token) = activation_token_from_args(&[url.to_string()]) {
-                        let _ = activate_transfer_for_app(app, &token);
-                    } else if controls_requested_from_args(&[url.to_string()]) {
-                        let _ = show_native_controls(app, None);
+                    match native_deep_link(url.as_str()) {
+                        Some(NativeDeepLink::Transfer(token)) => {
+                            let _ = queue_transfer_for_app(app, &token);
+                        }
+                        Some(NativeDeepLink::Controls) => {
+                            let _ = show_native_controls(app, None);
+                        }
+                        None => {}
                     }
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn parses_only_canonical_transfer_and_controls_links() {
+        assert_eq!(
+            native_deep_link(&format!("vibecurator://open?activation={TOKEN}")),
+            Some(NativeDeepLink::Transfer(TOKEN.into()))
+        );
+        assert_eq!(
+            native_deep_link("vibecurator://controls"),
+            Some(NativeDeepLink::Controls)
+        );
+
+        for rejected in [
+            "vibecurator://open?preset=market-pixel-last-broadcast",
+            "vibecurator://open?activation=not-a-token",
+            "vibecurator://open?activation=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+            "vibecurator://open/path?activation=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "vibecurator://open?activation=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&extra=1",
+            "vibecurator://controls?extra=1",
+            "https://open?activation=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        ] {
+            assert_eq!(native_deep_link(rejected), None, "{rejected}");
+        }
+    }
+
+    #[test]
+    fn pending_activations_are_claimed_once_across_cold_and_warm_delivery() {
+        let mut inbox = ActivationInbox::default();
+        assert!(inbox.enqueue(TOKEN.into()));
+        assert!(
+            !inbox.enqueue(TOKEN.into()),
+            "duplicate OS delivery is suppressed"
+        );
+
+        assert_eq!(inbox.take_pending(), vec![TOKEN]);
+        assert!(
+            inbox.take_pending().is_empty(),
+            "cold-start drain is destructive"
+        );
+        assert!(
+            !inbox.claim(TOKEN),
+            "an event racing the drain cannot redeliver"
+        );
+
+        let warm = format!("1{}", &TOKEN[1..]);
+        assert!(inbox.enqueue(warm.clone()));
+        assert!(inbox.claim(&warm), "warm event claims its queued token");
+        assert!(!inbox.claim(&warm));
+        assert!(inbox.take_pending().is_empty());
+    }
 }

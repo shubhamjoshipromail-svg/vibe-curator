@@ -12,8 +12,6 @@ import { ensureViewer } from './auth/client';
 import { mountAccountControl } from './auth/account';
 import { acknowledgeBetaTerms, betaTermsStatus } from './auth/client';
 import { renderLegal } from './app/legal';
-import { registerDeepLinks } from './runtime/deep-link';
-import { runtimeHost } from './runtime/host';
 
 /**
  * App shell.
@@ -88,23 +86,6 @@ async function boot(): Promise<void> {
   render(initialRoute);
   if (initialRoute.name === 'legal') gate.classList.add('hidden');
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
-  await registerDeepLinks(async (activation) => {
-    if ('controls' in activation) {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('show_native_controls_command');
-      return;
-    }
-    if ('token' in activation) {
-      await runtimeHost.activateTransfer(activation.token);
-      return;
-    }
-    const presetId = activation.presetId;
-    const preset = listPresets().find((candidate) => candidate.id === presetId);
-    if (!preset) return;
-    await loadPreset(state, preset);
-    await runtimeHost.activatePreset(presetId);
-    navigate({ name: 'player' });
-  });
 }
 
 async function render(route: Route): Promise<void> {

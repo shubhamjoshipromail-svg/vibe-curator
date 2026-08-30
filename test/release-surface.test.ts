@@ -21,12 +21,37 @@ test('first-page Chrome action uses the stable published extension identity', ()
   assert.match(account, /<span>Chrome<\/span>/);
 });
 
-test('desktop page targets the reviewed Beta 3 artifact and warns about Gatekeeper', () => {
+test('desktop page uses the stable native-releases channel and preserves the Gatekeeper warning', () => {
   const legal = read('src/app/legal.ts');
-  assert.match(legal, /NATIVE_RELEASE_TAG = 'v0\.1\.1-beta\.3'/);
-  assert.match(legal, /Vibe-Curator-0\.1\.1-beta\.3-arm64-unnotarized\.dmg/);
+  assert.match(legal, /NATIVE_RELEASES_URL = 'https:\/\/github\.com\/shubhamjoshipromail-svg\/vibe-curator\/releases'/);
+  assert.match(legal, /Download latest technical beta/);
+  assert.match(legal, /ad-hoc signed rather than notarized by Apple/);
+  assert.match(legal, /Unnotarized technical-tester build/);
   assert.match(legal, /Gatekeeper will block the first normal launch/);
-  assert.doesNotMatch(legal, /v0\.1\.0-beta\.1/);
+  assert.doesNotMatch(legal, /beta\.3|Beta 3/);
+});
+
+test('native beta packaging is pinned to a checked arm64 source and a Beta 4 technical-tester artifact', () => {
+  const packageJson = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
+  const packaging = read('scripts/package-native-beta.mjs');
+  assert.equal(packageJson.scripts['package:native-beta'], 'node scripts/package-native-beta.mjs');
+  assert.match(packaging, /const BETA = 4/);
+  assert.match(packaging, /const ARCHITECTURE = 'arm64'/);
+  assert.match(packaging, /const SOURCE_ARCHITECTURE = 'aarch64'/);
+  assert.match(packaging, /Vibe-Curator-\$\{releaseVersion\}-\$\{ARCHITECTURE\}-technical-tester-unnotarized\.dmg/);
+  assert.match(packaging, /embedded app version/);
+  assert.match(packaging, /lipo', \['-archs'/);
+  assert.match(packaging, /codesign', \['--verify', '--deep', '--strict'/);
+  assert.match(packaging, /refusing to overwrite an existing release artifact/);
+});
+
+test('native publication happens before a frontend deploy', () => {
+  const runbook = read('docs/beta-launch-runbook.md');
+  const build = runbook.indexOf('Build and checksum the native technical-tester DMG');
+  const publish = runbook.indexOf('Create the GitHub prerelease and upload both native files');
+  const verify = runbook.indexOf('Verify the uploaded DMG and checksum from the GitHub release page');
+  const deploy = runbook.indexOf('Deploy the frontend only after that verification');
+  assert.ok(build >= 0 && publish > build && verify > publish && deploy > verify);
 });
 
 test('Labs does not interpolate user or provider labels into HTML', () => {

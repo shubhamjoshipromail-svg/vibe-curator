@@ -5,7 +5,7 @@
     "buildCommand": "npm run build"
   },
   "deploy": {
-    "preDeployCommand": "npm exec auth migrate -- --config server/auth.ts --yes",
+    "preDeployCommand": "npm run predeploy:production",
     "startCommand": "npm run start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120,

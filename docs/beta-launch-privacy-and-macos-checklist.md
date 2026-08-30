@@ -16,13 +16,13 @@ Last reviewed: 2026-08-29. This is an engineering/compliance checklist, not juri
 ## macOS website distribution
 
 - [x] App Store distribution is not required. Apple supports distribution outside the Mac App Store using Developer ID. See [Apple macOS distribution](https://developer.apple.com/macos/distribution/) and [Developer ID](https://developer.apple.com/developer-id/).
-- [x] `vibecurator://open?preset=…` deep links and single-instance behavior are integrated. A registered URL scheme can launch a closed installed app; a WebSocket cannot wake a process that is not running. See [Tauri deep linking](https://v2.tauri.app/plugin/deep-linking/).
+- [x] Expiring `vibecurator://open?activation=<64-hex-token>` deep links and single-instance behavior are integrated. Rust queues cold-start tokens until the wallpaper listener drains them and rejects the obsolete unauthenticated `?preset=` form. A registered URL scheme can launch a closed installed app; a WebSocket cannot wake a process that is not running. See [Tauri deep linking](https://v2.tauri.app/plugin/deep-linking/).
 - [x] Website desktop page labels the ad-hoc build for technically informed testers and gives the narrow Finder/System Settings workaround without telling users to disable Gatekeeper.
 - [ ] Join/renew the Apple Developer Program. Tauri documents the US price as $99/year; regional pricing/tax can vary. See [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/).
 - [ ] Create/import a `Developer ID Application` certificate and protect its private key.
 - [ ] Add hardened-runtime entitlements, sign every nested binary, archive as a DMG, submit to Apple notarization, and staple the ticket. See [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) and [Tauri DMG distribution](https://v2.tauri.app/distribute/dmg/).
 - [ ] Verify the final artifact on a different Mac: `codesign --verify --deep --strict`, `spctl --assess --type open`, install, first launch, menu bar, wallpaper, quit, and web deep link.
-- [x] Host the versioned technical-tester DMG over HTTPS with a published SHA-256.
+- [ ] Package `0.1.1-beta.4` with `npm run package:native-beta`; create a GitHub prerelease, upload its DMG and SHA-256 file, verify the uploaded files, then deploy the frontend CTA.
 - [ ] Replace the technical-tester download with a Developer ID-signed, notarized and stapled DMG before general public distribution.
 - [ ] Add signed automatic updates only after the manual beta install is stable.
 
