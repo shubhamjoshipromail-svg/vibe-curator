@@ -764,12 +764,6 @@ export function deletePreset(id: string): void {
  * produces a new, owned copy, with `parentId` recording where it came from.
  */
 export function forkPreset(source: Preset, name?: string): Preset {
-  if (source.builtIn) {
-    const existing = loadSaved()
-      .filter((preset) => preset.parentId === source.id)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    if (existing) return structuredClone(existing);
-  }
   const now = new Date().toISOString();
   return {
     ...structuredClone(source),
