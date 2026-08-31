@@ -47,6 +47,7 @@ export interface ExtensionState {
   schemaVersion: 1;
   preset: SafePreset;
   playback: { desiredPlaying: boolean; soundUnlocked: boolean; masterVolume: number };
+  features: { enabled: boolean; googleSearchBackground: boolean };
   revision: number;
   updatedAt: string;
 }
@@ -71,6 +72,7 @@ export const DEFAULT_STATE: ExtensionState = {
   schemaVersion: 1,
   preset: DEFAULT_PRESET,
   playback: { desiredPlaying: false, soundUnlocked: false, masterVolume: 0.8 },
+  features: { enabled: true, googleSearchBackground: false },
   revision: 0,
   updatedAt: '1970-01-01T00:00:00.000Z',
 };
@@ -80,7 +82,9 @@ export type InternalRequest =
   | { v: 1; target: 'service-worker'; type: 'enable-sound'; requestId: string }
   | { v: 1; target: 'service-worker'; type: 'set-playing'; requestId: string; playing: boolean }
   | { v: 1; target: 'service-worker'; type: 'set-vibe-volume'; requestId: string; volume: number }
-  | { v: 1; target: 'service-worker'; type: 'set-volume'; requestId: string; volume: number };
+  | { v: 1; target: 'service-worker'; type: 'set-volume'; requestId: string; volume: number }
+  | { v: 1; target: 'service-worker'; type: 'set-enabled'; requestId: string; enabled: boolean }
+  | { v: 1; target: 'service-worker'; type: 'set-google-search'; requestId: string; enabled: boolean };
 
 export interface ExternalSetPresetRequest { v: 1; type: 'vibe:set-preset'; requestId: string; preset: SafePreset }
 export interface AudioApplyRequest { v: 1; target: 'offscreen'; type: 'audio:apply'; requestId: string; sessionToken: string; state: ExtensionState }
@@ -204,18 +208,24 @@ export function validatePreset(value: unknown): SafePreset {
 
 export function validateState(value: unknown): ExtensionState {
   const state = record(value, 'state');
-  exactKeys(state, ['schemaVersion', 'preset', 'playback', 'revision', 'updatedAt'], 'state');
+  exactKeys(state, ['schemaVersion', 'preset', 'playback', 'features', 'revision', 'updatedAt'], 'state');
   if (state.schemaVersion !== 1) throw new Error('Unsupported state version.');
   const playback = record(state.playback, 'playback');
   exactKeys(playback, ['desiredPlaying', 'soundUnlocked', 'masterVolume'], 'playback');
   const updatedAt = stringValue(state.updatedAt, 'updatedAt', 40);
   if (!Number.isFinite(Date.parse(updatedAt))) throw new Error('updatedAt is invalid.');
+  const features = state.features === undefined ? DEFAULT_STATE.features : record(state.features, 'features');
+  if (state.features !== undefined) exactKeys(features, ['enabled', 'googleSearchBackground'], 'features');
   return {
     schemaVersion: 1, preset: validatePreset(state.preset),
     playback: {
       desiredPlaying: booleanValue(playback.desiredPlaying, 'playback.desiredPlaying'),
       soundUnlocked: booleanValue(playback.soundUnlocked, 'playback.soundUnlocked'),
       masterVolume: unitValue(playback.masterVolume, 'playback.masterVolume'),
+    },
+    features: {
+      enabled: state.features === undefined ? true : booleanValue(features.enabled, 'features.enabled'),
+      googleSearchBackground: state.features === undefined ? false : booleanValue(features.googleSearchBackground, 'features.googleSearchBackground'),
     },
     revision: integerValue(state.revision, 'revision'), updatedAt,
   };
@@ -247,6 +257,11 @@ export function validateInternalRequest(value: unknown): InternalRequest {
     if (request.target !== 'service-worker') throw new Error('Invalid request target.');
     unitValue(request.volume, 'volume'); return request as unknown as InternalRequest;
   }
+  if (type === 'set-enabled' || type === 'set-google-search') {
+    const request = validateEnvelope(base, ['v', 'target', 'type', 'requestId', 'enabled'], 'request');
+    if (request.target !== 'service-worker') throw new Error('Invalid request target.');
+    booleanValue(request.enabled, 'enabled'); return request as unknown as InternalRequest;
+  }
   throw new Error('Unsupported internal request.');
 }
 
@@ -265,10 +280,11 @@ export function validateAudioRequest(value: unknown): AudioApplyRequest {
   };
 }
 
-export function nextState(current: ExtensionState, change: Partial<ExtensionState['playback']> & { preset?: SafePreset }, now = new Date()): ExtensionState {
-  const { preset, ...playbackChange } = change;
+export function nextState(current: ExtensionState, change: Partial<ExtensionState['playback']> & { preset?: SafePreset; features?: Partial<ExtensionState['features']> }, now = new Date()): ExtensionState {
+  const { preset, features, ...playbackChange } = change;
   return validateState({
     schemaVersion: 1, preset: preset ?? current.preset, playback: { ...current.playback, ...playbackChange },
+    features: { ...current.features, ...features },
     revision: current.revision + 1, updatedAt: now.toISOString(),
   });
 }
