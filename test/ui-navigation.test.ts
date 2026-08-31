@@ -55,6 +55,7 @@ test('Market navigation has one clear audio path and explicit in-app Back routes
   assert.doesNotMatch(marketplace, /Preview score|new Audio\(/);
   assert.doesNotMatch(explore, /history\.back\(/);
   assert.doesNotMatch(labs, /history\.back\(/);
+  assert.doesNotMatch(labs, /Play included sound|Starting sound|startSound/);
   assert.match(explore, /PROMPT_DEFINED_STYLE/);
   assert.match(marketplace, /returnCollection: post\.collection/);
   const forkBody = library.slice(library.indexOf('export function forkPreset'), library.indexOf('export function createMediaPreset'));
