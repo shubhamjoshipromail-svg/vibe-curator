@@ -154,7 +154,20 @@ export async function setAsChromeVibe(preset: ChromeVibeInput): Promise<ChromeHa
         const lastError = runtime.lastError;
         const ack = response as { v?: number; ok?: boolean; requestId?: string; message?: string } | undefined;
         if (lastError) finish({ ok: false, message: `Chrome Vibe unavailable: ${lastError.message || 'connection failed'}` });
-        else if (!ack || ack.v !== 1 || ack.requestId !== id || ack.ok !== true) finish({ ok: false, message: ack?.message || 'Chrome Vibe rejected this scene.' });
+        else if (!ack || ack.v !== 1 || ack.requestId !== id || ack.ok !== true) {
+          // An extension older than 0.2.0 has no notion of inline scene bytes
+          // and rejects them with its generic asset-allowlist error. Left as-is
+          // that reads like the scene is broken, when the only thing wrong is a
+          // stale extension, so translate it into the action that fixes it.
+          const staleExtension = Boolean(imageDataUrl)
+            && /approved Vibe Curator asset/i.test(ack?.message ?? '');
+          finish({
+            ok: false,
+            message: staleExtension
+              ? 'Update the Vibe Curator extension in Chrome to send your own scenes. The installed version only accepts built-in ones.'
+              : ack?.message || 'Chrome Vibe rejected this scene.',
+          });
+        }
         else finish({ ok: true, message: 'Chrome Vibe updated.' });
       });
     } catch { finish({ ok: false, message: 'Chrome Vibe is unavailable.' }); }

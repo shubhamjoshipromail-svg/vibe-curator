@@ -1,51 +1,25 @@
 {
-  "file": "japanese-water-garden-v2.mp3",
-  "plan": {
-    "mode": "crossfade",
-    "targetDurationSeconds": 30,
-    "crossfadeSeconds": 4.06
-  },
-  "crossfade": {
-    "configured": 8,
-    "effective": 4.06,
-    "clamped": true,
-    "maxFraction": 0.15
-  },
-  "report": {
-    "ok": true,
-    "targetLufs": -18,
-    "notes": [],
-    "measuredDurationSeconds": 30.04,
-    "measuredLufs": -20,
-    "truePeakDb": -5.6,
-    "peakDb": -5.67,
-    "leadingSilenceSeconds": 0.69,
-    "trailingSilenceSeconds": 0.53,
-    "noiseFloorDb": -128.08,
-    "trimStartSeconds": 0.69,
-    "trimEndSeconds": 2.29,
-    "contentDurationSeconds": 27.06,
-    "crossfadeSeconds": 4.06,
-    "seamDeltaDb": 1.08,
-    "loopStart": 0,
-    "loopEnd": 23,
-    "outputDurationSeconds": 23,
-    "outputLufs": -18.4,
-    "outputTruePeakDb": -3.6,
-    "gainDb": 1.6
-  },
-  "before": {
-    "durationSeconds": 30.04,
-    "lufs": -20,
-    "truePeakDb": -5.6,
-    "leadingSilenceSeconds": 0.69,
-    "trailingSilenceSeconds": 0.62
-  },
-  "after": {
-    "durationSeconds": 23.04,
-    "lufs": -18.4,
-    "truePeakDb": -3.6,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 0
-  }
+  "ok": true,
+  "targetLufs": -18,
+  "notes": [],
+  "measuredDurationSeconds": 120.03,
+  "measuredLufs": -17.7,
+  "truePeakDb": -2.3,
+  "peakDb": -2.34,
+  "leadingSilenceSeconds": 0,
+  "trailingSilenceSeconds": 1.29,
+  "noiseFloorDb": -88.63,
+  "trimStartSeconds": 0,
+  "trimEndSeconds": 5.03,
+  "contentDurationSeconds": 115,
+  "crossfadeSeconds": 18,
+  "seamDeltaDb": 0.21,
+  "loopStart": 0,
+  "loopEnd": 97,
+  "outputDurationSeconds": 97,
+  "outputLufs": -18.3,
+  "outputTruePeakDb": -3,
+  "gainDb": -0.6,
+  "prompt": "An ambient score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: warm, calm, unhurried. Instrumentation: felt piano, soft strings, plucked string. Tempo: slow. Density: sparse. Avoid: field recording, water sounds, broadband noise, no hook, no repeated motif more than twice consecutively, no drum kit.",
+  "regeneratedAt": "2026-08-30T22:58:04.401Z"
 }
