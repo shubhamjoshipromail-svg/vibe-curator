@@ -54,13 +54,35 @@ const PRODUCTION_EXTENSION_ID = 'niamjnjkmfnlpcejieffodipboacfdnm';
 const configuredExtensionId = import.meta.env.VITE_CHROME_EXTENSION_ID?.trim() || PRODUCTION_EXTENSION_ID;
 const extensionId = configuredExtensionId && /^[a-p]{32}$/.test(configuredExtensionId) ? configuredExtensionId : undefined;
 
-/** Deliberately excludes effects, private assets, arbitrary media URLs and provenance. */
-export function projectPresetForChrome(preset: ChromeVibeInput): ChromeVibePreset | null {
+/** Base64 image payload the extension will store and render itself. */
+const DATA_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+/** ~4.5 MB of image bytes. Comfortably inside chrome.storage.local's 10 MB. */
+const MAX_DATA_URL_CHARS = 6_000_000;
+
+/**
+ * Excludes effects, arbitrary media URLs and provenance.
+ *
+ * Private media is no longer excluded outright. A generated visual lives in
+ * owner-scoped storage the extension cannot authenticate against, so rather
+ * than publishing it to a URL, the bytes are handed over once and the extension
+ * keeps its own copy — the same trade the native handoff already makes. Nothing
+ * becomes publicly reachable, and there is no token to expire out from under a
+ * new tab weeks later.
+ */
+export function projectPresetForChrome(
+  preset: ChromeVibeInput,
+  imageDataUrl?: string,
+): ChromeVibePreset | null {
   const origin = 'https://vibe-curator-production.up.railway.app';
   let scene: ChromeVibePreset['scene'];
   if (preset.scene.kind === 'image') {
-    if (preset.scene.assetId || !preset.scene.url || !/^\/market\/styles\/[a-z0-9][a-z0-9._-]*\.(?:png|jpe?g|webp)$/i.test(preset.scene.url)) return null;
-    scene = { kind: 'image', label: preset.scene.label, style: preset.scene.style, url: `${origin}${preset.scene.url}` };
+    if (imageDataUrl) {
+      if (!DATA_IMAGE.test(imageDataUrl) || imageDataUrl.length > MAX_DATA_URL_CHARS) return null;
+      scene = { kind: 'image', label: preset.scene.label, style: preset.scene.style, url: imageDataUrl };
+    } else {
+      if (preset.scene.assetId || !preset.scene.url || !/^\/market\/styles\/[a-z0-9][a-z0-9._-]*\.(?:png|jpe?g|webp)$/i.test(preset.scene.url)) return null;
+      scene = { kind: 'image', label: preset.scene.label, style: preset.scene.style, url: `${origin}${preset.scene.url}` };
+    }
   } else if (preset.scene.kind === 'procedural') {
     scene = { kind: 'procedural' as const, label: preset.scene.label, style: preset.scene.style, sourceId: preset.scene.sourceId };
   } else if (preset.scene.kind === 'renderer') {
@@ -81,9 +103,43 @@ export function projectPresetForChrome(preset: ChromeVibeInput): ChromeVibePrese
 
 function requestId(): string { return `web_${crypto.randomUUID().replaceAll('-', '')}`; }
 
+/**
+ * Read a private asset out of local/shared storage as a data URL.
+ *
+ * Dynamically imported so this module keeps no top-level web-renderer imports:
+ * the extension's own test suite imports `projectPresetForChrome` from here and
+ * must not have to stand up IndexedDB to do it.
+ */
+async function imageDataUrlFor(preset: ChromeVibeInput): Promise<string | undefined> {
+  if (preset.scene.kind !== 'image' || !preset.scene.assetId) return undefined;
+  const { getAsset } = await import('../media/assets');
+  const blob = await getAsset(preset.scene.assetId);
+  if (!blob) return undefined;
+  return new Promise<string | undefined>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : undefined);
+    reader.onerror = () => resolve(undefined);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function setAsChromeVibe(preset: ChromeVibeInput): Promise<ChromeHandoffResult> {
-  const safePreset = projectPresetForChrome(preset);
-  if (!safePreset) return { ok: false, message: 'Chrome Vibe supports coded scenes, not private media.' };
+  let imageDataUrl: string | undefined;
+  try {
+    imageDataUrl = await imageDataUrlFor(preset);
+  } catch (error) {
+    console.warn('[vibe] could not read the scene image for Chrome', error);
+  }
+
+  if (preset.scene.kind === 'image' && preset.scene.assetId && !imageDataUrl) {
+    return { ok: false, message: 'This scene image could not be read. Open it once in Labs, then try again.' };
+  }
+  if (imageDataUrl && imageDataUrl.length > MAX_DATA_URL_CHARS) {
+    return { ok: false, message: 'This scene image is too large to send to Chrome. Use a smaller image.' };
+  }
+
+  const safePreset = projectPresetForChrome(preset, imageDataUrl);
+  if (!safePreset) return { ok: false, message: 'Chrome Vibe could not accept this scene.' };
   if (!extensionId) return { ok: false, message: configuredExtensionId ? 'The Chrome extension ID is invalid.' : 'Chrome Vibe is not configured for this site.' };
   const chromeApi = (globalThis as { chrome?: { runtime?: { lastError?: { message?: string }; sendMessage?: (id: string, message: unknown, callback?: (response: unknown) => void) => void } } }).chrome;
   const runtime = chromeApi?.runtime;

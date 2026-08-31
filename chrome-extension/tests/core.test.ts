@@ -19,10 +19,15 @@ describe('preset validation', () => {
     expect(validatePreset(value).scene.kind).toBe('image');
   });
 
+  // Raster data URLs are now an accepted source: generated visuals are private
+  // media the website hands over as bytes rather than publishing. Everything
+  // that is not a plain raster image stays rejected, SVG included, because an
+  // inline SVG is a script-execution surface. See tests/private-media.test.ts.
   it.each([
     'http://vibe-curator-production.up.railway.app/market/styles/a.png',
     'https://evil.example/market/styles/a.png',
-    'data:image/png;base64,AAAA',
+    'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+    'data:text/html;base64,PGh0bWw+',
     'https://vibe-curator-production.up.railway.app/market/styles/a.png?next=evil',
     'https://vibe-curator-production.up.railway.app/private/a.png',
   ])('rejects unsafe image URL %s', (url) => {
