@@ -8,9 +8,18 @@
 
 | Surface | Current beta | Distribution |
 |---|---|---|
-| Web and API | `0.1.1` live | [Railway production](https://vibe-curator-production.up.railway.app) |
-| Chrome extension | `0.1.1` published | [Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) |
+| Web and API | live, auto-deployed from `main` | [Railway production](https://vibe-curator-production.up.railway.app) |
+| Chrome extension | `0.1.1` published — `0.2.0` is the store candidate | [Chrome Web Store](https://chromewebstore.google.com/detail/vibe-curator/niamjnjkmfnlpcejieffodipboacfdnm) |
 | macOS app | next technical tester: `0.1.1-beta.4`, Apple silicon | [GitHub Releases](https://github.com/shubhamjoshipromail-svg/vibe-curator/releases) |
+
+The web surface deploys automatically from `main`. Source images come from
+OpenAI, music from Google Lyria, live visual effects from Anthropic, and an
+optional still-image motion draft from Gemini Veo.
+
+> **Extension note.** `0.2.0` adds the master Vibe switch, the opt-in Google
+> Search background, and the ability to receive your *own* generated scenes. The
+> published `0.1.1` accepts only built-in scenes, so sending a generated one
+> asks you to update rather than failing silently.
 
 The web beta and extension are public. The macOS DMG is an ad-hoc-signed,
 unnotarized technical-tester build: Gatekeeper blocks a normal first launch, so
@@ -24,7 +33,7 @@ The thesis is simple:
 
 > Generative media should not end as a static file. It should become a reusable, editable environment that can live on your screen.
 
-This repository contains a working multi-model generative media studio—not merely a renderer mockup. It generates source images with OpenAI, generates original music with ElevenLabs, generates custom visual effects with Anthropic, and includes a wired image-to-video pipeline through Gemini Veo. Generated and uploaded media then enter the same editable source-aware renderer, persistent project library, curated Market, and full-screen Player.
+This repository contains a working multi-model generative media studio—not merely a renderer mockup. It generates source images with OpenAI, generates original music with Google Lyria, generates custom visual effects with Anthropic, and includes a wired image-to-video pipeline through Gemini Veo. Generated and uploaded media then enter the same editable source-aware renderer, persistent project library, curated Market, and full-screen Player.
 
 ## Generated media already created in the working prototype
 
@@ -32,7 +41,7 @@ The current local library contains real outputs created through the product pipe
 
 - **37 saved projects** across generated, uploaded, procedural, and renderer-based scenes;
 - **8 OpenAI GPT Image 2 source images** at 1536×1024;
-- **11 saved ElevenLabs Music v2 tracks** stored as reusable MP3 assets;
+- **11 saved music tracks** stored as reusable MP3 assets (generated on the earlier ElevenLabs path, before Lyria became the default);
 - **2 user-uploaded source images** processed through the same visual system;
 - **9 procedural source scenes** and **7 layered renderer scenes**;
 - **7 built-in live GLSL effects**, plus saved generated and remixed effects;
@@ -89,7 +98,7 @@ The non-destructive editor.
 - Stack built-in or AI-generated atmospheric shaders.
 - Tune the scene through human controls—Mood, Motion, Depth, Glow, Atmosphere, and Intensity—instead of exposing rendering jargon.
 - Select Light, Automatic, or Full runtime budgets without changing the saved creative intent.
-- Generate and persist a 90-second ElevenLabs Music v2 track.
+- Generate and persist a 30-second Google Lyria track, mastered into a seamless loop.
 - Choose Auto, Vocals, or Instrumental. Vocal directions such as fast rap, singing style, language, cadence, and original lyrics survive prompt adaptation.
 - Save explicitly; opening a built-in or Market card never silently adds another project.
 
@@ -130,7 +139,7 @@ After `npm --prefix chrome-extension ci`, run `npm run verify:chrome` and `npm r
 | Source-aware visual tracking | Working | 128×72 clean-frame analysis, motion/edge signals, temporal trails |
 | Reusable visual treatments | Working | Deterministic recipe manifests with editable parameters |
 | Prompt → generated visual effect | Working | Anthropic → guarded GLSL → compiler → parameterized live Pixi filter |
-| Prompt → generated music | Working with many saved outputs | ElevenLabs Music v2, stored once and replayed locally |
+| Prompt → generated music | Working with many saved outputs | Google Lyria, mastered into a loop, stored once and replayed locally |
 | Vocal music and fast rap intent | Working | Explicit vocal mode plus Anthropic prompt adaptation |
 | Artist-reference translation | Working | Named references converted into transferable musical characteristics |
 | Project persistence | Working beta | Owner-scoped Railway Postgres records plus browser cache |
@@ -155,7 +164,7 @@ flowchart LR
     L --> VEO["Gemini Veo motion"]
     L --> FX["Anthropic shader generation"]
     L --> DNA["Anthropic music-prompt adapter"]
-    DNA --> MUSIC["ElevenLabs Music v2"]
+    DNA --> MUSIC["Google Lyria → mastering"]
 
     IMG --> ASSETS["Local asset store"]
     VEO --> ASSETS
@@ -224,17 +233,47 @@ Music creation is an authored pipeline, not a playback-time dependency:
 
 ```mermaid
 flowchart LR
-    A["User music request"] --> M["Voice mode: Auto / Vocals / Instrumental"]
-    M --> H["Anthropic Haiku adapter"]
-    H --> S["Remove named references; preserve musical and vocal intent"]
-    S --> EL["ElevenLabs Music v2"]
-    EL --> MP3["Persisted MP3 asset"]
+    A["User request + scene analysis"] --> B["Resolve structured MusicBrief"]
+    B --> M["Voice mode: Auto / Vocals / Instrumental"]
+    M --> D{"Names an artist or track?"}
+    D -- no --> P["Render provider prompt"]
+    D -- yes --> S["Rewrite reference into musical terms"]
+    S --> P
+    P --> LY["Google Lyria · 30s clip"]
+    LY --> MA["Deterministic master: trim, normalise, fold"]
+    MA --> MP3["Persisted MP3 asset"]
     MP3 --> MIX["Independent Music bus"]
 ```
 
-The prompt adapter translates artist, band, producer, song, or era references into transferable musical DNA: tempo, groove, instrumentation, arrangement, production texture, vocal delivery, dynamics, and emotional arc. It removes the named comparison before the request reaches ElevenLabs.
+A brief is resolved before any provider is contacted, from the user's request,
+the UI vocal control, the card's own direction, and scene analysis — in that
+precedence. One invariant holds throughout: things *visible in the scene* may
+only contribute **ambience**. A fire on screen adds warmth and crackle; it never
+decides genre or instrumentation.
 
-The system stores both the user’s original wording and the final adapted prompt for auditability. Vocal requests are never silently converted to instrumentals; `force_instrumental` is enabled only when Instrumental mode resolves explicitly.
+The prompt renderer emits a clause only where the brief holds a value. Nothing
+is padded and no restraint language is added that the brief did not ask for — an
+earlier version prepended "restrained ambient bed" to everything and flattened
+the results into texture rather than music.
+
+Named references are rewritten into transferable musical DNA (tempo, groove,
+instrumentation, production texture, vocal delivery) before the request leaves
+the server. The detector is deliberately biased toward false positives: a false
+alarm costs one cheap rewrite, while a miss sends an artist's name to a music
+generator. When the rewriter is unavailable the request **fails closed** — and
+says so, rather than reporting the music generator as broken.
+
+The system stores both the user's original wording and the final adapted prompt
+for auditability. Vocal requests are never silently converted to instrumentals.
+
+### Mastering owns the loop
+
+Every generator returns a track that fades to silence, which is fine for one
+listen and wrong for a bed that repeats. Trimming digital silence is not enough:
+the fade itself is audible. The tail is therefore found by **energy** rather
+than a threshold — the last window still carrying median-ish level is where the
+music actually stops — and everything after it is cut. The result is normalised
+to −18 LUFS / −1.5 dBTP and the loop seam is measured, not assumed.
 
 ## Performance engineering
 
@@ -259,16 +298,50 @@ See [docs/performance-native-plan.md](docs/performance-native-plan.md) for the p
 |---|---|---|
 | OpenAI GPT Image | Low-cost source-image drafts | Strong general image quality behind a small provider-neutral media API |
 | Gemini Veo | Optional still-image motion draft | Useful for authored source motion; kept separate from local realtime treatments |
-| Anthropic Claude Haiku | Shader generation and music prompt adaptation | Structured output, inexpensive transformation, and bounded compiler-repair loop |
-| ElevenLabs Music v2 | Persisted music with optional vocals | Supports instrumentals, vocals, complex delivery, and fast rap |
+| Anthropic Claude | Shader generation and music prompt adaptation | Structured output, inexpensive transformation, and bounded compiler-repair loop |
+| **Google Lyria** | **Default music · 30s clip · ~$0.04** | An ambient bed is looped anyway, so a 30-second clip at an eighth the cost is the right default |
+| ElevenLabs Music v2 | Premium-only · 120s · ~$0.30 | Retained for long-form and complex vocal delivery; disabled for the beta |
+
+The provider is an **explicit validated field on the request**, not an implicit
+server setting. Two independent controls keep the premium path closed: the UI
+disables it, and the server separately refuses `provider === "elevenlabs"`. A
+handcrafted request cannot reach it, so the disabled button is a convenience
+rather than the actual boundary.
 
 Provider details live behind same-origin server modules. API keys never enter client code, and environment variables deliberately avoid Vite’s public `VITE_` prefix.
 
 ## Cost and safety boundaries
 
-- Image generation: approximately `$0.01` per new low-quality draft.
+- Image generation: approximately `$0.005` per low-quality 1536×1024 draft.
 - Motion generation: reserve approximately `$1.20` per eight-second fast draft; reconcile against the provider response/account.
-- Music: reserve approximately `$0.23` for prompt adaptation plus one 90-second track.
+- Music: approximately `$0.04` per 30-second Lyria clip (2 credits).
+
+### Three budgets that must agree
+
+Credits, a per-user daily dollar cap, and a global daily cap all gate the same
+request, and the tightest one is invisible to the user. That produced the worst
+bug of the beta: an account holding 100 credits was told it had none.
+
+Three distinct defects sat behind that one symptom, and all three are fixed:
+
+1. **Failed jobs burned budget permanently.** The daily spend query had no
+   status filter, so every provider error, timeout and expired reservation
+   reduced the day's capacity forever — for work no provider was ever paid for.
+   Only completed jobs and unexpired reservations now count.
+2. **One `undefined` meant four different things.** Insufficient credits, either
+   cap, and a duplicate request all returned the same empty value, so every
+   route reported the credit message. Refusals now carry a reason and each says
+   what actually happened, including that the balance is untouched.
+3. **The caps sat below the credit ceiling.** 100 credits can buy about `$2.05`
+   of music, but the per-user cap was `$1`. The invariant is now written down
+   *and asserted in a test*: **the per-user daily cap must exceed the maximum
+   spend achievable with a full credit balance, or the credit balance is a lie.**
+
+A server-env `ADMIN_EMAILS` allowlist bypasses both credits and caps. It is
+enforced inside the reservation function rather than at the six call sites, so
+the routes cannot drift on who is exempt; admin jobs are still recorded for
+accounting but excluded from the shared budget. The allowlist is never read from
+a request body, header, or client claim.
 - Repeated image requests can reuse a local fingerprint cache.
 - Built-in treatments, procedural sources, tracking, editing, playback, and thumbnails are local and free.
 - Generated music is stored once; replay never invokes a model.
@@ -343,6 +416,89 @@ The application budgets render work according to what the user can see. It does 
 ### The marketplace is a document-distribution system
 
 Market cards are not flattened videos. They are remixable presets that open in Labs and become owned projects only after explicit Save.
+
+### Generated effects are shaders, not JavaScript
+
+GEN-EFFECT asks a model for a GLSL fragment shader and runs it. That constraint
+is what makes the feature safe to ship: a fragment shader cannot reach the
+network, the filesystem, or the DOM, so generated code needs no sandbox. The
+worst a bad one can do is look wrong.
+
+The one case that *could* hurt — an unbounded loop hanging the GPU — is a static
+check, not a hope. Two gates run, because neither is sufficient alone: the
+compiler catches syntax, and the static guard catches what compiles perfectly
+and then spins forever. A `while (i < 100000)` loop passes any compiler.
+
+On failure the compiler log is fed back to the model verbatim. Compiler errors
+are precise, line-numbered, machine-generated feedback — close to ideal for a
+repair loop — so "the model sometimes writes invalid GLSL" becomes a latency
+problem rather than a correctness one.
+
+### A verifier must compile the same language as the renderer
+
+The first version of that compile gate wrapped shaders in `#version 300 es` and
+reported success. The renderer then refused them.
+
+Pixi emits **no** version directive, so a WebGL2 context compiles filter shaders
+as **GLSL ES 1.00** — the ES 3.00-looking `in` / `out` / `texture()` syntax
+survives only through compatibility defines. Integer `clamp()` and dynamic
+matrix indexing are legal in 3.00 and illegal in 1.00. The gate was passing
+shaders the renderer would reject.
+
+A validator that reports false success is worse than no validator, because the
+whole repair loop is built on trusting it. The verifier now reproduces the
+renderer's exact preamble.
+
+### Private media crosses to Chrome as bytes, not a URL
+
+A generated visual lives in owner-scoped storage the browser extension cannot
+authenticate against. The obvious fix — publish it at a URL — was rejected:
+
+- **Credentialed fetch** fails, because the session cookie is `SameSite=Lax` and
+  is not sent on a cross-site extension request.
+- **A signed, expiring URL** would die under a saved new tab weeks later, and
+  adds a public read surface to private media.
+
+Instead the site hands over the bytes once and the extension keeps its own copy
+— the same trade the native handoff already makes. Nothing becomes publicly
+reachable and there is no token to expire. Only PNG, JPEG and WebP are accepted;
+**never SVG**, which is a script-execution surface with no business being a
+background.
+
+The Google Search overlay deliberately does *not* receive inline media and falls
+back to palette gradients. That overlay renders inside `google.com`, and
+injecting a user's personal images into a third-party page is a line worth not
+crossing.
+
+### The loop fold is a fraction of content, not a constant
+
+The crossfade that hides a loop seam is taken *out* of the music. A fixed 8-second
+fold is invisible on a two-minute track and ruinous on a 30-second one.
+
+Measured on a real Lyria clip (26.1s raw, 21.4s after its tail is trimmed):
+
+| fold | resulting loop | seam |
+|---|---|---|
+| 8.0s | 13.45s | 0.09 dB |
+| 4.0s | 17.45s | 1.06 dB |
+| 2.0s | 19.45s | 0.36 dB |
+
+Every seam sits far inside the 6 dB limit, so the long fold was trading a third
+of the music for headroom that was never needed. Capping the fold at 15% of
+trimmed content yields an 18.2s loop at the *same* 0.09 dB seam — 35% more music
+for nothing. The decision came from measurement, not intuition.
+
+### A refusal must name the limit it hit
+
+Every generation route can refuse for several unrelated reasons, and users act
+on the message rather than the status code. Telling somebody with 100 credits
+that they have no credits sends them to buy more, which will not help.
+
+Refusals therefore carry a discriminated reason and each states the real cause,
+whether the balance was affected, and when it resets. The same rule holds across
+providers: when the name-sanitiser is down, the music route says the *sanitiser*
+is unavailable — it runs on a different provider from the music itself, and one
+dead dependency should not report a working generator as broken.
 
 ## Repository map
 
