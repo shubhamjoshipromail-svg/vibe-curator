@@ -46,7 +46,7 @@ export function renderExplore(
 ): void {
   host.innerHTML = `
     <header class="page-head explore-head">
-      <div><p class="eyebrow">VISUAL → ATMOSPHERE → SOUND</p><h1>Build a world worth staying in.</h1><p class="sub">Create a visual or start from your own image. Shape its mood with sound, effects and optional motion.</p></div>
+      <div><p class="eyebrow"><a class="beta-flag" href="/beta" aria-label="Beta 2 is live — read what is included"><span class="beta-pulse" aria-hidden="true"></span><span class="beta-flag-name">BETA&nbsp;2</span><span class="beta-flag-verb">LIVE</span></a><span class="eyebrow-path">VISUAL → ATMOSPHERE → SOUND</span></p><h1>Build a world worth staying in.</h1><p class="sub">Create a visual or start from your own image. Shape its mood with sound, effects and optional motion.</p></div>
     </header>
     <section class="create-studio" aria-labelledby="create-title">
       <div class="create-copy"><span>01</span><div><h2 id="create-title">Create a visual</h2><p>One inexpensive draft first. Motion and sound are separate decisions.</p></div></div>
@@ -232,7 +232,10 @@ function wireCreation(host: HTMLElement): void {
   let generationEnabled = false; let imageModel = 'gpt-image-2';
   void mediaCapabilities().then((caps) => {
     generationEnabled = caps.sceneGeneration; imageModel = caps.imageModel ?? imageModel; go.disabled = !generationEnabled;
-    status.textContent = generationEnabled ? `~$${(caps.estimatedCostsUsd?.image ?? 0.01).toFixed(2)} per new draft · repeats reuse the local cache · session cap $${(caps.spendCapUsd ?? 3).toFixed(2)}` : 'Add OPENAI_API_KEY to generate drafts. Uploads and starting points still work.';
+    // A half-cent draft rendered through toFixed(2) became "$0.01", overstating
+    // the price twofold. Sub-cent figures need the extra digit to stay honest.
+    const money = (value: number) => (value > 0 && value < 0.01 ? value.toFixed(3) : value.toFixed(2));
+    status.textContent = generationEnabled ? `~$${money(caps.estimatedCostsUsd?.image ?? 0.005)} per new draft · repeats reuse the local cache · session cap $${money(caps.spendCapUsd ?? 3)}` : 'Add OPENAI_API_KEY to generate drafts. Uploads and starting points still work.';
   }).catch(() => { go.disabled = true; status.textContent = 'Generation is offline. Uploads and starting points still work.'; });
   const openProject = (preset: Preset) => { savePreset(preset); navigate({ name: 'labs', presetId: preset.id }); };
   go.addEventListener('click', async () => {
