@@ -67,7 +67,14 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   if (preset.scene.kind === 'procedural') {
     await state.scene.setProceduralSource(preset.scene.sourceId, sceneVibe, preset.sourceEffects);
   } else if (source && preset.scene.kind !== 'renderer') {
-    await state.scene.setMedia(source, preset.scene.kind, sceneVibe, preset.sourceEffects, preset.scene.motion, preset.livingStill?.effects);
+    try {
+      await state.scene.setMedia(source, preset.scene.kind, sceneVibe, preset.sourceEffects, preset.scene.motion, preset.livingStill?.effects);
+    } catch (error) {
+      // A missing or temporarily unreachable media file must not strand the URL
+      // on Labs while leaving the previous screen visible.
+      console.error(`[vibe] scene media failed for "${preset.scene.label}"; using renderer fallback`, error);
+      await state.scene.setVibe(sceneVibe);
+    }
   } else {
     if (preset.scene.kind !== 'renderer') {
       console.warn(`[vibe] scene asset missing for "${preset.scene.label}"; using renderer fallback`);
@@ -90,9 +97,15 @@ export async function loadPreset(state: AppState, preset: Preset): Promise<void>
   }
 
   if (state.started) {
-    state.audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
-    await state.audio.setSpec(audioSpecForPreset(preset));
-    await syncGeneratedMusic(state, preset);
+    try {
+      state.audio.setAmbientEvents(preset.livingStill?.audio.events ?? []);
+      await state.audio.setSpec(audioSpecForPreset(preset));
+      await syncGeneratedMusic(state, preset);
+    } catch (error) {
+      // Audio is optional and user-started. A bad track must not block visual
+      // navigation or prevent the editor from rendering.
+      console.error('[vibe] preset audio could not follow navigation', error);
+    }
   }
   syncAudioLayers(state, preset);
 

@@ -3,6 +3,7 @@ import { renderThumbnail } from '../preset/thumbnail';
 import type { Preset } from '../preset/types';
 import { navigate } from './router';
 import { projectPresetForChrome, setAsChromeVibe } from '../runtime/chrome-handoff';
+export { buildStylePrompt } from './marketplace-prompt';
 
 export type MarketCollectionId = 'pixel-art' | 'cozy-dark-fantasy' | 'conceptual-sketch' | 'japandi' | 'synthwave' | 'aurora' | 'mystical-western' | 'art-deco' | 'bauhaus' | 'art-nouveau' | 'wabi-sabi' | 'neo-brutalism' | 'risograph' | 'paper-cut' | 'cyanotype' | 'stained-glass' | 'surreal-collage' | 'mid-century' | 'living-scenes';
 
@@ -73,16 +74,9 @@ export const MARKET_COLLECTIONS: MarketCollection[] = [
   { id: 'living-scenes', name: 'Living Scenes', description: 'Original coded worlds that start still and become generative only when you add motion.', mood: 'Still first · Generative' },
 ];
 
-export function buildStylePrompt(collection: MarketCollection, values: { subject: string; setting: string; time: string; weather: string; mood: string }): string {
-  return `Create ${values.subject || 'an original scene'}${values.setting ? ` in ${values.setting}` : ''}. Time of day: ${values.time || 'artist choice'}. Weather/atmosphere: ${values.weather || 'artist choice'}. Desired mood: ${values.mood || collection.mood}. Fixed visual style: ${collection.stylePrompt} Full-screen 16:9 background; no text, logo, watermark or UI.`;
-}
-
 export function marketPresets(): Map<string, Preset> {
   return new Map(listPresets().map((preset) => [preset.id, preset]));
 }
-
-let activeScore: HTMLAudioElement | undefined;
-let activeScoreButton: HTMLButtonElement | undefined;
 
 export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLElement {
   const card = document.createElement('article');
@@ -104,7 +98,7 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
   body.append(author, title, copy, meta); card.appendChild(body);
   const actions = document.createElement('div'); actions.className = 'card-actions';
   const remix = document.createElement('button'); remix.className = 'primary'; remix.textContent = 'Open & remix';
-  const open = () => navigate({ name: 'labs', presetId: preset.id, returnTo: 'marketplace' });
+  const open = () => navigate({ name: 'labs', presetId: preset.id, returnTo: 'marketplace', returnCollection: post.collection });
   remix.addEventListener('click', (event) => { event.stopPropagation(); open(); });
   actions.appendChild(remix);
   if (projectPresetForChrome(preset)) {
@@ -124,30 +118,6 @@ export function renderMarketPost(preset: Preset, post: MarketplacePost): HTMLEle
       chromeButton.disabled = false;
     });
     actions.append(chromeButton, chromeStatus);
-  }
-  if (preset.baselineMusic?.url) {
-    const preview = document.createElement('button');
-    preview.className = 'ghost';
-    preview.textContent = '▶ Preview score';
-    preview.addEventListener('click', async (event) => {
-      event.stopPropagation();
-      if (activeScore && activeScoreButton === preview && !activeScore.paused) {
-        activeScore.pause();
-        preview.textContent = '▶ Preview score';
-        return;
-      }
-      activeScore?.pause();
-      if (activeScoreButton) activeScoreButton.textContent = '▶ Preview score';
-      const score = new Audio(preset.baselineMusic!.url!);
-      score.loop = true;
-      score.volume = 0.72;
-      activeScore = score;
-      activeScoreButton = preview;
-      score.addEventListener('error', () => { preview.textContent = 'Score unavailable'; }, { once: true });
-      await score.play();
-      preview.textContent = 'Ⅱ Pause score';
-    });
-    actions.appendChild(preview);
   }
   card.appendChild(actions);
   card.addEventListener('click', open);

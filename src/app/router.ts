@@ -8,7 +8,7 @@
 export type Route =
   | { name: 'explore'; view?: 'projects' | 'market'; folder?: string; type?: string; collection?: string }
   | { name: 'marketplace' }
-  | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace' }
+  | { name: 'labs'; presetId: string; returnTo?: 'explore' | 'marketplace'; returnCollection?: string }
   | { name: 'player' }
   | { name: 'legal'; page: 'privacy' | 'terms' | 'beta' | 'desktop' | 'data' };
 
@@ -18,8 +18,14 @@ export function parseRoute(locationPath: string): Route {
   const [pathname, query = ''] = path.split('?');
   const [head, arg] = pathname.split('/');
   if (head === 'labs' && arg) {
-    const from = new URLSearchParams(query).get('from');
-    return { name: 'labs', presetId: decodeURIComponent(arg), returnTo: from === 'marketplace' ? 'marketplace' : 'explore' };
+    const params = new URLSearchParams(query);
+    const from = params.get('from');
+    return {
+      name: 'labs',
+      presetId: decodeURIComponent(arg),
+      returnTo: from === 'marketplace' ? 'marketplace' : 'explore',
+      returnCollection: params.get('collection') ?? undefined,
+    };
   }
   if (head === 'marketplace') return { name: 'marketplace' };
   if (head === 'player') return { name: 'player' };
@@ -41,7 +47,13 @@ export function parseRoute(locationPath: string): Route {
 export function toPath(route: Route): string {
   switch (route.name) {
     case 'labs':
-      return `/labs/${encodeURIComponent(route.presetId)}${route.returnTo === 'marketplace' ? '?from=marketplace' : ''}`;
+      {
+        const params = new URLSearchParams();
+        if (route.returnTo === 'marketplace') params.set('from', 'marketplace');
+        if (route.returnCollection) params.set('collection', route.returnCollection);
+        const query = params.toString();
+        return `/labs/${encodeURIComponent(route.presetId)}${query ? `?${query}` : ''}`;
+      }
     case 'marketplace':
       return '/marketplace';
     case 'player':
@@ -63,10 +75,31 @@ export function toPath(route: Route): string {
 
 export function navigate(route: Route): void {
   const next = toPath(route);
-  if (`${location.pathname}${location.search}` !== next) history.pushState({}, '', next);
+  if (`${location.pathname}${location.search}` === next) return;
+  history.pushState({}, '', next);
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 export function onRouteChange(handler: (route: Route) => void): void {
   window.addEventListener('popstate', () => handler(parseRoute(`${location.pathname}${location.search}`)));
+}
+
+/** Serialize route work and retain only the newest route queued during a slow render. */
+export function createLatestTaskQueue<T>(run: (value: T) => Promise<void>): (value: T) => Promise<void> {
+  let queued: T | undefined;
+  let active = false;
+  return async (value: T) => {
+    queued = value;
+    if (active) return;
+    active = true;
+    try {
+      while (queued !== undefined) {
+        const next = queued;
+        queued = undefined;
+        await run(next);
+      }
+    } finally {
+      active = false;
+    }
+  };
 }

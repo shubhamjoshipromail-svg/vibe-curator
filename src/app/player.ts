@@ -92,8 +92,7 @@ export function renderPlayer(host: HTMLElement, state: AppState): void {
     await runtimeHost.activatePreset(preset.id);
   });
   host.querySelector('#browse')?.addEventListener('click', () => {
-    if (history.length > 1) history.back();
-    else navigate({ name: 'explore' });
+    navigate({ name: 'explore', view: preset.builtIn ? 'market' : 'projects' });
   });
   host.querySelector<HTMLButtonElement>('#sound')?.addEventListener('click', async (event) => {
     const button = event.currentTarget as HTMLButtonElement;
