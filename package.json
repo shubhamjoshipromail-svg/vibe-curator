@@ -22,7 +22,7 @@
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:native": "node scripts/check-native-release.mjs",
     "test:native": "node --test --experimental-strip-types test/native-release.test.ts",
-    "test:release": "node --test --experimental-strip-types test/release-surface.test.ts test/legacy-audio.test.ts test/music-capabilities.test.ts test/ffmpeg-release.test.ts test/ui-navigation.test.ts",
+    "test:release": "node --test --experimental-strip-types test/release-surface.test.ts test/native-download.test.ts test/legacy-audio.test.ts test/music-capabilities.test.ts test/ffmpeg-release.test.ts test/ui-navigation.test.ts",
     "test:audio": "node --test --experimental-strip-types test/audio-brief.test.ts test/music-request.test.ts",
     "test:credits": "node --test --experimental-strip-types test/credits-admin.test.ts",
     "verify:loops": "node --experimental-strip-types scripts/verify-loops.mjs",
