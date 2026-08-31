@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 
 /** The public origin accepted by the published Chrome and native clients. */
@@ -23,7 +24,19 @@ export const LEGACY_CURATED_AUDIO_REDIRECTS = Object.freeze({
   '/audio/curated/smiling-through-rain.mp3': '/audio/curated/smiling-through-rain-v2.mp3',
 } as const);
 
-const CURRENT_CURATED_AUDIO_PATHS = new Set(Object.values(LEGACY_CURATED_AUDIO_REDIRECTS));
+type CuratedAudioPack = { assets: Record<string, { file: string }> };
+
+const curatedAudioPack = JSON.parse(
+  readFileSync(new URL('../public/audio/curated/pack.json', import.meta.url), 'utf8'),
+) as CuratedAudioPack;
+
+/** Every deployed curated MP3 is explicitly admitted by the checked-in pack. */
+const CURRENT_CURATED_AUDIO_PATHS = new Set(
+  Object.values(curatedAudioPack.assets)
+    .map(({ file }) => file)
+    .filter((file) => /^[a-z0-9-]+-v2\.mp3$/.test(file))
+    .map((file) => `/audio/curated/${file}`),
+);
 
 /**
  * Returns a redirect destination only for one of the twelve former paths.

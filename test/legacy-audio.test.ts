@@ -49,6 +49,11 @@ test('pack has only v2 tracks and each redirect target is a deployable asset', (
     assert.ok(packed.includes(file), `redirect target missing from pack: ${file}`);
   }
   assert.ok(packed.every((file) => file.endsWith('-v2.mp3')));
+  for (const file of packed) {
+    const path = `/audio/curated/${file}`;
+    assert.equal(classifyCuratedAudioRequest(path).kind, 'pass', `${path} must reach static serving`);
+    assert.equal(canonicalCuratedAudioUrl(path), `${CANONICAL_VIBE_ORIGIN}${path}`, `${path} must be canonicalizable`);
+  }
 });
 
 test('native activations canonicalize only allowlisted first-party music URLs', () => {
