@@ -1,0 +1,68 @@
+{
+  "file": "market-pixel-last-broadcast-v2.mp3",
+  "cardId": "market-pixel-last-broadcast",
+  "name": "Moonlit Signal",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "lonely",
+        "nocturnal",
+        "maritime"
+      ],
+      "tempo": "slow",
+      "rhythm": "steady pulse",
+      "instrumentation": [
+        "soft analog synth",
+        "distant bell",
+        "electronic percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: lonely, nocturnal, maritime. Instrumentation: soft analog synth, distant bell, electronic percussion. Tempo: slow. Rhythm: steady pulse. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:48:44.839Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -18.8,
+    "truePeakDb": -1.9,
+    "peakDb": -1.89,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.63,
+    "noiseFloorDb": -63.5,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 1.78,
+    "contentDurationSeconds": 36.25,
+    "crossfadeSeconds": 6.25,
+    "seamDeltaDb": 0.64,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -1.9,
+    "gainDb": 0.4
+  }
+}

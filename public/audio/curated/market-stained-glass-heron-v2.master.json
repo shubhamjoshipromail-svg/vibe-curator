@@ -1,0 +1,67 @@
+{
+  "file": "market-stained-glass-heron-v2.mp3",
+  "cardId": "market-stained-glass-heron",
+  "name": "Heron Light",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "radiant",
+        "sacred",
+        "still"
+      ],
+      "tempo": "slow",
+      "rhythm": "stately pulse",
+      "instrumentation": [
+        "pipe organ",
+        "bells",
+        "cello"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: radiant, sacred, still. Instrumentation: pipe organ, bells, cello. Tempo: slow. Rhythm: stately pulse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:52:05.197Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -14.4,
+    "truePeakDb": -2.7,
+    "peakDb": -2.73,
+    "leadingSilenceSeconds": 0.41,
+    "trailingSilenceSeconds": 1.23,
+    "noiseFloorDb": -138.13,
+    "trimStartSeconds": 0.41,
+    "trimEndSeconds": 5.78,
+    "contentDurationSeconds": 31.84,
+    "crossfadeSeconds": 1.84,
+    "seamDeltaDb": 0.04,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.6,
+    "outputTruePeakDb": -7.1,
+    "gainDb": -4.2
+  }
+}

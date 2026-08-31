@@ -43,16 +43,27 @@ function checkMarketplaceAudio() {
   const marketplace = read('src/app/marketplace.ts');
   const library = read('src/preset/library.ts');
   const posts = [...marketplace.matchAll(/presetId: '([^']+)'/g)].map((match) => match[1]);
-  const scores = [...library.matchAll(/'([^']+)': curatedMusic\([^,]+, '([^']+)'/g)]
-    .map((match) => ({ id: match[1], file: match[2] }));
+  const scoreManifest = JSON.parse(read('public/audio/curated/market-scores.json'));
+  const scores = Object.entries(scoreManifest.cards ?? {})
+    .map(([id, score]) => ({ id, file: score.file, durationSeconds: score.durationSeconds }));
   assert.ok(posts.length > 0, 'marketplace posts are missing');
   assert.ok(scores.length > 0, 'curated marketplace scores are missing');
+  assert.equal(posts.length, new Set(posts).size, 'marketplace must not list the same card twice');
   const postIds = new Set(posts);
   const scoreIds = new Set(scores.map((score) => score.id));
   assert.deepEqual(scoreIds, postIds, 'every marketplace card must have one included baseline score');
+  const directionSource = library.slice(
+    library.indexOf('export const MARKET_MUSIC_DIRECTION'),
+    library.indexOf('// --- persistence'),
+  );
+  const directionIds = new Set([...directionSource.matchAll(/'([^']+)': direction\(/g)].map((match) => match[1]));
+  assert.deepEqual(directionIds, postIds, 'every Marketplace card must have one v2 music direction');
+  const marketImages = [...library.matchAll(/marketImage\('([^']+)'/g)].map((match) => match[1]);
+  assert.equal(marketImages.length, new Set(marketImages).size, 'Marketplace variants must not reuse the same source image');
   for (const score of scores) {
     assert.ok(postIds.has(score.id), `orphan curated score mapping: ${score.id}`);
     assert.ok(existsSync(resolve(ROOT, 'public/audio/curated', score.file)), `missing curated score file: ${score.file}`);
+    assert.ok(Math.abs(score.durationSeconds - 30) <= 0.15, `${score.id} must own a 30-second score`);
   }
 
   const curatedPack = JSON.parse(read('public/audio/curated/pack.json'));
@@ -62,7 +73,7 @@ function checkMarketplaceAudio() {
   }
   const actualFiles = readdirSync(resolve(ROOT, 'public/audio/curated')).filter((file) => /\.(mp3|wav|ogg)$/i.test(file));
   assert.deepEqual([...actualFiles].sort(), [...new Set(packFiles)].sort(), 'curated audio directory and pack manifest diverged');
-  assert.deepEqual(new Set(scores.map((score) => score.file)), new Set(packFiles), 'curated tracks must be reachable from marketplace score mappings');
+  for (const score of scores) assert.ok(packFiles.includes(score.file), `pack is missing current Market score: ${score.file}`);
   console.log(`Marketplace audio: ${scoreIds.size}/${postIds.size} cards have included scores; ${packFiles.length} files verified (OK)`);
 }
 

@@ -1,0 +1,68 @@
+{
+  "file": "market-neo-brutalist-playground-v2.mp3",
+  "cardId": "market-neo-brutalist-playground",
+  "name": "Hard Shadow Game",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "blunt",
+        "rhythmic",
+        "graphic"
+      ],
+      "tempo": "moderate",
+      "rhythm": "angular syncopation",
+      "instrumentation": [
+        "percussion",
+        "detuned synth bass",
+        "staccato brass"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "dense"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: blunt, rhythmic, graphic. Instrumentation: percussion, detuned synth bass, staccato brass. Tempo: moderate. Rhythm: angular syncopation. Density: dense. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:51:19.453Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -12.4,
+    "truePeakDb": -0.1,
+    "peakDb": -0.26,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.48,
+    "noiseFloorDb": -82.11,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.28,
+    "contentDurationSeconds": 35.75,
+    "crossfadeSeconds": 5.75,
+    "seamDeltaDb": 3.83,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -5.2,
+    "gainDb": -6
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "file": "market-sketch-rain-table-v2.mp3",
+  "cardId": "market-sketch-rain-table",
+  "name": "Rain Table Waltz",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "contemplative",
+        "intimate",
+        "muted"
+      ],
+      "tempo": "slow",
+      "rhythm": "loose waltz",
+      "instrumentation": [
+        "upright piano",
+        "soft cello",
+        "brush percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: contemplative, intimate, muted. Instrumentation: upright piano, soft cello, brush percussion. Tempo: slow. Rhythm: loose waltz. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:49:36.514Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -22,
+    "truePeakDb": -7,
+    "peakDb": -7.01,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.63,
+    "noiseFloorDb": -83.59,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.28,
+    "contentDurationSeconds": 35.75,
+    "crossfadeSeconds": 5.75,
+    "seamDeltaDb": 0.19,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.6,
+    "outputTruePeakDb": -3.7,
+    "gainDb": 3.4
+  }
+}

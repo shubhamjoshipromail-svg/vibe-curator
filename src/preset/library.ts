@@ -15,6 +15,7 @@ import { sourceEffect, type SourceEffectRecipe } from '../source-aware/types';
 import { migrateAssets } from '../media/assets';
 import { orchestrateLivingStill } from '../living-still/orchestrator';
 import type { MusicBriefDirection, MusicDirection, MusicMode, PlaybackPlan } from '../audio/brief';
+import marketScorePack from '../../public/audio/curated/market-scores.json';
 
 /**
  * The Library: what Explore browses and what Save writes to.
@@ -252,8 +253,6 @@ function seedPresets(): Preset[] {
       { kind: 'image', url: '/market/styles/pixel-last-broadcast.png', label: 'The Last Broadcast master', style: 'Pixel Art', mimeType: 'image/png', motion: { kind: 'none' }, provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-13T22:08:00.000Z' } })),
     market(seed('market-pixel-midnight-shrine', 'Midnight Shrine', 'A true 16-bit lakeside scene with hard pixels, still water and one warm lantern.', 'ashen-keep', SIGNAL,
       { mood: 0.3, motion: 0.08, depth: 0.52, glow: 0.44, atmosphere: 0.28, intensity: 0.16 }, [], marketImage('/market/styles/pixel-art.jpg', 'Pixel shrine at midnight', 'Pixel Art'))),
-    market(seed('market-pixel-lantern-save', 'Lantern Save Point', 'The same pixel world with warmer color and a soft analog-game glow.', 'ashen-keep', ASHEN,
-      { mood: 0.72, motion: 0.1, depth: 0.48, glow: 0.62, atmosphere: 0.32, intensity: 0.24 }, ['builtin_crt-phosphor'], marketImage('/market/styles/pixel-art.jpg', 'Pixel lantern save point', 'Pixel Art'))),
     (() => {
       const preset = market(seed('market-cozy-gatehouse-rest', 'Gatehouse Rest', 'A rainbound ranger finds one warm, quiet night beneath an abandoned mountain gatehouse.', 'ashen-keep', ASHEN,
         { mood: 0.78, motion: 0.46, depth: 0.72, glow: 0.58, atmosphere: 0.55, intensity: 0.32 }, [],
@@ -268,28 +267,16 @@ function seedPresets(): Preset[] {
     })(),
     market(seed('market-sketch-rain-table', 'Rain Table', 'Loose black ink, paper grain and two quiet cups beside a rain-dark window.', 'paper-valley', SKETCH,
       { mood: 0.52, motion: 0.08, depth: 0.38, glow: 0.12, atmosphere: 0.42, intensity: 0.12 }, [], marketImage('/market/styles/conceptual-sketch.jpg', 'Rainy café conceptual sketch', 'Conceptual Sketch'))),
-    market(seed('market-sketch-green-note', 'Green Note', 'A raw editorial drawing with one restrained green accent and softer paper tone.', 'paper-valley', MOSSGLASS,
-      { mood: 0.62, motion: 0.1, depth: 0.42, glow: 0.18, atmosphere: 0.35, intensity: 0.16 }, [], marketImage('/market/styles/conceptual-sketch.jpg', 'Green-note conceptual sketch', 'Conceptual Sketch'))),
     market(seed('market-aurora-stillwater', 'Aurora Stillwater', 'Wide iridescent light over a glass-dark horizon, paired with a slow ambient bed.', 'signal-drift', AURORA,
       { mood: 0.42, motion: 0.22, depth: 0.82, glow: 0.84, atmosphere: 0.55, intensity: 0.28 }, ['builtin_aurora-veil'], marketImage('/market/styles/aurora.jpg', 'Aurora over still water', 'Aurora'))),
-    market(seed('market-aurora-night-current', 'Night Current', 'The same luminous world with cooler color, deeper haze and rain-softened edges.', 'signal-drift', SIGNAL,
-      { mood: 0.22, motion: 0.34, depth: 0.9, glow: 0.72, atmosphere: 0.76, intensity: 0.36 }, ['builtin_rain-on-glass'], marketImage('/market/styles/aurora.jpg', 'Aurora night current', 'Aurora'))),
     market(seed('market-japandi-blue-hour', 'Blue Hour Room', 'A spare room at dusk with low light, natural wood and an unobtrusive focus loop.', 'paper-valley', JAPANDI,
       { mood: 0.46, motion: 0.08, depth: 0.42, glow: 0.18, atmosphere: 0.3, intensity: 0.12 }, [], marketImage('/market/styles/japandi-editorial.jpg', 'Japandi editorial garden', 'Japandi'))),
-    market(seed('market-japandi-warm-stillness', 'Warm Stillness', 'A warmer, softer mix of the room for reading, thinking and quiet work.', 'paper-valley', SALTFLAT,
-      { mood: 0.82, motion: 0.08, depth: 0.38, glow: 0.24, atmosphere: 0.34, intensity: 0.14 }, [], marketImage('/market/styles/japandi-editorial.jpg', 'Warm Japandi print', 'Japandi'))),
     market(seed('market-western-moon-ritual', 'Moon Ritual', 'A moonlit mesa, distant celestial geometry and a low desert drone.', 'ashen-keep', WESTERN,
       { mood: 0.68, motion: 0.2, depth: 0.78, glow: 0.58, atmosphere: 0.5, intensity: 0.3 }, ['builtin_drifting-motes'], marketImage('/market/styles/mystical-western.jpg', 'Moonlit mystical western', 'Mystical Western'))),
-    market(seed('market-western-dust-signal', 'Dust Signal', 'The desert retuned as a darker analog broadcast with slow-moving grain.', 'ashen-keep', ASHEN,
-      { mood: 0.76, motion: 0.28, depth: 0.68, glow: 0.46, atmosphere: 0.62, intensity: 0.38 }, ['builtin_crt-phosphor'], marketImage('/market/styles/mystical-western.jpg', 'Mystical western dust signal', 'Mystical Western'))),
     market(seed('market-deco-emerald-midnight', 'Emerald Midnight', 'Lacquer, brass and a distant city paired with a restrained after-hours pulse.', 'signal-drift', DECO,
       { mood: 0.62, motion: 0.18, depth: 0.86, glow: 0.56, atmosphere: 0.36, intensity: 0.24 }, [], marketImage('/market/styles/art-deco.jpg', 'Emerald Art Deco lounge', 'Art Deco'))),
-    market(seed('market-deco-golden-hour', 'Golden Afterglow', 'A warmer lounge variation with soft bloom and slow drifting light.', 'signal-drift', WESTERN,
-      { mood: 0.9, motion: 0.24, depth: 0.8, glow: 0.74, atmosphere: 0.44, intensity: 0.32 }, ['builtin_volumetric-shaft'], marketImage('/market/styles/art-deco.jpg', 'Golden Art Deco afterglow', 'Art Deco'))),
     market(seed('market-synthwave-observatory', 'Night Observatory', 'An airbrushed neon coast with a wireframe horizon and slow retro pulse.', 'signal-drift', SYNTHWAVE,
       { mood: 0.64, motion: 0.22, depth: 0.74, glow: 0.82, atmosphere: 0.3, intensity: 0.28 }, ['builtin_crt-phosphor'], marketImage('/market/styles/synthwave.jpg', 'Synthwave coastal observatory', 'Synthwave'))),
-    market(seed('market-synthwave-coastal-drive', 'Coastal Drive', 'A brighter magenta-cyan variation with deeper bloom and VHS texture.', 'signal-drift', NOCTURNE,
-      { mood: 0.76, motion: 0.3, depth: 0.78, glow: 0.94, atmosphere: 0.36, intensity: 0.4 }, ['builtin_crt-phosphor', 'builtin_aurora-veil'], marketImage('/market/styles/synthwave.jpg', 'Synthwave coastal drive', 'Synthwave'))),
 
     market(seed('market-bauhaus-pavilion', 'Primary Pavilion', 'A disciplined seaside pavilion composed from primary geometry and open space.', 'paper-valley', PAPER, { mood: 0.65, motion: 0, depth: 0.42, glow: 0.2, atmosphere: 0.2, intensity: 0.18 }, [], marketImage('/market/styles/bauhaus.png', 'Bauhaus primary pavilion', 'Bauhaus'))),
     market(seed('market-art-nouveau-conservatory', 'Moon Conservatory', 'A botanical moon garden drawn with flowing ornamental linework.', 'paper-valley', MOSSGLASS, { mood: 0.62, motion: 0, depth: 0.66, glow: 0.52, atmosphere: 0.48, intensity: 0.24 }, [], marketImage('/market/styles/art-nouveau.png', 'Art Nouveau moon conservatory', 'Art Nouveau'))),
@@ -396,7 +383,23 @@ function seedPresets(): Preset[] {
     'market-living-neon-koi': curatedMusic('builtin_bioluminescent_koi', 'bioluminescent-koi-v2.mp3', 'Bioluminescent current', '2026-08-11T20:20:00.000Z'),
   };
   for (const preset of rooms) {
-    const score = marketScores[preset.id];
+    const generated = marketScorePack.cards[preset.id as keyof typeof marketScorePack.cards];
+    const score: MusicAsset | undefined = generated
+      ? {
+          assetId: generated.assetId,
+          url: `/audio/curated/${generated.file}`,
+          name: generated.name,
+          mimeType: 'audio/mpeg',
+          durationSeconds: generated.durationSeconds,
+          playback: generated.playback as PlaybackPlan,
+          provenance: {
+            provider: 'elevenlabs',
+            model: 'music_v2',
+            vocalMode: 'instrumental',
+            createdAt: generated.createdAt,
+          },
+        }
+      : marketScores[preset.id];
     if (score) preset.baselineMusic = score;
   }
 
@@ -406,11 +409,9 @@ function seedPresets(): Preset[] {
 /**
  * Per-card music direction.
  *
- * Twelve audio files currently serve thirty Marketplace cards — electric-garden
- * alone covers five of them — so the cards are musically indistinguishable no
- * matter how different they look. This map is the missing half: one distinct
- * direction per card id, which is what a future pass would need before it could
- * generate thirty separate tracks.
+ * Every Marketplace card owns one non-ambient instrumental direction. The
+ * offline generation script renders these through ElevenLabs Music v2 and the
+ * same deterministic mastering stage used by runtime generation.
  *
  * Metadata only. Nothing here generates, plays or overwrites audio, and every
  * entry is a Partial: it directs, it does not dictate. A card with no entry
@@ -421,44 +422,37 @@ const direction = (
   mood: string[],
   instrumentation: string[],
   extra: Partial<MusicDirection> = {},
-  ambience?: string[],
 ): MusicBriefDirection => ({
   mode,
   music: { mood, instrumentation, ...extra },
-  ...(ambience ? { ambience: { enabled: true, elements: ambience } } : {}),
+  ambience: { enabled: false, elements: [], prominence: 0 },
+  playback: { mode: 'crossfade', targetDurationSeconds: 30, crossfadeSeconds: 3 },
 });
 
 export const MARKET_MUSIC_DIRECTION: Record<string, MusicBriefDirection> = {
-  'market-pixel-last-broadcast': direction('ambient_score', ['lonely', 'nocturnal', 'maritime'], ['soft synth pad', 'distant bell'], { tempo: 'slow', density: 'sparse' }, ['surf']),
-  'market-pixel-midnight-shrine': direction('ambient_score', ['still', 'reverent', 'nocturnal'], ['bell-toned synth', 'soft square-wave pad'], { tempo: 'slow', density: 'sparse' }),
-  'market-pixel-lantern-save': direction('ambient_score', ['warm', 'nostalgic', 'safe'], ['warm square-wave pad', 'soft arpeggio'], { tempo: 'moderate' }),
-  'market-cozy-gatehouse-rest': direction('ambient_score', ['sheltered', 'tender', 'weary'], ['felt piano', 'low strings'], { tempo: 'slow', density: 'sparse' }, ['rain', 'fire']),
-  'market-sketch-rain-table': direction('ambient_score', ['contemplative', 'intimate', 'muted'], ['upright piano'], { tempo: 'slow', density: 'sparse' }, ['rain']),
-  'market-sketch-green-note': direction('instrumental_score', ['focused', 'dry', 'understated'], ['muted piano', 'upright bass'], { tempo: 'moderate' }),
-  'market-aurora-stillwater': direction('ambient_score', ['vast', 'luminous', 'serene'], ['wide synth pad', 'glass harmonics'], { tempo: 'slow', density: 'spacious' }),
-  'market-aurora-night-current': direction('ambient_score', ['cold', 'submerged', 'drifting'], ['deep pad', 'filtered noise'], { tempo: 'slow', density: 'dense' }, ['rain']),
-  'market-japandi-blue-hour': direction('ambient_score', ['quiet', 'spare', 'focused'], ['felt piano'], { tempo: 'slow', density: 'sparse' }),
-  'market-japandi-warm-stillness': direction('ambient_score', ['warm', 'calm', 'unhurried'], ['felt piano', 'soft strings'], { tempo: 'slow', density: 'sparse' }),
-  'market-western-moon-ritual': direction('ambient_score', ['arid', 'ceremonial', 'vast'], ['bowed bass drone', 'distant metallic resonance'], { tempo: 'slow' }),
-  'market-western-dust-signal': direction('ambient_score', ['degraded', 'nocturnal', 'uneasy'], ['detuned drone', 'tape hiss'], { tempo: 'slow' }),
+  'market-pixel-last-broadcast': direction('instrumental_score', ['lonely', 'nocturnal', 'maritime'], ['soft analog synth', 'distant bell', 'electronic percussion'], { tempo: 'slow', rhythm: 'steady pulse', density: 'sparse' }),
+  'market-pixel-midnight-shrine': direction('instrumental_score', ['still', 'reverent', 'nocturnal'], ['bell-toned synth', 'warm square-wave lead', 'soft electronic drums'], { tempo: 'slow', rhythm: 'measured pulse', density: 'sparse' }),
+  'market-cozy-gatehouse-rest': direction('instrumental_score', ['sheltered', 'tender', 'weary'], ['felt piano', 'low strings', 'soft frame drum'], { tempo: 'slow', rhythm: 'gentle pulse', density: 'sparse' }),
+  'market-sketch-rain-table': direction('instrumental_score', ['contemplative', 'intimate', 'muted'], ['upright piano', 'soft cello', 'brush percussion'], { tempo: 'slow', rhythm: 'loose waltz', density: 'sparse' }),
+  'market-aurora-stillwater': direction('instrumental_score', ['vast', 'luminous', 'serene'], ['glass harmonics', 'electric piano', 'soft synth bass', 'electronic percussion'], { tempo: 'slow', rhythm: 'flowing pulse', density: 'spacious' }),
+  'market-japandi-blue-hour': direction('instrumental_score', ['quiet', 'spare', 'focused'], ['felt piano', 'marimba', 'upright bass'], { tempo: 'slow', rhythm: 'measured', density: 'sparse' }),
+  'market-western-moon-ritual': direction('instrumental_score', ['arid', 'ceremonial', 'vast'], ['baritone guitar', 'bowed bass', 'hand drum', 'distant metallic percussion'], { tempo: 'slow', rhythm: 'processional' }),
   'market-deco-emerald-midnight': direction('instrumental_score', ['sophisticated', 'nocturnal', 'smoky'], ['muted trumpet', 'brushed drums', 'upright bass'], { tempo: 'moderate' }),
-  'market-deco-golden-hour': direction('instrumental_score', ['warm', 'languid', 'golden'], ['vibraphone', 'brushed drums', 'upright bass'], { tempo: 'slow' }),
   'market-synthwave-observatory': direction('instrumental_score', ['retro', 'expansive', 'nocturnal'], ['analog synth', 'gated pad', 'electronic drums'], { tempo: 'moderate' }),
-  'market-synthwave-coastal-drive': direction('instrumental_score', ['propulsive', 'bright', 'nostalgic'], ['arpeggiated synth', 'electronic drums'], { tempo: 'fast' }),
   'market-bauhaus-pavilion': direction('instrumental_score', ['precise', 'open', 'rational'], ['marimba', 'clarinet'], { tempo: 'moderate', density: 'sparse' }),
   'market-art-nouveau-conservatory': direction('instrumental_score', ['ornate', 'nocturnal', 'botanical'], ['harp', 'flute', 'strings'], { tempo: 'slow' }),
-  'market-wabi-sabi-rain-bowl': direction('soundscape', ['still', 'imperfect', 'quiet'], [], { density: 'sparse' }, ['rain']),
+  'market-wabi-sabi-rain-bowl': direction('instrumental_score', ['still', 'imperfect', 'quiet'], ['prepared piano', 'wood percussion', 'soft cello'], { tempo: 'slow', rhythm: 'free and measured', density: 'sparse' }),
   'market-neo-brutalist-playground': direction('instrumental_score', ['blunt', 'rhythmic', 'graphic'], ['percussion', 'detuned synth bass'], { tempo: 'moderate', density: 'dense' }),
   'market-risograph-hill-ride': direction('instrumental_score', ['buoyant', 'kinetic', 'printed'], ['marimba', 'muted guitar'], { tempo: 'moderate' }),
-  'market-paper-cut-fox-valley': direction('ambient_score', ['storybook', 'nocturnal', 'hushed'], ['celesta', 'soft strings'], { tempo: 'slow' }),
-  'market-cyanotype-coast': direction('ambient_score', ['cool', 'archival', 'still'], ['bowed vibraphone', 'glass harmonics'], { tempo: 'slow', density: 'sparse' }, ['surf']),
-  'market-stained-glass-heron': direction('ambient_score', ['radiant', 'sacred', 'still'], ['wordless choir', 'bells', 'organ'], { tempo: 'slow' }),
-  'market-surreal-collage-door': direction('ambient_score', ['dreamlike', 'displaced', 'uncanny'], ['processed piano', 'reversed textures'], { tempo: 'slow' }, ['surf']),
+  'market-paper-cut-fox-valley': direction('instrumental_score', ['storybook', 'nocturnal', 'hushed'], ['celesta', 'soft strings', 'pizzicato cello'], { tempo: 'slow', rhythm: 'gentle storybook pulse' }),
+  'market-cyanotype-coast': direction('instrumental_score', ['cool', 'archival', 'still'], ['bowed vibraphone', 'glass harmonics', 'soft piano'], { tempo: 'slow', rhythm: 'tidal pulse', density: 'sparse' }),
+  'market-stained-glass-heron': direction('instrumental_score', ['radiant', 'sacred', 'still'], ['pipe organ', 'bells', 'cello'], { tempo: 'slow', rhythm: 'stately pulse' }),
+  'market-surreal-collage-door': direction('instrumental_score', ['dreamlike', 'displaced', 'uncanny'], ['processed piano', 'reversed guitar', 'upright bass', 'brush percussion'], { tempo: 'slow', rhythm: 'off-kilter pulse' }),
   'market-mid-century-lake-house': direction('instrumental_score', ['optimistic', 'breezy', 'warm'], ['vibraphone', 'brushed drums', 'flute'], { tempo: 'moderate' }),
   'market-living-color-orbit': direction('instrumental_score', ['kaleidoscopic', 'euphoric', 'kinetic'], ['arpeggiated synth', 'electronic percussion'], { tempo: 'fast', density: 'dense' }),
-  'market-living-midnight-haze': direction('ambient_score', ['hazy', 'suspended', 'violet'], ['deep pad', 'filtered noise'], { tempo: 'slow', density: 'dense' }, ['rain']),
+  'market-living-midnight-haze': direction('instrumental_score', ['hazy', 'suspended', 'violet'], ['electric piano', 'deep synth bass', 'soft electronic drums'], { tempo: 'slow', rhythm: 'half-time pulse', density: 'medium' }),
   'market-living-neon-koi': direction('instrumental_score', ['fluid', 'electric', 'luminous'], ['plucked synth', 'sub bass'], { tempo: 'moderate' }),
-  'market-living-ember-throne': direction('ambient_score', ['solemn', 'vast', 'embered'], ['low strings', 'wordless choir', 'drone'], { tempo: 'slow' }, ['fire']),
+  'market-living-ember-throne': direction('instrumental_score', ['solemn', 'vast', 'embered'], ['low strings', 'french horn', 'timpani'], { tempo: 'slow', rhythm: 'measured processional' }),
 };
 
 // --- persistence -------------------------------------------------------------

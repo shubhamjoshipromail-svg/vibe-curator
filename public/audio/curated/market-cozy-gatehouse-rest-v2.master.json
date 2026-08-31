@@ -1,0 +1,68 @@
+{
+  "file": "market-cozy-gatehouse-rest-v2.mp3",
+  "cardId": "market-cozy-gatehouse-rest",
+  "name": "Gatehouse Vigil",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "sheltered",
+        "tender",
+        "weary"
+      ],
+      "tempo": "slow",
+      "rhythm": "gentle pulse",
+      "instrumentation": [
+        "felt piano",
+        "low strings",
+        "soft frame drum"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: sheltered, tender, weary. Instrumentation: felt piano, low strings, soft frame drum. Tempo: slow. Rhythm: gentle pulse. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:49:12.630Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -18.3,
+    "truePeakDb": -3,
+    "peakDb": -3.02,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.4,
+    "noiseFloorDb": -91.1,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.53,
+    "contentDurationSeconds": 34.5,
+    "crossfadeSeconds": 4.5,
+    "seamDeltaDb": 1.06,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.3,
+    "outputTruePeakDb": -1.9,
+    "gainDb": 0
+  }
+}

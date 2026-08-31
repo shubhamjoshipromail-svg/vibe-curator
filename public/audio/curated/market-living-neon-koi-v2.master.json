@@ -1,0 +1,67 @@
+{
+  "file": "market-living-neon-koi-v2.mp3",
+  "cardId": "market-living-neon-koi",
+  "name": "Neon Current",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "fluid",
+        "electric",
+        "luminous"
+      ],
+      "tempo": "moderate",
+      "rhythm": "flowing broken beat",
+      "instrumentation": [
+        "plucked synth",
+        "sub bass",
+        "electronic percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: fluid, electric, luminous. Instrumentation: plucked synth, sub bass, electronic percussion. Tempo: moderate. Rhythm: flowing broken beat. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:53:04.305Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -12.5,
+    "truePeakDb": -0.3,
+    "peakDb": -0.39,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.51,
+    "noiseFloorDb": -79.72,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.53,
+    "contentDurationSeconds": 34.5,
+    "crossfadeSeconds": 4.5,
+    "seamDeltaDb": 2.72,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -5.2,
+    "gainDb": -5.9
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "file": "market-pixel-midnight-shrine-v2.mp3",
+  "cardId": "market-pixel-midnight-shrine",
+  "name": "Shrine Save Theme",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "still",
+        "reverent",
+        "nocturnal"
+      ],
+      "tempo": "slow",
+      "rhythm": "measured pulse",
+      "instrumentation": [
+        "bell-toned synth",
+        "warm square-wave lead",
+        "soft electronic drums"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: still, reverent, nocturnal. Instrumentation: bell-toned synth, warm square-wave lead, soft electronic drums. Tempo: slow. Rhythm: measured pulse. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:53:19.770Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -13.7,
+    "truePeakDb": -1.4,
+    "peakDb": -1.41,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.51,
+    "noiseFloorDb": -85.16,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.28,
+    "contentDurationSeconds": 35.75,
+    "crossfadeSeconds": 5.75,
+    "seamDeltaDb": 2,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.6,
+    "outputTruePeakDb": -6.6,
+    "gainDb": -4.9
+  }
+}

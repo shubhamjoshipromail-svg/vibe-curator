@@ -1,0 +1,68 @@
+{
+  "file": "market-cyanotype-coast-v2.mp3",
+  "cardId": "market-cyanotype-coast",
+  "name": "Blue Exposure",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "cool",
+        "archival",
+        "still"
+      ],
+      "tempo": "slow",
+      "rhythm": "tidal pulse",
+      "instrumentation": [
+        "bowed vibraphone",
+        "glass harmonics",
+        "soft piano"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: cool, archival, still. Instrumentation: bowed vibraphone, glass harmonics, soft piano. Tempo: slow. Rhythm: tidal pulse. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:57:01.540Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -24.2,
+    "truePeakDb": -8.3,
+    "peakDb": -8.27,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.03,
+    "noiseFloorDb": -89.35,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.78,
+    "contentDurationSeconds": 35.25,
+    "crossfadeSeconds": 5.25,
+    "seamDeltaDb": 0.05,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -19.1,
+    "outputTruePeakDb": -3.7,
+    "gainDb": 5.1
+  }
+}
