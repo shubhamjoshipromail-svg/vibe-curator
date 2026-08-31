@@ -331,17 +331,22 @@ function seedPresets(): Preset[] {
    */
   const CURATED_PLAYBACK: Record<string, PlaybackPlan> = {
     'bioluminescent-koi-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.4, crossfadeSeconds: 3.78 },
-    'electric-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.31, crossfadeSeconds: 3.94 },
+    // Regenerated at 120s through the v2 pipeline; these are the measured
+    // post-master lengths and the folds actually baked in. The old 22s values
+    // survived the rename and would have cut the new track to a fifth of itself.
+    'electric-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 107.5, crossfadeSeconds: 8 },
     'foggy-stone-shelter-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 70.51, crossfadeSeconds: 8 },
     'gatehouse-rain-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 75.75, crossfadeSeconds: 8 },
     'impressionist-water-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.29, crossfadeSeconds: 3.93 },
-    'japanese-water-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 23, crossfadeSeconds: 4.06 },
+    // Folded over 18s: this piece decays to near silence and a shorter fold
+    // left a 23dB jump at the loop point.
+    'japanese-water-garden-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 97, crossfadeSeconds: 18 },
     'koi-pond-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.28, crossfadeSeconds: 3.93 },
     'last-broadcast-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 20.61, crossfadeSeconds: 3.64 },
     'late-night-focus-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 22.1, crossfadeSeconds: 3.9 },
     'luminous-current-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.56, crossfadeSeconds: 3.8 },
     'pixel-forest-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 76, crossfadeSeconds: 8 },
-    'smiling-through-rain-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 21.68, crossfadeSeconds: 3.82 },
+    'smiling-through-rain-v2.mp3': { mode: 'crossfade', targetDurationSeconds: 103.75, crossfadeSeconds: 8 },
   };
 
   const curatedMusic = (

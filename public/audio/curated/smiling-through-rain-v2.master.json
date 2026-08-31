@@ -1,51 +1,25 @@
 {
-  "file": "smiling-through-rain-v2.mp3",
-  "plan": {
-    "mode": "crossfade",
-    "targetDurationSeconds": 30,
-    "crossfadeSeconds": 3.82
-  },
-  "crossfade": {
-    "configured": 8,
-    "effective": 3.82,
-    "clamped": true,
-    "maxFraction": 0.15
-  },
-  "report": {
-    "ok": true,
-    "targetLufs": -18,
-    "notes": [],
-    "measuredDurationSeconds": 30.04,
-    "measuredLufs": -21.9,
-    "truePeakDb": -4.4,
-    "peakDb": -4.44,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 1.92,
-    "noiseFloorDb": -89.55,
-    "trimStartSeconds": 0,
-    "trimEndSeconds": 4.54,
-    "contentDurationSeconds": 25.5,
-    "crossfadeSeconds": 3.82,
-    "seamDeltaDb": 0.17,
-    "loopStart": 0,
-    "loopEnd": 21.68,
-    "outputDurationSeconds": 21.68,
-    "outputLufs": -18.5,
-    "outputTruePeakDb": -1.9,
-    "gainDb": 3.4
-  },
-  "before": {
-    "durationSeconds": 30.04,
-    "lufs": -21.9,
-    "truePeakDb": -4.4,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 1.92
-  },
-  "after": {
-    "durationSeconds": 21.71,
-    "lufs": -18.5,
-    "truePeakDb": -1.9,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 0
-  }
+  "ok": true,
+  "targetLufs": -18,
+  "notes": [],
+  "measuredDurationSeconds": 120.03,
+  "measuredLufs": -16,
+  "truePeakDb": -1.4,
+  "peakDb": -1.44,
+  "leadingSilenceSeconds": 0,
+  "trailingSilenceSeconds": 1.91,
+  "noiseFloorDb": -93.06,
+  "trimStartSeconds": 0,
+  "trimEndSeconds": 8.28,
+  "contentDurationSeconds": 111.75,
+  "crossfadeSeconds": 8,
+  "seamDeltaDb": 0.88,
+  "loopStart": 0,
+  "loopEnd": 103.75,
+  "outputDurationSeconds": 103.75,
+  "outputLufs": -18.4,
+  "outputTruePeakDb": -3.8,
+  "gainDb": -2.4,
+  "prompt": "An ambient score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: contemplative, intimate, muted. Instrumentation: upright piano, soft cello. Tempo: slow. Density: sparse. Avoid: field recording, rain sounds, broadband noise, no hook, no repeated motif more than twice consecutively, no drum kit.",
+  "regeneratedAt": "2026-08-30T22:56:48.668Z"
 }

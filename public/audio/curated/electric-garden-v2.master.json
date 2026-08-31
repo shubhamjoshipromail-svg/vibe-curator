@@ -1,51 +1,25 @@
 {
-  "file": "electric-garden-v2.mp3",
-  "plan": {
-    "mode": "crossfade",
-    "targetDurationSeconds": 30,
-    "crossfadeSeconds": 3.94
-  },
-  "crossfade": {
-    "configured": 8,
-    "effective": 3.94,
-    "clamped": true,
-    "maxFraction": 0.15
-  },
-  "report": {
-    "ok": true,
-    "targetLufs": -18,
-    "notes": [],
-    "measuredDurationSeconds": 30.04,
-    "measuredLufs": -12.9,
-    "truePeakDb": -0.5,
-    "peakDb": -0.53,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 0.47,
-    "noiseFloorDb": -74.19,
-    "trimStartSeconds": 0,
-    "trimEndSeconds": 3.79,
-    "contentDurationSeconds": 26.25,
-    "crossfadeSeconds": 3.94,
-    "seamDeltaDb": 0.36,
-    "loopStart": 0,
-    "loopEnd": 22.31,
-    "outputDurationSeconds": 22.31,
-    "outputLufs": -18.4,
-    "outputTruePeakDb": -6.1,
-    "gainDb": -5.5
-  },
-  "before": {
-    "durationSeconds": 30.04,
-    "lufs": -12.9,
-    "truePeakDb": -0.5,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 0.47
-  },
-  "after": {
-    "durationSeconds": 22.36,
-    "lufs": -18.4,
-    "truePeakDb": -6.1,
-    "leadingSilenceSeconds": 0,
-    "trailingSilenceSeconds": 0
-  }
+  "ok": true,
+  "targetLufs": -18,
+  "notes": [],
+  "measuredDurationSeconds": 120.03,
+  "measuredLufs": -14.1,
+  "truePeakDb": -0.6,
+  "peakDb": -0.64,
+  "leadingSilenceSeconds": 0,
+  "trailingSilenceSeconds": 1.6,
+  "noiseFloorDb": -94.5,
+  "trimStartSeconds": 0,
+  "trimEndSeconds": 4.53,
+  "contentDurationSeconds": 115.5,
+  "crossfadeSeconds": 8,
+  "seamDeltaDb": 1.97,
+  "loopStart": 0,
+  "loopEnd": 107.5,
+  "outputDurationSeconds": 107.5,
+  "outputLufs": -18.4,
+  "outputTruePeakDb": -4.9,
+  "gainDb": -4.3,
+  "prompt": "An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: electric, buoyant, nocturnal. Instrumentation: analog synth, electric piano, soft drum machine, electric bass. Tempo: moderate. Rhythm: steady pulse. Density: medium. Evolution: builds gently and settles back.",
+  "regeneratedAt": "2026-08-30T22:56:02.243Z"
 }
