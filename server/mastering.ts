@@ -38,6 +38,11 @@ const TARGET_TRUE_PEAK_DB = -1.5;
 /** A master that gets this close to full scale has been clipped by the encoder. */
 const REJECT_TRUE_PEAK_DB = -0.1;
 const MAX_SEAM_DELTA_DB = 6;
+/**
+ * Ceiling on the fold as a fraction of trimmed content. A long crossfade on a
+ * short clip is the difference between an ambient bed and an audible loop.
+ */
+const MAX_CROSSFADE_FRACTION = 0.15;
 /** Measured either side of the loop point to judge the seam. */
 const SEAM_WINDOW_SECONDS = 0.05;
 
@@ -495,8 +500,22 @@ export async function masterTrack(input: Buffer, plan: PlaybackPlan): Promise<Ma
     }
 
     // 5 — fold the tail onto the head so the wrap point is seamless.
+    //
+    // The fold comes OUT of the content, so a fixed crossfade eats a short
+    // clip. Lyria returns about 26s, roughly 21s after its tail is trimmed, and
+    // the ambient_score default of 8s left a 13s loop — short enough to hear
+    // repeating. Measured on a real clip, shrinking the fold costs nothing:
+    // seam was 0.09dB at 8s and still 0.77dB at 3s, far inside the 6dB limit,
+    // while the loop grew from 13.4s to 18.5s.
+    //
+    // The same 15% ceiling scripts/master-baselines.mjs already applies to the
+    // curated backfill, so offline and runtime mastering now agree.
     const wants = plan.mode !== 'once' && plan.crossfadeSeconds > 0;
-    const fadeSeconds = Math.min(plan.crossfadeSeconds, contentSeconds / 2);
+    const fadeSeconds = Math.min(
+      plan.crossfadeSeconds,
+      contentSeconds * MAX_CROSSFADE_FRACTION,
+      contentSeconds / 2,
+    );
     const folds = wants && fadeSeconds > 0;
     const finished = folds ? crossfade(content, fadeSeconds) : content;
     report.crossfadeSeconds = round(folds ? fadeSeconds : 0);

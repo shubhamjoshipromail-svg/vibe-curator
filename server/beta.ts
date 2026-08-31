@@ -40,10 +40,10 @@ function positiveMoney(name: string, fallback: number): number {
  * INVARIANT: the per-user daily cap must exceed the maximum spend achievable
  * with a full credit balance, or the credit balance is a lie.
  *
- * 100 welcome credits buy at most ~$2.71 (12 music generations at 8 credits and
- * $0.226 each) or ~$2.33 (one 60-credit motion draft plus five music). The old
+ * 100 welcome credits buy at most ~$2.05 (50 Lyria clips at 2 credits and
+ * $0.041 each) or ~$2.02 (one 60-credit motion draft plus twenty clips). The old
  * $1 default stopped a user after four music generations while the UI still
- * advertised twelve, which is the reported "100 credits, not enough credits"
+ * advertised available credits, which is the reported "100 credits, not enough credits"
  * bug. $4 sits above the credit ceiling, so credits are the real limit and
  * these remain what they are meant to be: a safety net on the provider account.
  *

@@ -13,7 +13,7 @@ export type CreditOperation = 'image' | 'music' | 'motion' | 'shader' | 'directi
 
 export const CREDIT_COSTS: Record<CreditOperation, number> = {
   image: 2,
-  music: 8,
+  music: 2,
   motion: 60,
   shader: 1,
   direction: 1,

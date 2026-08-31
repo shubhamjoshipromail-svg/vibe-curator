@@ -6,6 +6,12 @@ export interface MediaCapabilities {
   musicGeneration: boolean;
   musicPromptAdaptation?: boolean;
   elevenMusicConfigured?: boolean;
+  lyriaMusicConfigured?: boolean;
+  defaultMusicProvider?: 'lyria' | 'elevenlabs';
+  musicProviders?: {
+    lyria: { available: boolean; enabled: boolean; premiumOnly: false; model: string; costUsd: number; durationSeconds: number };
+    elevenlabs: { available: boolean; enabled: boolean; premiumOnly: true; model: string; costUsd: number; durationSeconds: number };
+  };
   musicPromptTranslatorConfigured?: boolean;
   /** v2 is the default; v1 remains available only as an explicit compatibility mode. */
   pipelineVersion?: 'v1' | 'v2';
@@ -112,6 +118,7 @@ export async function generateSceneMotion(
 }
 
 export interface MusicRequest {
+  provider: 'lyria' | 'elevenlabs';
   brief: MusicBrief;
   /** The user's own words. Empty is valid: the brief still carries direction. */
   userRequest: string;
