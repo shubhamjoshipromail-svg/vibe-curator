@@ -21,9 +21,12 @@ test('first-page Chrome action uses the stable published extension identity', ()
   assert.match(account, /<span>Chrome<\/span>/);
 });
 
-test('desktop page uses the stable native-releases channel and preserves the Gatekeeper warning', () => {
+test('desktop page downloads the latest DMG directly and preserves the Gatekeeper warning', () => {
   const legal = read('src/app/legal.ts');
   assert.match(legal, /NATIVE_RELEASES_URL = 'https:\/\/github\.com\/shubhamjoshipromail-svg\/vibe-curator\/releases'/);
+  assert.match(legal, /NATIVE_DOWNLOAD_URL = '\/downloads\/mac\/latest'/);
+  assert.match(legal, /href="\$\{NATIVE_DOWNLOAD_URL\}">Download latest technical beta/);
+  assert.match(legal, /href="\$\{NATIVE_RELEASES_URL\}">View release notes and SHA-256 checksum/);
   assert.match(legal, /Download latest technical beta/);
   assert.match(legal, /ad-hoc signed rather than notarized by Apple/);
   assert.match(legal, /Unnotarized technical-tester build/);

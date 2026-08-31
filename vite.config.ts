@@ -10,6 +10,7 @@ import { securityPlugin } from './server/security';
 import { privacyPlugin } from './server/privacy';
 import { nativeActivationPlugin } from './server/native';
 import { legacyCuratedAudioPlugin } from './server/legacy-audio';
+import { nativeDownloadPlugin } from './server/native-download';
 
 function previewApiBridge(apiPlugins: Plugin[]): Plugin {
   return {
@@ -37,6 +38,7 @@ export default defineConfig(({ mode }) => {
   const allowedHosts = [...new Set(['localhost', '127.0.0.1', ...(publicHost ? [publicHost] : [])])];
   const apiPlugins = [
     securityPlugin(),
+    nativeDownloadPlugin(),
     legacyCuratedAudioPlugin(),
     authPlugin(),
     privacyPlugin(),

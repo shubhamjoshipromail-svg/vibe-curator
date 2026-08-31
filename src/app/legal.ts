@@ -3,6 +3,7 @@ import { navigate, type Route } from './router';
 
 const LAST_UPDATED = 'August 23, 2026';
 const NATIVE_RELEASES_URL = 'https://github.com/shubhamjoshipromail-svg/vibe-curator/releases';
+const NATIVE_DOWNLOAD_URL = '/downloads/mac/latest';
 
 function shell(title: string, body: string): string {
   return `<main class="legal-page">
@@ -46,7 +47,7 @@ const desktop = shell('Desktop app for Mac', `
   <h2>What the app does</h2><p>It runs a living scene behind desktop icons, adds a menu-bar control, and can be opened from the website with a <code>vibecurator://</code> link after installation. A WebSocket cannot wake a closed app; the registered deep link can.</p>
   <div class="legal-callout warning-callout"><strong>Unnotarized technical-tester build</strong><p>Gatekeeper will block the first normal launch because this Mac has no Developer ID signing certificate installed. Download it only from this page. After dragging it to Applications, try opening it once, then use Finder’s right-click → Open flow or System Settings → Privacy &amp; Security → Open Anyway. Do not weaken Gatekeeper globally.</p>
     <p><strong>Requirements:</strong> Apple-silicon Mac (M1 or newer), macOS 11 or newer.</p>
-    <a class="button-like primary" href="${NATIVE_RELEASES_URL}">Download latest technical beta</a>
+    <a class="button-like primary" href="${NATIVE_DOWNLOAD_URL}">Download latest technical beta</a>
     <a class="checksum-link" href="${NATIVE_RELEASES_URL}">View release notes and SHA-256 checksum</a>
   </div>`);
 
