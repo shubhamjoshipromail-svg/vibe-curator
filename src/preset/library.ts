@@ -244,7 +244,7 @@ function seedPresets(): Preset[] {
     tags: [...preset.tags, 'curated', 'static-scene', 'simple-music'],
   });
   const marketImage = (path: string, label: string, style: string): SceneLayer => ({
-    kind: 'image', url: path, label, style, mimeType: 'image/jpeg', motion: { kind: 'none' },
+    kind: 'image', url: path, label, style, mimeType: path.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg', motion: { kind: 'none' },
     provenance: { provider: 'openai', model: 'gpt-image-2', createdAt: '2026-08-13T21:44:00.000Z' },
   });
   rooms.push(

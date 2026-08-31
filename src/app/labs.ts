@@ -61,11 +61,13 @@ function installPeekWhileAdjusting(host: HTMLElement): void {
  * a built-in never damages it — opening one starts an owned copy, so the
  * starting library is always intact to come back to.
  */
-export async function renderLabs(host: HTMLElement, state: AppState, presetId: string, returnTo: 'explore' | 'marketplace' = 'explore'): Promise<void> {
+export async function renderLabs(host: HTMLElement, state: AppState, presetId: string, returnTo: 'explore' | 'marketplace' = 'explore', returnCollection?: string): Promise<void> {
   const source = getPreset(presetId);
   if (!source) {
     host.innerHTML = `<div class="empty-stage"><p>That room no longer exists.</p><button class="primary" id="go">Back to Explore</button></div>`;
-    host.querySelector('#go')?.addEventListener('click', () => navigate({ name: returnTo }));
+    host.querySelector('#go')?.addEventListener('click', () => navigate(returnTo === 'marketplace'
+      ? { name: 'explore', view: 'market', collection: returnCollection }
+      : { name: 'explore', view: 'market' }));
     return;
   }
 
@@ -984,8 +986,9 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   }
 
   host.querySelector('#back')?.addEventListener('click', () => {
-    if (history.length > 1) history.back();
-    else navigate({ name: returnTo });
+    navigate(returnTo === 'marketplace'
+      ? { name: 'explore', view: 'market', collection: returnCollection }
+      : { name: 'explore', view: 'market' });
   });
   host.querySelector('#save')?.addEventListener('click', () => {
     commit();

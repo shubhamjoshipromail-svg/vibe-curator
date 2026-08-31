@@ -1,7 +1,7 @@
 import { Scene } from './scene';
 import { AudioEngine } from './audio/engine';
 import { createState, loadPreset } from './app/state';
-import { parseRoute, navigate, onRouteChange, toPath, type Route } from './app/router';
+import { createLatestTaskQueue, parseRoute, navigate, onRouteChange, toPath, type Route } from './app/router';
 import { renderExplore } from './app/explore';
 import { renderLabs } from './app/labs';
 import { renderPlayer } from './app/player';
@@ -83,7 +83,7 @@ async function boot(): Promise<void> {
   }
   const initialRoute = parseRoute(`${location.pathname}${location.search}${location.hash}`);
   if (location.hash.startsWith('#/')) history.replaceState({}, '', toPath(initialRoute));
-  render(initialRoute);
+  await scheduleRender(initialRoute);
   if (initialRoute.name === 'legal') gate.classList.add('hidden');
   await mountAccountControl(app.querySelector<HTMLElement>('#account-slot')!);
 }
@@ -93,13 +93,14 @@ async function render(route: Route): Promise<void> {
   gate.classList.toggle('hidden', route.name === 'legal' || policyAcknowledged);
   scene.setViewMode(route.name === 'player' ? 'player' : route.name === 'labs' ? 'labs' : 'explore');
   view.scrollTop = 0;
+  view.innerHTML = '<div class="empty-stage route-loading"><p>Opening…</p></div>';
 
   switch (route.name) {
     case 'legal':
       await renderLegal(view, route);
       break;
     case 'labs':
-      await renderLabs(view, state, route.presetId, route.returnTo);
+      await renderLabs(view, state, route.presetId, route.returnTo, route.returnCollection);
       break;
     case 'marketplace':
       // Backward-compatible alias: Market is now an in-place Library view.
@@ -118,7 +119,18 @@ async function render(route: Route): Promise<void> {
   }
 }
 
-onRouteChange((route) => void render(route));
+async function renderSafely(route: Route): Promise<void> {
+  try {
+    await render(route);
+  } catch (error) {
+    console.error('[vibe] route failed to render', error);
+    view.innerHTML = '<div class="empty-stage"><p>This screen could not open. Your previous work is still saved.</p><button class="primary" id="route-home">Back to Market</button></div>';
+    view.querySelector('#route-home')?.addEventListener('click', () => navigate({ name: 'explore', view: 'market' }));
+  }
+}
+
+const scheduleRender = createLatestTaskQueue(renderSafely);
+onRouteChange((route) => void scheduleRender(route));
 
 const accept = app.querySelector<HTMLInputElement>('#accept-beta')!;
 const begin = app.querySelector<HTMLButtonElement>('#begin')!;

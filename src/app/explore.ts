@@ -22,7 +22,10 @@ const STYLES = [
   { value: 'neon motion graphic, luminous edges and dark background', label: 'Neon glow', help: 'Bright luminous edges on a dark background.' },
   { value: 'editorial halftone print, tactile ink dots and bold color', label: 'Printed dots', help: 'A graphic print look made from visible ink-like dots.' },
   { value: 'ASCII character mosaic, high contrast digital typography', label: 'Text mosaic', help: 'The image is rebuilt with characters and digital texture.' },
+  { value: 'follow the complete visual style already specified in the subject prompt; do not introduce a second style', label: 'Prompt defines style', help: 'Uses the full style recipe already present in your prompt.' },
 ];
+
+const PROMPT_DEFINED_STYLE = STYLES.at(-1)!.value;
 
 type LibraryView = 'projects' | 'market';
 type ProjectType = 'generated' | 'uploads' | 'living' | 'music' | 'remixes';
@@ -125,8 +128,7 @@ export function renderExplore(
     } else {
       const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All folders';
       back.addEventListener('click', () => {
-        if (history.length > 1) history.back();
-        else navigate({ name: 'explore', view: 'projects' });
+        navigate({ name: 'explore', view: 'projects' });
       }); breadcrumbs.appendChild(back);
       if (projectFolder) {
         const remove = document.createElement('button'); remove.className = 'ghost danger-quiet'; remove.textContent = 'Delete folder';
@@ -181,8 +183,7 @@ export function renderExplore(
     }
     const back = document.createElement('button'); back.className = 'crumb-button'; back.textContent = '← All collections';
     back.addEventListener('click', () => {
-      if (history.length > 1) history.back();
-      else navigate({ name: 'explore', view: 'market' });
+      navigate({ name: 'explore', view: 'market' });
     }); breadcrumbs.appendChild(back);
     const presets = marketPresets();
     const collection = MARKET_COLLECTIONS.find((item) => item.id === marketFolder);
@@ -208,7 +209,10 @@ function styleRecipe(collection: (typeof MARKET_COLLECTIONS)[number], host: HTML
   section.querySelector('[data-copy]')?.addEventListener('click', () => { void navigator.clipboard.writeText(output.value); });
   section.querySelector('[data-use]')?.addEventListener('click', () => {
     const prompt = host.querySelector<HTMLTextAreaElement>('#visual-prompt'); if (!prompt) return;
-    prompt.value = output.value; prompt.focus(); prompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    prompt.value = output.value;
+    const style = host.querySelector<HTMLSelectElement>('#visual-style');
+    if (style) { style.value = PROMPT_DEFINED_STYLE; style.dispatchEvent(new Event('change')); }
+    prompt.focus(); prompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   return section;
 }
