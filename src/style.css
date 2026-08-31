@@ -144,7 +144,80 @@ select {
 .explore-head { max-width: 900px; margin: 24px auto 28px; }
 .explore-head h1 { font-size: clamp(38px, 6vw, 78px); line-height: .95; letter-spacing: -.055em; max-width: 720px; }
 .explore-head .sub { max-width: 640px; font-size: 16px; line-height: 1.55; }
-.eyebrow { margin: 0 0 12px; font-size: 10px; color: var(--dim); letter-spacing: .18em; font-weight: 700; }
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: .18em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Beta marker.
+
+   Carried by the visual rather than a sentence: a live pulse, a lit outline and
+   a filled LIVE chip read as "this is running now" at a glance, where another
+   line of copy in the hero would just be more text to skip. */
+.beta-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 4px 4px 9px;
+  border: 1px solid rgba(126, 231, 179, .42);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(126, 231, 179, .16), rgba(126, 231, 179, .05));
+  color: #b8f2d4;
+  text-decoration: none;
+  letter-spacing: .16em;
+  line-height: 1;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.beta-flag:hover,
+.beta-flag:focus-visible {
+  border-color: rgba(126, 231, 179, .85);
+  background: linear-gradient(135deg, rgba(126, 231, 179, .26), rgba(126, 231, 179, .09));
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.beta-flag-name { font-weight: 700; }
+
+.beta-flag-verb {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(126, 231, 179, .9);
+  color: #06231a;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.beta-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7ee7b3;
+  box-shadow: 0 0 0 0 rgba(126, 231, 179, .65);
+  animation: beta-pulse 2.4s ease-out infinite;
+}
+
+/* Slow and low-contrast on purpose: this sits behind a product people keep open
+   for hours, so it should register once and then stop competing for attention. */
+@keyframes beta-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(126, 231, 179, .55); }
+  70%  { box-shadow: 0 0 0 9px rgba(126, 231, 179, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(126, 231, 179, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beta-pulse { animation: none; }
+  .beta-flag:hover, .beta-flag:focus-visible { transform: none; }
+}
+
+.eyebrow-path { color: var(--dim); }
 .create-studio {
   max-width: 900px;
   margin: 0 auto 58px;
