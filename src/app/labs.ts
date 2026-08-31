@@ -1,5 +1,5 @@
 import type { AppState } from './state';
-import { audioSpecForPreset, loadPreset, reloadEffects, syncAudioLayers, syncGeneratedMusic } from './state';
+import { loadPreset, reloadEffects, syncAudioLayers, syncGeneratedMusic } from './state';
 import { navigate } from './router';
 import { MARKET_MUSIC_DIRECTION, builtInEffects, forkPreset, getPreset, savePreset } from '../preset/library';
 import { CONTROL_DEFS, newId, type Preset } from '../preset/types';
@@ -715,27 +715,6 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
 
   // --- sound -----------------------------------------------------------------
   const audioEl = host.querySelector<HTMLDivElement>('#audio')!;
-  const startSound = document.createElement('button');
-  startSound.className = 'primary wide';
-  startSound.textContent = state.started ? 'Sound on' : 'Play included sound';
-  startSound.disabled = state.started;
-  startSound.addEventListener('click', async () => {
-    startSound.disabled = true;
-    startSound.textContent = 'Starting sound…';
-    try {
-      state.audio.setAmbientEvents(draft.livingStill?.audio.events ?? []);
-      await state.audio.start(audioSpecForPreset(draft));
-      state.started = true;
-      syncAudioLayers(state, draft);
-      await syncGeneratedMusic(state, draft);
-      startSound.textContent = 'Sound on';
-    } catch (error) {
-      console.error('[vibe] audio failed to start', error);
-      startSound.textContent = 'Sound unavailable';
-      startSound.disabled = false;
-    }
-  });
-  audioEl.appendChild(startSound);
   for (const layer of [
     { key: 'ambience' as const, label: 'Ambience', hint: 'the sound of the place' },
     { key: 'music' as const, label: 'Music', hint: 'the sound of the mood' },
