@@ -5,6 +5,8 @@ import {
 } from './core';
 
 const OFFSCREEN_PATH = 'offscreen.html';
+const SEARCH_SCRIPT_ID = 'vibe-curator-google-search';
+const GOOGLE_SEARCH_ORIGIN = 'https://www.google.com/*';
 let creatingOffscreen: Promise<void> | undefined;
 let audioSessionToken: string | undefined;
 let updateQueue: Promise<unknown> = Promise.resolve();
@@ -66,6 +68,28 @@ async function commit(next: ExtensionState): Promise<ExtensionState> {
   return commitAfterAudio(next, syncAudio, async (state) => chrome.storage.local.set({ [STORAGE_KEY]: state }));
 }
 
+async function syncSearchScript(state: ExtensionState): Promise<void> {
+  const registered = (await chrome.scripting.getRegisteredContentScripts({ ids: [SEARCH_SCRIPT_ID] })).length > 0;
+  const shouldRegister = state.features.googleSearchBackground
+    && await chrome.permissions.contains({ origins: [GOOGLE_SEARCH_ORIGIN] });
+  if (shouldRegister && !registered) {
+    await chrome.scripting.registerContentScripts([{
+      id: SEARCH_SCRIPT_ID,
+      matches: ['https://www.google.com/search*'],
+      js: ['search_overlay.js'],
+      runAt: 'document_start',
+      persistAcrossSessions: true,
+    }]);
+  } else if (!shouldRegister && registered) await chrome.scripting.unregisterContentScripts({ ids: [SEARCH_SCRIPT_ID] });
+}
+
+async function commitFeatures(next: ExtensionState): Promise<ExtensionState> {
+  await syncAudio(next);
+  await syncSearchScript(next);
+  await chrome.storage.local.set({ [STORAGE_KEY]: next });
+  return next;
+}
+
 function serialize<T>(operation: () => Promise<T>): Promise<T> {
   const result = updateQueue.then(operation, operation);
   updateQueue = result.catch(() => undefined);
@@ -80,17 +104,33 @@ function isUiSender(sender: chrome.runtime.MessageSender): boolean {
 async function applyInternal(request: InternalRequest): Promise<ExtensionState> {
   const current = await readState();
   if (request.type === 'get-state') return current;
-  if (request.type === 'enable-sound') return commit(nextState(current, { soundUnlocked: true, desiredPlaying: true }));
+  if (request.type === 'enable-sound') {
+    if (!current.features.enabled) throw new Error('Turn Vibe on before enabling sound.');
+    return commit(nextState(current, { soundUnlocked: true, desiredPlaying: true }));
+  }
   if (request.type === 'set-playing') {
+    if (request.playing && !current.features.enabled) throw new Error('Turn Vibe on before starting playback.');
     if (request.playing && !current.playback.soundUnlocked) throw new Error('Enable sound once before starting playback.');
     return commit(nextState(current, { desiredPlaying: request.playing }));
   }
+  // Per-vibe gain (0.1.2) and the master toggle plus Google Search (0.2.0) are
+  // independent features that arrived on separate branches; both are handled.
   if (request.type === 'set-vibe-volume') {
     const preset = structuredClone(current.preset);
     preset.audio.master.gain = request.volume;
     return commit(nextState(current, { preset }));
   }
-  return commit(nextState(current, { masterVolume: request.volume }));
+  if (request.type === 'set-volume') return commit(nextState(current, { masterVolume: request.volume }));
+  if (request.type === 'set-enabled') {
+    return commitFeatures(nextState(current, {
+      desiredPlaying: request.enabled ? current.playback.desiredPlaying : false,
+      features: { enabled: request.enabled },
+    }));
+  }
+  if (request.enabled && !await chrome.permissions.contains({ origins: [GOOGLE_SEARCH_ORIGIN] })) {
+    throw new Error('Google Search access was not granted.');
+  }
+  return commitFeatures(nextState(current, { features: { googleSearchBackground: request.enabled } }));
 }
 
 function respond(sendResponse: (response: ProtocolResponse) => void, operation: () => Promise<ProtocolResponse>): true {
@@ -124,5 +164,11 @@ chrome.runtime.onMessageExternal.addListener((raw: unknown, sender, sendResponse
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  void serialize(async () => chrome.storage.local.set({ [STORAGE_KEY]: await readState() }));
+  void serialize(async () => {
+    const state = await readState();
+    await syncSearchScript(state);
+    await chrome.storage.local.set({ [STORAGE_KEY]: state });
+  });
 });
+
+chrome.runtime.onStartup.addListener(() => { void serialize(async () => syncSearchScript(await readState())); });

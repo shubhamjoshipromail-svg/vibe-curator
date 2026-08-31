@@ -15,6 +15,7 @@ let volumeTimer: number | undefined;
 function render(next: ExtensionState): void {
   state = next;
   const { preset, playback } = next;
+  stage.classList.toggle('vibe-disabled', !next.features.enabled);
   stage.style.setProperty('--base', preset.palette.base);
   stage.style.setProperty('--surface', preset.palette.surface);
   stage.style.setProperty('--primary', preset.palette.primary);
@@ -40,16 +41,20 @@ function render(next: ExtensionState): void {
     image.alt = '';
     image.hidden = true;
   }
-  enable.hidden = playback.soundUnlocked;
-  play.hidden = !playback.soundUnlocked;
+  enable.hidden = playback.soundUnlocked || !next.features.enabled;
+  play.hidden = !playback.soundUnlocked || !next.features.enabled;
   play.textContent = playback.desiredPlaying ? 'Ⅱ' : '▶';
   play.setAttribute('aria-label', playback.desiredPlaying ? 'Pause ambient sound' : 'Play ambient sound');
+  // The new-tab slider stays (0.1.2), so the copy keeps describing it rather
+  // than pointing at the toolbar, but the off state from 0.2.0 takes priority.
   volume.value = String(preset.audio.master.gain);
   volumeOutput.value = `${Math.round(preset.audio.master.gain * 100)}%`;
-  element('sound-title').textContent = playback.soundUnlocked
+  element('sound-title').textContent = !next.features.enabled ? 'Vibe is off' : playback.soundUnlocked
     ? (playback.desiredPlaying ? 'Ambient sound is playing' : 'Ambient sound is paused')
     : 'Sound is off';
-  element('sound-detail').textContent = playback.soundUnlocked
+  element('sound-detail').textContent = !next.features.enabled
+    ? 'Turn it back on from the toolbar extension button.'
+    : playback.soundUnlocked
     ? 'It keeps playing when this tab closes. This slider controls only this vibe.'
     : 'One click enables this vibe\'s audio on this device.';
 }

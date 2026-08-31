@@ -16,6 +16,7 @@ export default defineConfig({
         newtab: fileURLToPath(new URL('./src/newtab.html', import.meta.url)),
         offscreen: fileURLToPath(new URL('./src/offscreen.html', import.meta.url)),
         service_worker: fileURLToPath(new URL('./src/service-worker.ts', import.meta.url)),
+        search_overlay: fileURLToPath(new URL('./src/search-overlay.ts', import.meta.url)),
       },
       output: {
         entryFileNames: '[name].js',

@@ -58,6 +58,8 @@ describe('message and state validation', () => {
     expect(validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-volume', requestId: 'ui_12345678', volume: 0.4 }).type).toBe('set-volume');
     expect(validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-vibe-volume', requestId: 'ui_12345678', volume: 0.4 }).type).toBe('set-vibe-volume');
     expect(() => validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-volume', requestId: 'ui_12345678', volume: Infinity })).toThrow();
+    expect(validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-enabled', requestId: 'ui_12345678', enabled: false }).type).toBe('set-enabled');
+    expect(() => validateInternalRequest({ v: 1, target: 'service-worker', type: 'set-google-search', requestId: 'ui_12345678', enabled: 'yes' })).toThrow();
   });
 
   it('increments revisions without unlocking sound implicitly', () => {
@@ -81,6 +83,12 @@ describe('message and state validation', () => {
     state.preset.audio.master.gain = 0.25;
     state.playback.masterVolume = 0.5;
     expect(effectiveLayerVolume(state, 'ambience')).toBeCloseTo(0.1);
+  });
+
+  it('migrates existing state to safe feature defaults', () => {
+    const old = structuredClone(DEFAULT_STATE) as unknown as Record<string, unknown>;
+    delete old.features;
+    expect(validateState(old).features).toEqual({ enabled: true, googleSearchBackground: false });
   });
 
   it('requires both exact origin and URL for website senders', () => {
