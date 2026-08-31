@@ -37,7 +37,7 @@ function list(values: string[] | undefined): string | undefined {
   return items.length > 0 ? items.join(', ') : undefined;
 }
 
-export function renderProviderPrompt(brief: MusicBrief, provider: 'elevenlabs'): string {
+export function renderProviderPrompt(brief: MusicBrief, provider: 'elevenlabs' | 'lyria'): string {
   void provider;
   const clauses: string[] = [];
 

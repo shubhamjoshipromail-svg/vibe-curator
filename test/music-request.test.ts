@@ -25,6 +25,7 @@ test('a complete structured brief is accepted without a fallback prompt', () => 
   const brief = resolveRequestedMusicBrief(request);
 
   assert.equal(brief.mode, cardBrief.mode);
+  assert.equal(request.provider, 'lyria');
   assert.equal(brief.vocals, cardBrief.vocals);
   assert.deepEqual(brief.music.mood, cardBrief.music.mood);
   assert.equal(brief.music.tempo, cardBrief.music.tempo);
@@ -38,6 +39,12 @@ test('a complete structured brief is accepted without a fallback prompt', () => 
   const provider = buildMusicProviderPrompt(brief, request.userRequest);
   assert.ok(provider.prompt.length > 0);
   assert.equal(provider.needsReferenceTranslation, false);
+});
+
+test('provider routing accepts Lyria and rejects unknown or premium bypass values', () => {
+  assert.equal(parseMusicGenerationRequest({ prompt: 'soft piano', provider: 'lyria' }).provider, 'lyria');
+  assert.equal(parseMusicGenerationRequest({ prompt: 'soft piano', provider: 'elevenlabs' }).provider, 'elevenlabs');
+  assert.throws(() => parseMusicGenerationRequest({ prompt: 'soft piano', provider: 'cheap-wrapper' }), /provider/);
 });
 
 test('user words and the vocal control retain precedence over a submitted card brief', () => {

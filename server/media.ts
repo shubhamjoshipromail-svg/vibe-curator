@@ -35,8 +35,8 @@ import {
   type RequestedVocalMode,
 } from './music-request';
 
-const MUSIC_MODEL = 'music_v2';
-const MUSIC_PROVIDER = 'elevenlabs';
+const LYRIA_MUSIC_MODEL = 'lyria-3-clip-preview';
+const LYRIA_MUSIC_PROVIDER = 'google';
 const MUSIC_PROMPT_MODEL = 'claude-haiku-4-5';
 const MUSIC_PROMPT_PROVIDER = 'anthropic';
 const IMAGE_MODEL = 'gpt-image-2';
@@ -47,13 +47,8 @@ const VIDEO_MODEL = 'veo-3.1-lite-generate-preview';
 // fast as the numbers shown to users implied.
 const IMAGE_COST_USD = 0.005;
 const VIDEO_COST_USD = 1.20;
-const MUSIC_COST_USD = 0.225;
-// v2 asks for two minutes instead of ninety seconds. ElevenLabs bills $0.15/min,
-// so the estimate moves with the length. CREDIT_COSTS is deliberately untouched:
-// repricing credits is a product decision, not a consequence of this flag.
-const MUSIC_COST_USD_V2 = 0.30;
-const MUSIC_LENGTH_MS = 90_000;
-const MUSIC_LENGTH_MS_V2 = 120_000;
+const LYRIA_MUSIC_COST_USD = 0.04;
+const LYRIA_MUSIC_LENGTH_MS = 30_000;
 const MUSIC_PROMPT_COST_USD = 0.001;
 const DEFAULT_SESSION_CAP_USD = 3;
 
@@ -118,6 +113,20 @@ function openAiImageMessage(status: number, detail: string): { status: number; m
     return { status, message: 'OpenAI could not use this visual request. Revise it and try again. No result was stored.' };
   }
   return { status: 502, message: 'The image service could not complete this request. No result was stored.' };
+}
+
+function lyriaMusicMessage(error: unknown): { status: number; message: string } {
+  const detail = String(error).toLowerCase();
+  if (detail.includes('429') || detail.includes('resource_exhausted') || detail.includes('quota') || detail.includes('billing')) {
+    return { status: 429, message: 'Lyria music generation has reached its current budget or quota. Nothing was charged by Vibe Curator.' };
+  }
+  if (detail.includes('401') || detail.includes('403') || detail.includes('permission_denied')) {
+    return { status: 503, message: 'Lyria music access is not enabled for this project. Nothing was charged by Vibe Curator.' };
+  }
+  if (detail.includes('safety') || detail.includes('blocked')) {
+    return { status: 400, message: 'Lyria could not use this music request. Revise it and try again. Nothing was charged.' };
+  }
+  return { status: 502, message: 'Lyria could not create this track right now. Nothing was charged.' };
 }
 
 const MUSIC_PROMPT_SCHEMA = {
@@ -215,12 +224,10 @@ export function mediaPlugin(mode: string): Plugin {
       // Anything other than an explicit 'v1' runs the mastered pipeline.
       const musicPipeline: MusicPipeline =
         (env.VIBE_MUSIC_PIPELINE || process.env.VIBE_MUSIC_PIPELINE) === 'v1' ? 'v1' : 'v2';
-      const musicCostUsd = musicPipeline === 'v1' ? MUSIC_COST_USD : MUSIC_COST_USD_V2;
-      const musicLengthMs = musicPipeline === 'v1' ? MUSIC_LENGTH_MS : MUSIC_LENGTH_MS_V2;
-      const musicLengthSeconds = musicLengthMs / 1000;
       const gemini = geminiKey ? new GoogleGenAI({ apiKey: geminiKey }) : undefined;
       const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : undefined;
       const musicCapabilities = musicPipelineCapabilities(musicPipeline, {
+        lyriaConfigured: Boolean(geminiKey),
         elevenLabsConfigured: Boolean(elevenKey),
         openAiConfigured: Boolean(openAiKey),
         anthropicConfigured: Boolean(anthropic),
@@ -279,11 +286,11 @@ export function mediaPlugin(mode: string): Plugin {
             imageProvider: IMAGE_PROVIDER,
             imageModel: IMAGE_MODEL,
             motionModel: VIDEO_MODEL,
-            musicModel: MUSIC_MODEL,
+            musicModel: LYRIA_MUSIC_MODEL,
             estimatedCostsUsd: {
               image: IMAGE_COST_USD,
               motionDraft: VIDEO_COST_USD,
-              music: musicCostUsd + MUSIC_PROMPT_COST_USD,
+              music: LYRIA_MUSIC_COST_USD,
             },
             estimatedSpendUsd: Number(estimatedSpendUsd.toFixed(3)),
             spendCapUsd,
@@ -533,28 +540,7 @@ export function mediaPlugin(mode: string): Plugin {
           sendJson(res, 503, { message: generationDisabledMessage() });
           return;
         }
-        if (!elevenKey) {
-          sendJson(res, 503, {
-            message: 'Music generation needs ELEVENLABS_API_KEY on the local server. Your current mix is unchanged.',
-          });
-          return;
-        }
-        // v1 translates references with Anthropic; v2 with Luna. Either way the
-        // route refuses to run without a translator, because the alternative is
-        // forwarding a name to the generator.
-        if (musicPipeline === 'v1' && !anthropic) {
-          sendJson(res, 503, {
-            message: 'Music generation needs ANTHROPIC_API_KEY to translate artist references before sending them to ElevenLabs.',
-          });
-          return;
-        }
-        if (musicPipeline === 'v2' && !openAiKey) {
-          sendJson(res, 503, {
-            message: 'Music generation needs OPENAI_API_KEY to translate artist references before sending them to ElevenLabs.',
-          });
-          return;
-        }
-        const totalMusicCostUsd = musicCostUsd + MUSIC_PROMPT_COST_USD;
+        let totalMusicCostUsd = LYRIA_MUSIC_COST_USD;
         let reservation: CreditReservation | undefined;
         try {
           let body: ReturnType<typeof parseMusicGenerationRequest>;
@@ -568,7 +554,36 @@ export function mediaPlugin(mode: string): Plugin {
           }
           const prompt = body.prompt;
 
-          const authorizedMusic = await authorize(viewer.id, 'music', totalMusicCostUsd, MUSIC_PROVIDER, idempotencyKey, viewer.email);
+          // The selector is enforced on the server as well as disabled in the
+          // browser. A handcrafted request cannot consume the premium provider.
+          if (body.provider === 'elevenlabs') {
+            sendJson(res, 403, { message: 'ElevenLabs music is reserved for Premium and is currently unavailable.' });
+            return;
+          }
+          if (!gemini) {
+            sendJson(res, 503, { message: 'Lyria music generation is not configured. Your current mix is unchanged.' });
+            return;
+          }
+
+          const resolvedBrief = resolveRequestedMusicBrief(body);
+          const resolvedVocalMode: Exclude<VocalMode, 'auto'> = resolvedBrief.vocals === 'required' ? 'vocals' : 'instrumental';
+          // A structured brief has already captured card/mode defaults. Only
+          // the user's own words belong after it; sending a rendered fallback
+          // again would duplicate and can override that direction.
+          const requestText = body.userRequest || (body.brief ? '' : prompt);
+          const providerPrompt = buildMusicProviderPrompt(resolvedBrief, requestText, body.provider);
+          if (musicPipeline === 'v1' && !anthropic) {
+            sendJson(res, 503, { message: 'Named-reference translation is unavailable. Describe instruments, mood, and tempo instead.' });
+            return;
+          }
+          if (musicPipeline === 'v2' && providerPrompt.needsReferenceTranslation && !openAiKey) {
+            sendJson(res, 503, { message: 'This request may name an artist or track. Describe instruments, mood, and tempo instead.' });
+            return;
+          }
+          totalMusicCostUsd += musicPipeline === 'v1' || providerPrompt.needsReferenceTranslation
+            ? MUSIC_PROMPT_COST_USD : 0;
+
+          const authorizedMusic = await authorize(viewer.id, 'music', totalMusicCostUsd, LYRIA_MUSIC_PROVIDER, idempotencyKey, viewer.email);
           if (!authorizedMusic.ok) {
             sendJson(res, 402, { message: reserveFailureMessage(authorizedMusic.reason, 'music generation') });
             return;
@@ -579,13 +594,6 @@ export function mediaPlugin(mode: string): Plugin {
           let musicVocalMode: Exclude<VocalMode, 'auto'>;
           let promptProvider: string;
           let promptModel: string;
-          const resolvedBrief = resolveRequestedMusicBrief(body);
-          const resolvedVocalMode: Exclude<VocalMode, 'auto'> = resolvedBrief.vocals === 'required' ? 'vocals' : 'instrumental';
-          // A structured brief has already captured card/mode defaults. Only
-          // the user's own words belong after it; sending a rendered fallback
-          // again would duplicate and can override that direction.
-          const requestText = body.userRequest || (body.brief ? '' : prompt);
-          const providerPrompt = buildMusicProviderPrompt(resolvedBrief, requestText);
 
           if (musicPipeline === 'v1') {
             const adapted = await adaptMusicPrompt(
@@ -600,7 +608,7 @@ export function mediaPlugin(mode: string): Plugin {
           } else {
             // The shared resolver applies the documented precedence: the UI
             // control wins, then explicit user words, then the submitted card
-            // brief. Its result must also drive ElevenLabs' vocal flags.
+            // brief. Its result must also drive the provider's vocal direction.
             musicVocalMode = resolvedVocalMode;
 
             // The LLM runs only when the request may carry a name. Everything
@@ -641,41 +649,32 @@ export function mediaPlugin(mode: string): Plugin {
             musicPrompt = stripReferences(sanitisedPrompt, removedReferences);
           }
 
-          const upstream = await fetch(
-            'https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128',
-            {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'xi-api-key': elevenKey },
-            body: JSON.stringify({
-              model_id: MUSIC_MODEL,
-              prompt: musicVocalMode === 'vocals'
-                ? `Song with prominent vocals. ${musicPrompt}`
-                : `Instrumental music with no vocals. ${musicPrompt}`,
-              music_length_ms: musicLengthMs,
-              force_instrumental: musicVocalMode === 'instrumental',
-            }),
-            },
-          );
-          if (!upstream.ok) {
-            await fail(reservation, totalMusicCostUsd, `provider_${upstream.status}`);
-            reservation = undefined;
-            const detail = await upstream.text();
-            server.config.logger.error(`[vibe] Eleven Music failed (${upstream.status}): ${detail.slice(0, 1200)}`);
-            sendJson(res, upstream.status === 429 ? 429 : 502, {
-              message: upstream.status === 429
-                ? 'Music generation is busy. Wait a moment and try again.'
-                : 'The music service could not create this track. Your current mix is unchanged.',
+          let interaction: Awaited<ReturnType<typeof gemini.interactions.create>>;
+          try {
+            interaction = await gemini.interactions.create({
+              model: LYRIA_MUSIC_MODEL,
+              input: musicVocalMode === 'vocals'
+                ? `Create a 30-second song with prominent vocals. ${musicPrompt}`
+                : `Create a 30-second instrumental music track. No vocals, vocal samples, speech, or environmental ambience. ${musicPrompt}`,
+              store: false,
             });
+          } catch (providerError) {
+            await fail(reservation, totalMusicCostUsd, 'provider_lyria');
+            reservation = undefined;
+            server.config.logger.error(`[vibe] Lyria Music failed: ${String(providerError).slice(0, 1200)}`);
+            const response = lyriaMusicMessage(providerError);
+            sendJson(res, response.status, { message: response.message });
             return;
           }
 
-          const audio = Buffer.from(await upstream.arrayBuffer());
+          const encodedAudio = interaction.output_audio?.data;
+          const audio = encodedAudio ? Buffer.from(encodedAudio, 'base64') : Buffer.alloc(0);
           if (!audio.length) {
-            throw new Error('Eleven Music response contained no audio bytes.');
+            throw new Error('Lyria Music response contained no audio bytes.');
           }
 
-          const songId = upstream.headers.get('song-id') ?? undefined;
-          const upstreamMimeType = upstream.headers.get('content-type') ?? 'audio/mpeg';
+          const songId = interaction.id;
+          const upstreamMimeType = interaction.output_audio?.mime_type ?? 'audio/mpeg';
 
           // The provider has generated and billed the track. Settle here, before
           // any post-processing, so nothing downstream can refund spent money.
@@ -684,10 +683,11 @@ export function mediaPlugin(mode: string): Plugin {
 
           let audioOut: Buffer = audio;
           let mimeTypeOut = upstreamMimeType;
+          const musicLengthSeconds = LYRIA_MUSIC_LENGTH_MS / 1000;
           let durationSecondsOut: number = musicLengthSeconds;
           let extras: { masterReport: MasterReport; playback: PlaybackPlan; degraded: boolean } | undefined;
 
-          if (musicPipeline === 'v2') {
+          {
             const playback = musicPlaybackPlan(resolvedBrief, musicLengthSeconds);
             let masterReport: MasterReport = { ok: false };
             try {
@@ -711,8 +711,8 @@ export function mediaPlugin(mode: string): Plugin {
           sendJson(res, 200, {
             data: audioOut.toString('base64'),
             mimeType: mimeTypeOut,
-            provider: MUSIC_PROVIDER,
-            model: MUSIC_MODEL,
+            provider: LYRIA_MUSIC_PROVIDER,
+            model: LYRIA_MUSIC_MODEL,
             durationSeconds: durationSecondsOut,
             songId,
             adaptedPrompt: musicPrompt,

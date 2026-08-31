@@ -11,8 +11,11 @@ import type {
 } from '../src/audio/brief.ts';
 
 export type RequestedVocalMode = 'auto' | 'vocals' | 'instrumental';
+export type RequestedMusicProvider = 'lyria' | 'elevenlabs';
 
 export interface MusicGenerationRequest {
+  /** Explicit provider selection. Older clients default to Lyria. */
+  provider: RequestedMusicProvider;
   /** Legacy clients send only this rendered or free-form text. */
   prompt: string;
   /** The user's unrendered words. It may be empty when a card supplies direction. */
@@ -31,6 +34,7 @@ const MODES = new Set<MusicBrief['mode']>(['soundscape', 'ambient_score', 'instr
 const VOCALS = new Set<MusicBrief['vocals']>(['none', 'optional', 'required']);
 const PLAYBACK_MODES = new Set<PlaybackPlan['mode']>(['once', 'loop', 'crossfade']);
 const REQUESTED_VOCAL_MODES = new Set<RequestedVocalMode>(['auto', 'vocals', 'instrumental']);
+const REQUESTED_PROVIDERS = new Set<RequestedMusicProvider>(['lyria', 'elevenlabs']);
 const SCENE_ENERGIES = new Set<SceneAudioContext['energy']>(['still', 'gentle', 'active', 'intense']);
 const VISUAL_RHYTHMS = new Set<SceneAudioContext['visualRhythm']>(['fluid', 'steady', 'fragmented', 'pulsing']);
 const SCENE_SCALES = new Set<SceneAudioContext['scale']>(['intimate', 'room', 'landscape', 'cosmic']);
@@ -150,6 +154,10 @@ export function parseMusicGenerationRequest(value: unknown): MusicGenerationRequ
   if (typeof vocalMode !== 'string' || !REQUESTED_VOCAL_MODES.has(vocalMode as RequestedVocalMode)) {
     throw new Error('Invalid music request vocalMode.');
   }
+  const provider = source.provider === undefined ? 'lyria' : source.provider;
+  if (typeof provider !== 'string' || !REQUESTED_PROVIDERS.has(provider as RequestedMusicProvider)) {
+    throw new Error('Invalid music request provider.');
+  }
 
   let brief: MusicBrief | undefined;
   if (source.brief !== undefined) {
@@ -168,6 +176,7 @@ export function parseMusicGenerationRequest(value: unknown): MusicGenerationRequ
 
   if (!prompt && !userRequest && !brief) throw new Error('Describe the music first.');
   return {
+    provider: provider as RequestedMusicProvider,
     prompt,
     userRequest,
     vocalMode: vocalMode as RequestedVocalMode,
@@ -198,8 +207,9 @@ export function resolveRequestedMusicBrief(request: MusicGenerationRequest): Mus
 export function buildMusicProviderPrompt(
   brief: MusicBrief,
   userRequest: string,
+  provider: RequestedMusicProvider = 'lyria',
 ): { prompt: string; needsReferenceTranslation: boolean } {
-  const prompt = `${renderProviderPrompt(brief, 'elevenlabs')} ${userRequest}`.trim();
+  const prompt = `${renderProviderPrompt(brief, provider)} ${userRequest}`.trim();
   return {
     prompt,
     needsReferenceTranslation: containsNamedReference(prompt),

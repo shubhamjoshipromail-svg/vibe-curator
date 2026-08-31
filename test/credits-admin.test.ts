@@ -79,9 +79,9 @@ describe('spend caps', () => {
     delete process.env.BETA_USER_DAILY_SPEND_CAP_USD;
     delete process.env.BETA_DAILY_SPEND_CAP_USD;
     const budgets = generationBudgets();
-    // 100 welcome credits buy 12 music generations (8 credits each) at $0.226,
-    // which is the most expensive way to spend a full balance: ~$2.71.
-    const maxSpendWithFullBalance = Math.floor(100 / 8) * 0.226;
+    // 100 welcome credits buy 50 Lyria clips (2 credits each) at $0.041,
+    // which is the most expensive way to spend a full balance: ~$2.05.
+    const maxSpendWithFullBalance = Math.floor(100 / 2) * 0.041;
     assert.ok(
       budgets.userDailyUsd > maxSpendWithFullBalance,
       `per-user cap ${budgets.userDailyUsd} must exceed ${maxSpendWithFullBalance.toFixed(2)} or the credit balance is a lie`,

@@ -162,10 +162,11 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           <div class="music-maker">
             <h3>Music asset</h3>
             <div id="music-current"></div>
+            <div class="provider-mode" id="music-provider" role="group" aria-label="Music provider"></div>
             <div class="vocal-mode" id="music-mode" role="group" aria-label="Kind of music"></div>
             <div class="vocal-mode" id="vocal-mode" role="group" aria-label="Voice in generated music"></div>
             <textarea id="music-prompt" rows="3" placeholder="Optional. Your own words only — what you want to hear. Leave it empty to score the card as it is."></textarea>
-            <button class="primary wide" id="music-go">Generate music from this visual</button>
+            <button class="primary wide" id="music-go" disabled>Generate music from this visual</button>
             <p class="fx-status" id="music-status"></p>
           </div>
         </section>
@@ -751,8 +752,11 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
   const musicStatus = host.querySelector<HTMLParagraphElement>('#music-status')!;
   const vocalModeHost = host.querySelector<HTMLDivElement>('#vocal-mode')!;
   const musicModeHost = host.querySelector<HTMLDivElement>('#music-mode')!;
+  const musicProviderHost = host.querySelector<HTMLDivElement>('#music-provider')!;
   let vocalMode: 'auto' | 'vocals' | 'instrumental' = 'auto';
   let musicMode: MusicMode = draft.music?.musicBrief?.mode ?? 'ambient_score';
+  const musicProvider = 'lyria' as const;
+  let musicAvailable = false;
 
   // The textarea holds the user's own words and nothing else. The old pre-filled
   // paragraph, concatenated from five preset fields, is what made every card
@@ -811,6 +815,26 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       musicMode,
       (id) => { musicMode = id; drawMusicMode(); },
     );
+  }
+
+  function drawMusicProvider(): void {
+    musicProviderHost.replaceChildren();
+    for (const option of [
+      { id: 'lyria', label: 'Lyria', hint: '30 seconds · available', disabled: false },
+      { id: 'elevenlabs', label: 'ElevenLabs', hint: 'Premium only', disabled: true },
+    ] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `vocal-choice${option.id === musicProvider ? ' active' : ''}`;
+      button.disabled = option.disabled;
+      button.setAttribute('aria-pressed', String(option.id === musicProvider));
+      const label = document.createElement('strong');
+      label.textContent = option.label;
+      const hint = document.createElement('small');
+      hint.textContent = option.hint;
+      button.append(label, hint);
+      musicProviderHost.appendChild(button);
+    }
   }
 
   /**
@@ -880,8 +904,8 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     .then((caps) => {
       if (!caps.musicGeneration) {
         musicGo.disabled = true;
-        if (!caps.elevenMusicConfigured) {
-          musicStatus.textContent = 'Add ELEVENLABS_API_KEY to enable one-time Eleven Music generation. The procedural score remains available.';
+        if (!caps.lyriaMusicConfigured) {
+          musicStatus.textContent = 'Lyria music generation is not configured. The included score remains available.';
         } else if (!caps.musicPromptTranslatorConfigured) {
           const promptAdapterKey = caps.pipelineVersion === 'v1' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
           musicStatus.textContent = `Add ${promptAdapterKey} to translate artist references before music generation.`;
@@ -889,10 +913,12 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
           musicStatus.textContent = 'Music generation is unavailable in this beta mode. The procedural score remains available.';
         }
       } else {
+        musicAvailable = true;
+        musicGo.disabled = false;
         // Translation required by generation happens inside /music. The
         // separate /music-prompt endpoint may be disabled independently and
         // must not disable a valid generation path.
-        musicStatus.textContent = 'Artist references are translated into descriptive musical DNA before ElevenLabs · one 120-second seamless-bed generation · approximately $0.301.';
+        musicStatus.textContent = 'Lyria creates one 30-second track from this musical brief · approximately $0.04. ElevenLabs is reserved for Premium.';
       }
     })
     .catch(() => {
@@ -907,13 +933,14 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
     musicStatus.textContent = 'Composing one track… your current music keeps playing.';
     try {
       const generated = await generateMusic({
+        provider: musicProvider,
         brief,
         userRequest,
         vocalMode,
         sceneContext: cachedSceneContext(),
         // Keep rendered text for compatibility with an older server during a
         // rolling deploy; the current route treats `brief` as authoritative.
-        prompt: userRequest || renderProviderPrompt(brief, 'elevenlabs'),
+        prompt: userRequest || renderProviderPrompt(brief, musicProvider),
       });
       const savedPrompt = generated.adaptedPrompt ?? userRequest;
       const label = userRequest || generated.adaptedPrompt || 'Generated track';
@@ -948,9 +975,10 @@ export async function renderLabs(host: HTMLElement, state: AppState, presetId: s
       console.error('[vibe] music generation failed', err);
       musicStatus.textContent = err instanceof Error ? err.message : 'Music generation failed. Your current mix is unchanged.';
     } finally {
-      musicGo.disabled = false;
+      musicGo.disabled = !musicAvailable;
     }
   });
+  drawMusicProvider();
   drawMusicMode();
   drawVocalMode();
   drawMusic();

@@ -418,11 +418,13 @@ input[type='range'] {
 .music-maker h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
 .music-maker textarea { margin-top: 10px; }
 .vocal-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 10px 0 4px; }
+.provider-mode { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin: 10px 0 4px; }
 .vocal-choice { display: flex; min-width: 0; flex-direction: column; gap: 2px; padding: 9px 8px; border-radius: 11px; text-align: left; }
 .vocal-choice strong { font-size: 12px; }
 .vocal-choice small { color: var(--dim); font-size: 9px; }
 .vocal-choice.active { color: #111014; background: var(--ink); border-color: transparent; }
 .vocal-choice.active small { color: rgba(17,16,20,.62); }
+.vocal-choice:disabled:not(.active) { cursor: not-allowed; opacity: .48; }
 
 /* --- mixer ---------------------------------------------------------------- */
 
