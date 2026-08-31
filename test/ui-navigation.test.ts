@@ -51,9 +51,12 @@ test('Market navigation has one clear audio path and explicit in-app Back routes
   const marketplace = readFileSync(new URL('../src/app/marketplace.ts', import.meta.url), 'utf8');
   const explore = readFileSync(new URL('../src/app/explore.ts', import.meta.url), 'utf8');
   const labs = readFileSync(new URL('../src/app/labs.ts', import.meta.url), 'utf8');
+  const library = readFileSync(new URL('../src/preset/library.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(marketplace, /Preview score|new Audio\(/);
   assert.doesNotMatch(explore, /history\.back\(/);
   assert.doesNotMatch(labs, /history\.back\(/);
   assert.match(explore, /PROMPT_DEFINED_STYLE/);
   assert.match(marketplace, /returnCollection: post\.collection/);
+  const forkBody = library.slice(library.indexOf('export function forkPreset'), library.indexOf('export function createMediaPreset'));
+  assert.doesNotMatch(forkBody, /loadSaved\(|existing/, 'Open & remix must not resurrect an older saved draft');
 });
