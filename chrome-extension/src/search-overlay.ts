@@ -17,7 +17,11 @@ function searchState(value: unknown): SearchState {
     || !colors || ![colors.base, colors.surface, colors.primary, colors.accent].every((color) => /^#[0-9a-f]{6}$/i.test(color))) {
     throw new Error('Invalid extension state.');
   }
-  if (state.preset.scene.kind === 'image') {
+  // Inline scene bytes are the user's own private media. They are fine on our
+  // own new tab, but this overlay renders inside google.com, and injecting
+  // personal images into a third-party page is a line worth not crossing. Such
+  // a scene falls back to palette gradients rather than being rejected.
+  if (state.preset.scene.kind === 'image' && !state.preset.scene.url?.startsWith('data:')) {
     const url = new URL(state.preset.scene.url || '');
     if (url.origin !== 'https://vibe-curator-production.up.railway.app' || url.search || url.hash
       || !/^\/market\/styles\/[a-z0-9][a-z0-9._-]*\.(?:png|jpe?g|webp)$/i.test(url.pathname)) {
@@ -36,7 +40,10 @@ function removeOverlay(): void {
 function backgroundFor(state: SearchState): string {
   const { preset } = state;
   const gradients = `radial-gradient(circle at 82% 12%, ${preset.palette.accent}55, transparent 34%), radial-gradient(circle at 18% 86%, ${preset.palette.primary}66, transparent 38%), linear-gradient(145deg, ${preset.palette.base}, ${preset.palette.surface})`;
-  return preset.scene.kind === 'image' ? `linear-gradient(${preset.palette.base}66, ${preset.palette.base}88), url("${preset.scene.url}"), ${gradients}` : gradients;
+  const usesInlineMedia = preset.scene.url?.startsWith('data:') ?? false;
+  return preset.scene.kind === 'image' && !usesInlineMedia
+    ? `linear-gradient(${preset.palette.base}66, ${preset.palette.base}88), url("${preset.scene.url}"), ${gradients}`
+    : gradients;
 }
 
 function applyOverlay(state: SearchState): void {

@@ -146,6 +146,29 @@ function trustedMediaUrl(value: unknown, kind: 'image' | 'audio'): string {
   return url.href;
 }
 
+/** Inline image bytes handed over by the website. */
+const DATA_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+/** ~4.5 MB of image bytes, inside chrome.storage.local's 10 MB budget. */
+const MAX_DATA_URL_CHARS = 6_000_000;
+
+/**
+ * A scene image is either an approved asset on the site, or inline bytes.
+ *
+ * Generated visuals live in owner-scoped storage this extension cannot
+ * authenticate against. Rather than requiring the site to publish them, the
+ * website sends the bytes once and we keep our own copy. Only the three raster
+ * types are accepted, and never SVG: an inline SVG is a script-execution
+ * surface, and there is no reason for a scene background to be one.
+ */
+function trustedImageSource(value: unknown): string {
+  if (typeof value === 'string' && value.startsWith('data:')) {
+    const raw = stringValue(value, 'image data URL', MAX_DATA_URL_CHARS);
+    if (!DATA_IMAGE.test(raw)) throw new Error('image data URL is not an approved format.');
+    return raw;
+  }
+  return trustedMediaUrl(value, 'image');
+}
+
 function validatePalette(value: unknown): Palette {
   const palette = record(value, 'palette');
   exactKeys(palette, ['base', 'surface', 'primary', 'accent', 'text', 'ramp'], 'palette');
@@ -189,7 +212,7 @@ function validateScene(value: unknown): SafePreset['scene'] {
     exactKeys(scene, ['kind', 'label', 'style', 'sourceId'], 'scene');
     return { kind, ...common, sourceId: enumValue(scene.sourceId, PROCEDURAL_SOURCE_IDS, 'scene.sourceId') };
   }
-  if (kind === 'image') { exactKeys(scene, ['kind', 'label', 'style', 'url'], 'scene'); return { kind, ...common, url: trustedMediaUrl(scene.url, 'image') }; }
+  if (kind === 'image') { exactKeys(scene, ['kind', 'label', 'style', 'url'], 'scene'); return { kind, ...common, url: trustedImageSource(scene.url) }; }
   throw new Error('scene.kind is unsupported.');
 }
 
