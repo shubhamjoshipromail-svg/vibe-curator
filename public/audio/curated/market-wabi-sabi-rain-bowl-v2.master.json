@@ -1,0 +1,68 @@
+{
+  "file": "market-wabi-sabi-rain-bowl-v2.mp3",
+  "cardId": "market-wabi-sabi-rain-bowl",
+  "name": "Imperfect Measure",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "still",
+        "imperfect",
+        "quiet"
+      ],
+      "tempo": "slow",
+      "rhythm": "free and measured",
+      "instrumentation": [
+        "prepared piano",
+        "wood percussion",
+        "soft cello"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: still, imperfect, quiet. Instrumentation: prepared piano, wood percussion, soft cello. Tempo: slow. Rhythm: free and measured. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:57:14.658Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -19.7,
+    "truePeakDb": -1.8,
+    "peakDb": -1.83,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.27,
+    "noiseFloorDb": -89.35,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.03,
+    "contentDurationSeconds": 35,
+    "crossfadeSeconds": 5,
+    "seamDeltaDb": 0.07,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.7,
+    "outputTruePeakDb": -1.9,
+    "gainDb": 1
+  }
+}

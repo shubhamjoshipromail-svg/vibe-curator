@@ -1,0 +1,68 @@
+{
+  "file": "market-living-color-orbit-v2.mp3",
+  "cardId": "market-living-color-orbit",
+  "name": "Color Orbit",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "kaleidoscopic",
+        "euphoric",
+        "kinetic"
+      ],
+      "tempo": "fast",
+      "rhythm": "spiraling pulse",
+      "instrumentation": [
+        "arpeggiated synth",
+        "electric bass",
+        "electronic percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "dense"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: kaleidoscopic, euphoric, kinetic. Instrumentation: arpeggiated synth, electric bass, electronic percussion. Tempo: fast. Rhythm: spiraling pulse. Density: dense. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:52:42.513Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -12.4,
+    "truePeakDb": -0.3,
+    "peakDb": -0.42,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.43,
+    "noiseFloorDb": -75.95,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 1.53,
+    "contentDurationSeconds": 36.5,
+    "crossfadeSeconds": 6.5,
+    "seamDeltaDb": 0.22,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -4.7,
+    "gainDb": -6
+  }
+}

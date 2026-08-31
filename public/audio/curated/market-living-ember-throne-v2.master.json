@@ -1,0 +1,67 @@
+{
+  "file": "market-living-ember-throne-v2.mp3",
+  "cardId": "market-living-ember-throne",
+  "name": "Ember Processional",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "solemn",
+        "vast",
+        "embered"
+      ],
+      "tempo": "slow",
+      "rhythm": "measured processional",
+      "instrumentation": [
+        "low strings",
+        "french horn",
+        "timpani"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: solemn, vast, embered. Instrumentation: low strings, french horn, timpani. Tempo: slow. Rhythm: measured processional. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:49:25.481Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -18.6,
+    "truePeakDb": -1.5,
+    "peakDb": -1.48,
+    "leadingSilenceSeconds": 0.97,
+    "trailingSilenceSeconds": 2.7,
+    "noiseFloorDb": -138.27,
+    "trimStartSeconds": 0.97,
+    "trimEndSeconds": 4.78,
+    "contentDurationSeconds": 32.28,
+    "crossfadeSeconds": 2.28,
+    "seamDeltaDb": 1.05,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -2.4,
+    "gainDb": 0.2
+  }
+}

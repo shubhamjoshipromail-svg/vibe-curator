@@ -1,0 +1,68 @@
+{
+  "file": "market-bauhaus-pavilion-v2.mp3",
+  "cardId": "market-bauhaus-pavilion",
+  "name": "Primary Rhythm",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "precise",
+        "open",
+        "rational"
+      ],
+      "tempo": "moderate",
+      "rhythm": "geometric pulse",
+      "instrumentation": [
+        "marimba",
+        "clarinet",
+        "dry percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: precise, open, rational. Instrumentation: marimba, clarinet, dry percussion. Tempo: moderate. Rhythm: geometric pulse. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:54:37.210Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -17.4,
+    "truePeakDb": -5,
+    "peakDb": -5.01,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.19,
+    "noiseFloorDb": -88.58,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.28,
+    "contentDurationSeconds": 35.75,
+    "crossfadeSeconds": 5.75,
+    "seamDeltaDb": 1.91,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -6.3,
+    "gainDb": -1
+  }
+}

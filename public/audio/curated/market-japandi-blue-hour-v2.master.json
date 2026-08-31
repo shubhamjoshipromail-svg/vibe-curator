@@ -1,0 +1,68 @@
+{
+  "file": "market-japandi-blue-hour-v2.mp3",
+  "cardId": "market-japandi-blue-hour",
+  "name": "Blue Hour Study",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "quiet",
+        "spare",
+        "focused"
+      ],
+      "tempo": "slow",
+      "rhythm": "measured",
+      "instrumentation": [
+        "felt piano",
+        "marimba",
+        "upright bass"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "sparse"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: quiet, spare, focused. Instrumentation: felt piano, marimba, upright bass. Tempo: slow. Rhythm: measured. Density: sparse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:49:59.521Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -19.6,
+    "truePeakDb": -2.7,
+    "peakDb": -2.7,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.13,
+    "noiseFloorDb": -87.27,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 4.03,
+    "contentDurationSeconds": 34,
+    "crossfadeSeconds": 4,
+    "seamDeltaDb": 0.32,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -1.9,
+    "gainDb": 1.2
+  }
+}

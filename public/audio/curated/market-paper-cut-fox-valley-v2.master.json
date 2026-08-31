@@ -1,0 +1,67 @@
+{
+  "file": "market-paper-cut-fox-valley-v2.mp3",
+  "cardId": "market-paper-cut-fox-valley",
+  "name": "Fox Valley Theme",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "storybook",
+        "nocturnal",
+        "hushed"
+      ],
+      "tempo": "slow",
+      "rhythm": "gentle storybook pulse",
+      "instrumentation": [
+        "celesta",
+        "soft strings",
+        "pizzicato cello"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: storybook, nocturnal, hushed. Instrumentation: celesta, soft strings, pizzicato cello. Tempo: slow. Rhythm: gentle storybook pulse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:54:20.695Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -20.6,
+    "truePeakDb": -4.6,
+    "peakDb": -4.57,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.87,
+    "noiseFloorDb": -89.43,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.53,
+    "contentDurationSeconds": 34.5,
+    "crossfadeSeconds": 4.5,
+    "seamDeltaDb": 2.94,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.6,
+    "outputTruePeakDb": -2.8,
+    "gainDb": 2
+  }
+}

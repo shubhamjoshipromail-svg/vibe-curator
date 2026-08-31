@@ -1,0 +1,69 @@
+{
+  "file": "market-aurora-stillwater-v2.mp3",
+  "cardId": "market-aurora-stillwater",
+  "name": "Stillwater Motion",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "vast",
+        "luminous",
+        "serene"
+      ],
+      "tempo": "slow",
+      "rhythm": "flowing pulse",
+      "instrumentation": [
+        "glass harmonics",
+        "electric piano",
+        "soft synth bass",
+        "electronic percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ],
+      "density": "spacious"
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: vast, luminous, serene. Instrumentation: glass harmonics, electric piano, soft synth bass, electronic percussion. Tempo: slow. Rhythm: flowing pulse. Density: spacious. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:49:47.157Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -14.8,
+    "truePeakDb": -1.9,
+    "peakDb": -1.94,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.1,
+    "noiseFloorDb": -90.22,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 2.78,
+    "contentDurationSeconds": 35.25,
+    "crossfadeSeconds": 5.25,
+    "seamDeltaDb": 0.62,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.7,
+    "outputTruePeakDb": -6.1,
+    "gainDb": -3.9
+  }
+}

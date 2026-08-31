@@ -1,0 +1,67 @@
+{
+  "file": "market-mid-century-lake-house-v2.mp3",
+  "cardId": "market-mid-century-lake-house",
+  "name": "Lake House Morning",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "optimistic",
+        "breezy",
+        "warm"
+      ],
+      "tempo": "moderate",
+      "rhythm": "light lounge groove",
+      "instrumentation": [
+        "vibraphone",
+        "brushed drums",
+        "flute"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: optimistic, breezy, warm. Instrumentation: vibraphone, brushed drums, flute. Tempo: moderate. Rhythm: light lounge groove. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:52:31.758Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -14.4,
+    "truePeakDb": -1.7,
+    "peakDb": -1.72,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.37,
+    "noiseFloorDb": -64.18,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.03,
+    "contentDurationSeconds": 35,
+    "crossfadeSeconds": 5,
+    "seamDeltaDb": 1.18,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.5,
+    "outputTruePeakDb": -5.8,
+    "gainDb": -4.1
+  }
+}

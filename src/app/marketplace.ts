@@ -28,21 +28,14 @@ export interface MarketplacePost {
 export const MARKET_POSTS: MarketplacePost[] = [
   { presetId: 'market-pixel-last-broadcast', collection: 'pixel-art', variant: 'Curator Edition', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 1384 },
   { presetId: 'market-pixel-midnight-shrine', collection: 'pixel-art', variant: 'Midnight Shrine', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 928 },
-  { presetId: 'market-pixel-lantern-save', collection: 'pixel-art', variant: 'Lantern Save', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 711 },
   { presetId: 'market-cozy-gatehouse-rest', collection: 'cozy-dark-fantasy', variant: 'Illustrated Still', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 1187 },
   { presetId: 'market-living-ember-throne', collection: 'cozy-dark-fantasy', variant: 'Living Firelight', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 947 },
   { presetId: 'market-sketch-rain-table', collection: 'conceptual-sketch', variant: 'Rain Table', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 583 },
-  { presetId: 'market-sketch-green-note', collection: 'conceptual-sketch', variant: 'Green Note', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 446 },
   { presetId: 'market-aurora-stillwater', collection: 'aurora', variant: 'Stillwater', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 864 },
-  { presetId: 'market-aurora-night-current', collection: 'aurora', variant: 'Night Current', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 612 },
   { presetId: 'market-japandi-blue-hour', collection: 'japandi', variant: 'Blue Hour', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 735 },
-  { presetId: 'market-japandi-warm-stillness', collection: 'japandi', variant: 'Warm Stillness', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 493 },
   { presetId: 'market-western-moon-ritual', collection: 'mystical-western', variant: 'Moon Ritual', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 1093 },
-  { presetId: 'market-western-dust-signal', collection: 'mystical-western', variant: 'Dust Signal', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 527 },
   { presetId: 'market-deco-emerald-midnight', collection: 'art-deco', variant: 'Emerald Midnight', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 947 },
-  { presetId: 'market-deco-golden-hour', collection: 'art-deco', variant: 'Golden Afterglow', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 684 },
   { presetId: 'market-synthwave-observatory', collection: 'synthwave', variant: 'Night Observatory', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 1218 },
-  { presetId: 'market-synthwave-coastal-drive', collection: 'synthwave', variant: 'Coastal Drive', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 876 },
   { presetId: 'market-bauhaus-pavilion', collection: 'bauhaus', variant: 'Primary Pavilion', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 744 },
   { presetId: 'market-art-nouveau-conservatory', collection: 'art-nouveau', variant: 'Moon Conservatory', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 831 },
   { presetId: 'market-wabi-sabi-rain-bowl', collection: 'wabi-sabi', variant: 'Rain Bowl', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 629 },
@@ -56,7 +49,6 @@ export const MARKET_POSTS: MarketplacePost[] = [
   { presetId: 'market-living-color-orbit', collection: 'living-scenes', variant: 'Reactive Bloom', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 864 },
   { presetId: 'market-living-midnight-haze', collection: 'living-scenes', variant: 'Shader Atmosphere', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 612 },
   { presetId: 'market-living-neon-koi', collection: 'living-scenes', variant: 'Tracked Motion', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 1093 },
-  { presetId: 'market-living-ember-throne', collection: 'living-scenes', variant: 'Pixel Renderer', author: 'Vibe Curator', handle: '@vibecurator', official: true, likes: 947 },
 ];
 
 export const MARKET_COLLECTIONS: MarketCollection[] = [

@@ -1,0 +1,67 @@
+{
+  "file": "market-synthwave-observatory-v2.mp3",
+  "cardId": "market-synthwave-observatory",
+  "name": "Observatory Drive",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "retro",
+        "expansive",
+        "nocturnal"
+      ],
+      "tempo": "moderate",
+      "rhythm": "steady driving pulse",
+      "instrumentation": [
+        "analog synth",
+        "gated pad",
+        "electronic drums"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: retro, expansive, nocturnal. Instrumentation: analog synth, gated pad, electronic drums. Tempo: moderate. Rhythm: steady driving pulse. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:50:33.576Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -12.6,
+    "truePeakDb": -0.4,
+    "peakDb": -0.45,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 0.86,
+    "noiseFloorDb": -86.35,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 3.03,
+    "contentDurationSeconds": 35,
+    "crossfadeSeconds": 5,
+    "seamDeltaDb": 4.76,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.4,
+    "outputTruePeakDb": -4.9,
+    "gainDb": -5.8
+  }
+}

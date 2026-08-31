@@ -1,0 +1,68 @@
+{
+  "file": "market-western-moon-ritual-v2.mp3",
+  "cardId": "market-western-moon-ritual",
+  "name": "Mesa Ceremony",
+  "brief": {
+    "mode": "instrumental_score",
+    "vocals": "none",
+    "music": {
+      "mood": [
+        "arid",
+        "ceremonial",
+        "vast"
+      ],
+      "tempo": "slow",
+      "rhythm": "processional",
+      "instrumentation": [
+        "baritone guitar",
+        "bowed bass",
+        "hand drum",
+        "distant metallic percussion"
+      ],
+      "avoid": [
+        "ambient wash",
+        "field recording",
+        "soundscape",
+        "lyrics",
+        "vocal samples",
+        "spoken word"
+      ]
+    },
+    "ambience": {
+      "enabled": false,
+      "elements": [],
+      "prominence": 0
+    },
+    "playback": {
+      "mode": "crossfade",
+      "targetDurationSeconds": 30,
+      "crossfadeSeconds": 3
+    }
+  },
+  "prompt": "Instrumental music with no vocals. An instrumental score. No vocals, no vocal samples, no spoken word. Begin at full texture. Mood: arid, ceremonial, vast. Instrumentation: baritone guitar, bowed bass, hand drum, distant metallic percussion. Tempo: slow. Rhythm: processional. Avoid: ambient wash, field recording, soundscape, lyrics, vocal samples, spoken word.",
+  "sourceDurationSeconds": 38,
+  "createdAt": "2026-08-31T09:53:35.376Z",
+  "report": {
+    "ok": true,
+    "targetLufs": -18,
+    "notes": [],
+    "measuredDurationSeconds": 38.03,
+    "measuredLufs": -12.4,
+    "truePeakDb": -1,
+    "peakDb": -0.99,
+    "leadingSilenceSeconds": 0,
+    "trailingSilenceSeconds": 1.62,
+    "noiseFloorDb": -94.41,
+    "trimStartSeconds": 0,
+    "trimEndSeconds": 5.03,
+    "contentDurationSeconds": 33,
+    "crossfadeSeconds": 3,
+    "seamDeltaDb": 1.13,
+    "loopStart": 0,
+    "loopEnd": 30,
+    "outputDurationSeconds": 30,
+    "outputLufs": -18.5,
+    "outputTruePeakDb": -7.1,
+    "gainDb": -6.1
+  }
+}
